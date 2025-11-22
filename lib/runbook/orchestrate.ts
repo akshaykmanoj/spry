@@ -100,8 +100,11 @@ export type CodeSpawnable = Readonly<z.infer<typeof codeSpawnableSchema>>;
 
 export const CODESPAWNABLE_KEY = "codeSpawnable" as const;
 export type CodeSpawnableKey = typeof CODESPAWNABLE_KEY;
-const codeSpawnableIssues = flexibleNodeIssues("issues");
-const codeSpawnableSNDF = safeNodeDataFactory<CodeSpawnableKey, CodeSpawnable>(
+export const codeSpawnableIssues = flexibleNodeIssues("issues");
+export const codeSpawnableSNDF = safeNodeDataFactory<
+  CodeSpawnableKey,
+  CodeSpawnable
+>(
   CODESPAWNABLE_KEY,
   codeSpawnableSchema,
   {
@@ -313,7 +316,7 @@ export const gitignorableOnCapture = async (
 };
 
 export function execTasksState(
-  tasks: Iterable<CodeSpawnableNode>,
+  tasks: Iterable<SpawnableTask>,
   partialsCollec: ReturnType<typeof codePartialsCollection>,
   opts?: {
     unsafeInterp?: ReturnType<typeof unsafeInterpolator>;
@@ -536,7 +539,15 @@ export async function markdownTasks(
       lang.id == code.lang || lang.aliases?.find((a) => a == code.lang)
     );
 
-  const tasksWithOrigin: {
+  const nodesWithIssues: {
+    node: DataSupplierNode<
+      Node,
+      typeof codeSpawnableIssues["key"],
+      Required<ReturnType<typeof codeSpawnableIssues["get"]>>
+    >;
+    md: Yielded<typeof mdASTs>;
+  }[] = [];
+  const tasks: {
     taskId: () => string; // satisfies Task interface
     taskDeps: () => string[]; // satisfies Task interface
     code: CodeSpawnableNode;
@@ -555,12 +566,11 @@ export async function markdownTasks(
             );
             const cspif = ppiq.safeFlags();
             if (cspif.success) {
-              const cs: CodeSpawnable = {
+              return {
                 identity: ppiq.getFirstBareWord()!,
                 piq: ppiq,
                 cspif: cspif.data,
-              };
-              return cs;
+              } satisfies CodeSpawnable;
             } else {
               codeSpawnableIssues.add(code, {
                 severity: "error",
@@ -570,6 +580,9 @@ export async function markdownTasks(
                   }`,
                 error: cspif.error,
               });
+              if (codeSpawnableIssues.is(code)) {
+                nodesWithIssues.push({ node: code, md });
+              }
             }
           });
 
@@ -579,7 +592,7 @@ export async function markdownTasks(
             (!options?.includeTask || options.includeTask(code))
           ) {
             const { codeSpawnable } = code.data;
-            tasksWithOrigin.push({
+            tasks.push({
               taskId: () => codeSpawnable.identity,
               taskDeps: () => codeSpawnable.cspif.deps ?? [],
               code,
@@ -592,12 +605,15 @@ export async function markdownTasks(
   }
 
   // we want to resolve dependencies in tasks across all markdowns loaded
-  const dr = spawnableDepsResolver(tasksWithOrigin.map((t) => t.code));
-  return tasksWithOrigin.map((t) => {
-    return {
-      ...t,
-      // overwrite the final dependencies with "injected" ones, too
-      deps: () => dr.deps(t.taskId(), t.taskDeps()),
-    };
-  });
+  const dr = spawnableDepsResolver(tasks.map((t) => t.code));
+  return {
+    tasks: tasks.map((t) => {
+      return {
+        ...t,
+        // overwrite the final dependencies with "injected" ones, too
+        deps: () => dr.deps(t.taskId(), t.taskDeps()),
+      };
+    }),
+    nodesWithIssues,
+  };
 }

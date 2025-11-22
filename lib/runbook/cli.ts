@@ -6,6 +6,7 @@ import { HelpCommand } from "@cliffy/help";
 import {
   blue,
   bold,
+  brightRed,
   brightYellow,
   cyan,
   gray,
@@ -41,6 +42,7 @@ import {
   ExecutionPlanVisualStyle,
 } from "../universal/task-visuals.ts";
 import {
+  codeSpawnableIssues,
   CodeSpawnablePiFlags,
   execTasksState,
   executeTasks,
@@ -66,6 +68,7 @@ export type LsTaskRow = {
     isSilent: boolean;
     isCaptured: CodeSpawnablePiFlags["captureDest"];
     isGitIgnored: boolean;
+    hasIssues: boolean;
   };
   graphs: string;
 };
@@ -78,7 +81,7 @@ function lsFlagsField<Row extends LsTaskRow>():
     defaultColor: gray,
     // deno-fmt-ignore
     format: (v) =>
-        `${brightYellow(v.isInterpolated ? "I" : " ")} ${blue(v.isCaptured ? (v.isCaptured == "file" ? "CF" : "CM") : "  ")} ${v.isGitIgnored ? "G" : " "} ${v.isGitIgnored ? "S" : " "}`,
+        `${v.hasIssues ? brightRed("E") : " "} ${brightYellow(v.isInterpolated ? "I" : " ")} ${blue(v.isCaptured ? (v.isCaptured == "file" ? "CF" : "CM") : "  ")} ${v.isGitIgnored ? "G" : " "} ${v.isGitIgnored ? "S" : " "}`,
   };
 }
 
@@ -227,6 +230,20 @@ export class CLI {
       .command("run", this.runCommand());
   }
 
+  emitTaskErrors(
+    { nodesWithIssues }: Awaited<ReturnType<typeof markdownTasks>>,
+  ) {
+    if (nodesWithIssues.length) {
+      console.error(
+        brightRed(
+          nodesWithIssues.flatMap((n) =>
+            n.node.data.issues.map((i) => i.message)
+          ).join(","),
+        ),
+      );
+    }
+  }
+
   async markdownTasks(
     positional: string[],
     defaults: string[],
@@ -234,7 +251,7 @@ export class CLI {
       & Parameters<typeof markdownASTs>[1]
       & Parameters<typeof markdownTasks>[1],
   ) {
-    return await markdownTasks(
+    const mt = await markdownTasks(
       markdownASTs(positional.length ? positional : defaults, {
         onError: (src, error) => {
           console.error({ src, error });
@@ -244,6 +261,8 @@ export class CLI {
       }),
       options, // for "includeTask"
     );
+    this.emitTaskErrors(mt);
+    return mt;
   }
 
   protected baseCommand({ examplesCmd }: { examplesCmd: string }) {
@@ -281,7 +300,7 @@ export class CLI {
       .action(
         async (opts, taskId, ...paths: string[]) => {
           const partialsCollec = codePartialsCollection();
-          const tasks = await this.markdownTasks(
+          const { tasks } = await this.markdownTasks(
             paths,
             this.conf?.defaultFiles ?? [],
             { codePartialsCollec: partialsCollec },
@@ -329,7 +348,7 @@ export class CLI {
       .action(
         async (opts, ...paths: string[]) => {
           const partialsCollec = codePartialsCollection();
-          const tasks = await this.markdownTasks(
+          const { tasks } = await this.markdownTasks(
             paths,
             this.conf?.defaultFiles ?? [],
             {
@@ -383,7 +402,7 @@ export class CLI {
       .action(
         async (options, ...paths: string[]) => {
           const sh = shell();
-          const tasks = await this.markdownTasks(
+          const { tasks } = await this.markdownTasks(
             paths,
             this.conf?.defaultFiles ?? [],
           );
@@ -401,6 +420,9 @@ export class CLI {
                 isCaptured: cspif.captureDest,
                 isGitIgnored: cspif.gitignore ? true : false,
                 isSilent: cspif.silent ?? false,
+                hasIssues: codeSpawnableIssues.get(task.code).length > 0
+                  ? true
+                  : false,
               },
               graphs: cspif.graphs ? cspif.graphs.join(", ") : "",
             } satisfies LsTaskRow;
