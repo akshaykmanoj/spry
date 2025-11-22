@@ -18,10 +18,6 @@ import {
   type ArrayDataFactory,
   attachData,
   collectData,
-  createArrayDataFactory,
-  createDataFactory,
-  createSafeArrayDataFactory,
-  createSafeDataFactory,
   type DataFactory,
   deepMerge,
   ensureData,
@@ -30,27 +26,12 @@ import {
   hasAnyData,
   isDataSupplier,
   mergeData,
+  nodeArrayDataFactory,
+  nodeDataFactory,
+  safeNodeArrayDataFactory,
+  safeNodeDataFactory,
 } from "./safe-data.ts";
-
-/* -------------------------------------------------------------------------- */
-/* Local Issue type + issues data factory                                     */
-/* -------------------------------------------------------------------------- */
-
-export type Issue<
-  Severity extends string = "info" | "warning" | "error" | "fatal",
-  Baggage = unknown,
-> = {
-  severity: Severity;
-  message: string;
-} & Baggage;
-
-// A concrete issue type we use in tests, with flexible baggage.
-type ErrorIssue = Issue<"error", Record<string, unknown>>;
-
-// Convenience: issues data factory living in node.data.issues
-function createIssuesFactory() {
-  return createArrayDataFactory<"issues", ErrorIssue>("issues");
-}
+import { nodeErrors } from "./issue.ts";
 
 /* -------------------------------------------------------------------------- */
 /* Minimal structural helpers for Root / Node in tests                        */
@@ -314,7 +295,7 @@ Deno.test("createDataFactory (unsafe)", async (t) => {
       score: number;
     }
 
-    const analysis: DataFactory<"analysis", Analysis> = createDataFactory<
+    const analysis: DataFactory<"analysis", Analysis> = nodeDataFactory<
       "analysis",
       Analysis
     >("analysis", { merge: true });
@@ -373,9 +354,9 @@ Deno.test("createSafeDataFactory (Zod-backed, get vs safeGet + issues)", async (
         score: z.number(),
       });
 
-      const issuesFactory = createIssuesFactory();
+      const issuesFactory = nodeErrors("issues");
 
-      const analysis = createSafeDataFactory<"analysis", Analysis>(
+      const analysis = safeNodeDataFactory<"analysis", Analysis>(
         "analysis",
         zAnalysis,
         {
@@ -429,9 +410,9 @@ Deno.test("createSafeDataFactory (Zod-backed, get vs safeGet + issues)", async (
         score: z.number(),
       });
 
-      const issuesFactory = createIssuesFactory();
+      const issuesFactory = nodeErrors("issues");
 
-      const analysis = createSafeDataFactory<"analysis", Analysis>(
+      const analysis = safeNodeDataFactory<"analysis", Analysis>(
         "analysis",
         zAnalysis,
         {
@@ -484,7 +465,7 @@ Deno.test("createSafeDataFactory (Zod-backed, get vs safeGet + issues)", async (
 
 Deno.test("createArrayDataFactory (unsafe)", async (t) => {
   await t.step("basic add/get/safeGet/is/collect/forEach/hasAny", () => {
-    const tags: ArrayDataFactory<"tags", string> = createArrayDataFactory<
+    const tags: ArrayDataFactory<"tags", string> = nodeArrayDataFactory<
       "tags",
       string
     >("tags");
@@ -530,9 +511,9 @@ Deno.test("createSafeArrayDataFactory (Zod-backed, get vs safeGet + issues)", as
   await t.step("valid items attach and can be read; no issues recorded", () => {
     const zTag = z.string().min(1);
 
-    const issuesFactory = createIssuesFactory();
+    const issuesFactory = nodeErrors("issues");
 
-    const tags = createSafeArrayDataFactory<"tags", string>(
+    const tags = safeNodeArrayDataFactory<"tags", string>(
       "tags",
       zTag,
       {
@@ -577,9 +558,9 @@ Deno.test("createSafeArrayDataFactory (Zod-backed, get vs safeGet + issues)", as
     () => {
       const zTag = z.string().min(2);
 
-      const issuesFactory = createIssuesFactory();
+      const issuesFactory = nodeErrors("issues");
 
-      const tags = createSafeArrayDataFactory<"tags", string>(
+      const tags = safeNodeArrayDataFactory<"tags", string>(
         "tags",
         zTag,
         {

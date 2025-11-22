@@ -297,7 +297,7 @@ export interface DataFactory<
 /**
  * Create a data factory bound to a specific key (no Zod validation).
  */
-export function createDataFactory<
+export function nodeDataFactory<
   Key extends string,
   T,
 >(
@@ -413,7 +413,7 @@ export interface ArrayDataFactory<
 /**
  * Create an array-valued data factory bound to a specific key (no validation).
  */
-export function createArrayDataFactory<
+export function nodeArrayDataFactory<
   Key extends string,
   T,
 >(
@@ -641,7 +641,7 @@ function safeParseWithHandler<T>(
  *
  * - get(): returns raw stored value (no validation, no logging).
  */
-export function createSafeDataFactory<
+export function safeNodeDataFactory<
   Key extends string,
   T,
 >(
@@ -771,7 +771,7 @@ export function createSafeDataFactory<
  * - safeGet(): validates stored array, delegating errors to callbacks.
  * - get(): returns raw stored array or [] if missing (no validation).
  */
-export function createSafeArrayDataFactory<
+export function safeNodeArrayDataFactory<
   Key extends string,
   T,
 >(
