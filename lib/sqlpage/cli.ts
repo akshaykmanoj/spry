@@ -193,6 +193,7 @@ export async function projectPaths(projectHome = Deno.cwd()) {
 
   const absPathToSpryTsLocal = join(projectHome, "spry.ts");
   const absPathToSpryfileLocal = join(projectHome, "Spryfile.md");
+  const absPathToImportMapLocal = join(projectHome, "import_map.json");
 
   let importSpecifierForSpry: string;
   let importSpecifierForSpryLatest: string;
@@ -246,6 +247,7 @@ export async function projectPaths(projectHome = Deno.cwd()) {
     projectHome,
     absPathToSpryTsLocal,
     absPathToSpryfileLocal,
+    absPathToImportMapLocal,
     importSpecifierForSpry,
     importSpecifierForSpryLatest,
     isRemote,
@@ -275,18 +277,47 @@ export class CLI<Project> {
     const {
       absPathToSpryTsLocal,
       absPathToSpryfileLocal,
+      absPathToImportMapLocal,
       importSpecifierForSpryLatest,
+      isRemote,
+      cliModuleUrl,
     } = await this.projectPaths(projectHome);
 
     // spry.ts template (imports CLI from remote/local depending on our own location)
     const spryTs = (importSpec = importSpecifierForSpryLatest) =>
       dedentIfFirstLineBlank(`
-      #!/usr/bin/env -S deno run -A --node-modules-dir=auto
+      #!/usr/bin/env -S deno run -A --import-map=import_map.json
       // Use \`deno run -A --watch\` in the shebang if you're contributing / developing Spry itself.
 
       import { CLI } from "${importSpec}";
 
       CLI.instance().run();`);
+
+    // Copy import_map.json from repository root or remote URL to project directory
+    const copyImportMap = async (
+      source: string,
+      targetPath: string,
+    ): Promise<void> => {
+      let content: string;
+      if (source.startsWith("http://") || source.startsWith("https://")) {
+        // Fetch from remote URL
+        const response = await fetch(source);
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch ${source}: ${response.status} ${response.statusText}`,
+          );
+        }
+        content = await response.text();
+      } else {
+        // Read from local file
+        content = await Deno.readTextFile(source);
+      }
+      const parsed = JSON.parse(content);
+      await Deno.writeTextFile(
+        targetPath,
+        JSON.stringify(parsed, null, 2) + "\n",
+      );
+    };
 
     const exists = async (path: string) =>
       await Deno.stat(path).catch(() => false);
@@ -297,6 +328,10 @@ export class CLI<Project> {
       if (await exists(absPathToSpryTsLocal)) {
         await Deno.remove(absPathToSpryTsLocal);
         removed.push(relativeToCWD(absPathToSpryTsLocal));
+      }
+      if (await exists(absPathToImportMapLocal)) {
+        await Deno.remove(absPathToImportMapLocal);
+        removed.push(relativeToCWD(absPathToImportMapLocal));
       }
     }
 
@@ -309,6 +344,33 @@ export class CLI<Project> {
       await Deno.chmod(absPathToSpryTsLocal, 0o755);
     } else {
       ignored.push(relativeToCWD(absPathToSpryTsLocal));
+    }
+
+    // Copy import_map.json from repository root (local) or remote URL
+    if (!await exists(absPathToImportMapLocal)) {
+      try {
+        if (isRemote) {
+          // Fetch from remote URL
+          const remoteUrl =
+            "https://raw.githubusercontent.com/programmablemd/spry/refs/heads/main/import_map.json";
+          await copyImportMap(remoteUrl, absPathToImportMapLocal);
+          created.push(relativeToCWD(absPathToImportMapLocal));
+        } else {
+          // Copy from local repository root
+          const cliFsPath = fromFileUrl(cliModuleUrl);
+          const repoRoot = dirname(dirname(dirname(cliFsPath))); // Go up from lib/sqlpage/cli.ts to root
+          const sourceImportMapPath = join(repoRoot, "import_map.json");
+
+          await copyImportMap(sourceImportMapPath, absPathToImportMapLocal);
+          created.push(relativeToCWD(absPathToImportMapLocal));
+        }
+      } catch (err) {
+        console.warn(
+          `⚠️  Failed to copy import_map.json: ${(err as Error).message}`,
+        );
+      }
+    } else {
+      ignored.push(relativeToCWD(absPathToImportMapLocal));
     }
 
     const webRoot = "dev-src.auto";
