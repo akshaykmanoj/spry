@@ -493,7 +493,50 @@ export class CLI {
         const port = options.port ?? 9876;
         const watchTargets: string[] = paths.length ? paths : defaultFiles;
 
-        let currentHtml = "";
+        let // Set a minimal placeholder HTML so the server can start immediately.
+        currentHtml = `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Spry Programmable Markdown Ontology (loading…)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: dark light;
+      }
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        margin: 0;
+        background: #0f172a;
+        color: #e5e7eb;
+      }
+      .loading {
+        text-align: center;
+        max-width: 32rem;
+        padding: 1rem;
+      }
+      .loading h1 {
+        font-size: 1.4rem;
+        margin-bottom: 0.5rem;
+      }
+      .loading p {
+        font-size: 0.9rem;
+        opacity: 0.85;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="loading">
+      <h1>Building ontology view…</h1>
+      <p>This page will refresh automatically when the documents have been loaded and indexed.</p>
+    </div>
+  </body>
+</html>`;
+
         let currentMdastStore: unknown[] = [];
 
         const renderOnce = async (): Promise<boolean> => {

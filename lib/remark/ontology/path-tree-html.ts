@@ -168,7 +168,9 @@ function serializeMdastNode(node: RootContent): SerializedMdastNode {
       ? (anyNode.meta as string)
       : undefined;
 
-    base.valuePreview = val || base.valuePreview;
+    // For previews, do NOT show the code body; show the synthetic HTML snippet.
+    base.valuePreview = codeLabel(anyNode);
+    // Keep the full code body available in a separate "Code" section.
     base.valueFull = val || undefined;
     base.lang = lang;
     base.meta = meta;
@@ -191,8 +193,26 @@ function allocNodeId(ctx: NodeRenderContext): string {
 /* Node → HTML                                                                */
 /* -------------------------------------------------------------------------- */
 
+function codeLabel(node: Any): string {
+  const rawLang = typeof node.lang === "string" ? node.lang.trim() : "";
+  const rawMeta = typeof node.meta === "string" ? node.meta.trim() : "";
+
+  const parts: string[] = [];
+  if (rawLang) parts.push(rawLang);
+  if (rawMeta) parts.push(rawMeta);
+
+  return parts.length ? parts.join(" ") : "code";
+}
+
 // For HTML we want full paragraph text, not the truncated label used in CLI.
 function fullContentLabel(node: ContentTreeNode): string {
+  const md = node.node as Any;
+
+  // For code nodes, do NOT use the code body; use the synthetic label.
+  if (md && md.type === "code") {
+    return codeLabel(md);
+  }
+
   const txt = nodeText(node.node);
   if (txt) return txt;
   return node.label || "(content)";
