@@ -187,17 +187,25 @@ function fullContentLabel(node: ContentTreeNode): string {
   return node.label || "(content)";
 }
 
+// Truncate very long labels for the Path Tree view only
+function truncateLabel(text: string, max = 80): string {
+  if (text.length <= max) return text;
+  return text.slice(0, max - 1) + "…";
+}
+
 function renderContentNode(
   node: ContentTreeNode,
   ctx: NodeRenderContext,
 ): string {
   const id = allocNodeId(ctx);
-  const labelText = fullContentLabel(node);
-  const label = escapeHtml(labelText);
+  const fullLabel = fullContentLabel(node);
+  const shortLabel = truncateLabel(fullLabel, 80);
+  const label = escapeHtml(shortLabel);
   const dataset: string[] = [
     `data-node-id="${id}"`,
     `data-kind="content"`,
-    `data-label="${label}"`,
+    // store full, untruncated label for the inspector
+    `data-label="${escapeHtml(fullLabel)}"`,
   ];
 
   if (node.identityText) {
@@ -391,12 +399,12 @@ export function renderPathTreeHtml(
     <style>
       :root {
         font-size: 14px;
+        --panel-header-bg: var(--pico-background-color, #ffffff);
       }
 
       body {
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
+        /* Let the page size itself to content; avoids large empty area
+           between main content and footer. */
         font-size: 0.9rem;
       }
 
@@ -415,17 +423,25 @@ export function renderPathTreeHtml(
       }
 
       footer.container {
-        flex-shrink: 0;
-        margin-top: 1.5rem;
+        margin-top: 0.75rem; /* smaller gap above footer */
         font-size: 0.8rem;
+      }
+
+      /* Smaller left/right margins than Pico's default container */
+      header.container,
+      main.container,
+      footer.container {
+        max-width: 100%;
+        padding-inline: 0.75rem;
       }
 
       #layout-grid {
         display: grid;
+        /* docs smaller, path tree same-ish, node props wider */
         grid-template-columns:
-          minmax(10rem, 0.15fr)
-          minmax(0, 0.6fr)
-          minmax(14rem, 0.25fr);
+          minmax(8rem, 0.12fr)   /* Documents */
+          minmax(0, 0.48fr)      /* Path Tree */
+          minmax(16rem, 0.40fr); /* Node Properties */
         gap: 0.75rem;
         align-items: flex-start;
       }
@@ -434,7 +450,6 @@ export function renderPathTreeHtml(
       #sidebar {
         max-height: 75vh;
         overflow: auto;
-        padding-inline: 0; /* kill container padding */
       }
 
       #sidebar .panel-header {
@@ -455,6 +470,7 @@ export function renderPathTreeHtml(
         border-radius: 0.3rem;
         cursor: pointer;
         font-size: 0.85rem;
+        text-align: left;
       }
 
       .sidebar-doc-item:focus {
@@ -505,13 +521,14 @@ export function renderPathTreeHtml(
       }
 
       #tree-panel {
-        max-height: 75vh;
-        overflow: auto;
+        max-height: none;
+        overflow: visible;
         border-left: 1px solid var(--muted-border-color, #dde0e3);
         border-right: 1px solid var(--muted-border-color, #dde0e3);
         padding-inline: 0.75rem;
       }
 
+      /* Node properties can scroll if they grow */
       #properties-panel {
         max-height: 75vh;
         overflow: auto;
@@ -533,6 +550,24 @@ export function renderPathTreeHtml(
         padding-inline: 0.4rem;
         padding-block: 0.1rem;
         font-size: 0.75rem;
+      }
+
+      /* Keep column titles visible while their content scrolls */
+      #sidebar > .panel-header,
+      #tree-panel > .panel-header,
+      #properties-panel > .panel-header {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        background: var(--panel-header-bg);
+      }
+
+      /* Keep the active document title just under the Path Tree header */
+      #tree-panel .doc-heading {
+        position: sticky;
+        top: 2.1rem; /* just below Path Tree panel header */
+        z-index: 4;
+        background: var(--panel-header-bg);
       }
 
       /* tree layout + spacing */
