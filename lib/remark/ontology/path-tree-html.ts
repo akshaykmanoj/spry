@@ -19,6 +19,18 @@ export interface RenderPathTreeHtmlOptions {
   readonly title?: string;
   readonly appVersion?: string;
   readonly documentLabels?: readonly string[];
+  /**
+   * If true, the HTML will contain an empty mdast store and the client
+   * script will lazily fetch `/mdast.json` on first node click.
+   * If false, the full serialized mdast store is embedded statically.
+   */
+  readonly lazyMdastStore?: boolean;
+}
+
+// Small helper used by callers that want HTML and the serialized store.
+export interface RenderPathTreeHtmlResult {
+  readonly html: string;
+  readonly mdastNodes: SerializedMdastNode[];
 }
 
 /* -------------------------------------------------------------------------- */
@@ -110,7 +122,6 @@ function serializeMdastNode(node: RootContent): SerializedMdastNode {
         ) {
           dataSnapshot[k] = v;
         } else {
-          // best effort deep clone for arrays/objects
           dataSnapshot[k] = JSON.parse(JSON.stringify(v));
         }
       } catch {
@@ -200,11 +211,12 @@ function renderContentNode(
   const id = allocNodeId(ctx);
   const fullLabel = fullContentLabel(node);
   const shortLabel = truncateLabel(fullLabel, 80);
-  const label = escapeHtml(shortLabel);
+  const labelHtml = escapeHtml(shortLabel);
+
   const dataset: string[] = [
     `data-node-id="${id}"`,
     `data-kind="content"`,
-    // store full, untruncated label for the inspector
+    // store the full, untruncated label in dataset for Node Properties
     `data-label="${escapeHtml(fullLabel)}"`,
   ];
 
@@ -231,7 +243,7 @@ function renderContentNode(
   return `
 <div class="tree-node content-node" ${attrs}>
   <span class="tree-icon">${icon}</span>
-  <span class="tree-label">${label}</span>
+  <span class="tree-label">${labelHtml}</span>
 </div>`.trim();
 }
 
@@ -343,19 +355,20 @@ function renderCombinedNode(
 /* Public render                                                              */
 /* -------------------------------------------------------------------------- */
 
-export function renderPathTreeHtml(
+export function renderPathTreeHtmlWithStore(
   docs: readonly DocumentTree[],
   options: RenderPathTreeHtmlOptions = {},
-): string {
+): RenderPathTreeHtmlResult {
   const {
     title = "Spry Programmable Markdown Ontology",
     appVersion = "",
     documentLabels,
+    lazyMdastStore = false,
   } = options;
 
   const ctx: NodeRenderContext = { nextId: 0, mdastNodes: [] };
 
-  // Sidebar documents as list items with doc icons, not Pico buttons
+  // Sidebar: show docs as list items with icons
   const sidebarItems = docs.map((doc, i) => {
     const label = escapeHtml(getDocumentLabel(doc, i, documentLabels));
     return `<li class="sidebar-doc-item" data-doc-index="${i}" tabindex="0" role="button">
@@ -381,10 +394,9 @@ export function renderPathTreeHtml(
 
   // IMPORTANT: embed raw JSON (no HTML escaping) in application/json script.
   // Only escape closing </script> so it can't break out of the tag.
-  const mdastJson = JSON.stringify(ctx.mdastNodes).replace(
-    /<\/script/gi,
-    "<\\/script",
-  );
+  const mdastJson = lazyMdastStore
+    ? "[]"
+    : JSON.stringify(ctx.mdastNodes).replace(/<\/script/gi, "<\\/script");
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -403,8 +415,6 @@ export function renderPathTreeHtml(
       }
 
       body {
-        /* Let the page size itself to content; avoids large empty area
-           between main content and footer. */
         font-size: 0.9rem;
       }
 
@@ -423,7 +433,7 @@ export function renderPathTreeHtml(
       }
 
       footer.container {
-        margin-top: 0.75rem; /* smaller gap above footer */
+        margin-top: 0.75rem;
         font-size: 0.8rem;
       }
 
@@ -437,7 +447,7 @@ export function renderPathTreeHtml(
 
       #layout-grid {
         display: grid;
-        /* docs smaller, path tree same-ish, node props wider */
+        /* docs narrower, node props wider */
         grid-template-columns:
           minmax(8rem, 0.12fr)   /* Documents */
           minmax(0, 0.48fr)      /* Path Tree */
@@ -450,6 +460,7 @@ export function renderPathTreeHtml(
       #sidebar {
         max-height: 75vh;
         overflow: auto;
+        padding-inline: 0;
       }
 
       #sidebar .panel-header {
@@ -469,8 +480,7 @@ export function renderPathTreeHtml(
         padding: 0.20rem 0.35rem;
         border-radius: 0.3rem;
         cursor: pointer;
-        font-size: 0.85rem;
-        text-align: left;
+        font-size: 0.8rem;
       }
 
       .sidebar-doc-item:focus {
@@ -503,7 +513,7 @@ export function renderPathTreeHtml(
       body[data-sidebar-collapsed="true"] #layout-grid {
         grid-template-columns:
           minmax(0, 0.7fr)
-          minmax(14rem, 0.3fr);
+          minmax(16rem, 0.3fr);
       }
 
       body[data-properties-collapsed="true"] #properties-panel {
@@ -511,7 +521,7 @@ export function renderPathTreeHtml(
       }
       body[data-properties-collapsed="true"] #layout-grid {
         grid-template-columns:
-          minmax(10rem, 0.2fr)
+          minmax(8rem, 0.2fr)
           minmax(0, 0.8fr);
       }
 
@@ -520,6 +530,7 @@ export function renderPathTreeHtml(
         grid-template-columns: minmax(0, 1fr);
       }
 
+      /* Path Tree should grow with page; no own scroll */
       #tree-panel {
         max-height: none;
         overflow: visible;
@@ -562,10 +573,10 @@ export function renderPathTreeHtml(
         background: var(--panel-header-bg);
       }
 
-      /* Keep the active document title just under the Path Tree header */
+      /* Keep active document title just under Path Tree header */
       #tree-panel .doc-heading {
         position: sticky;
-        top: 2.1rem; /* just below Path Tree panel header */
+        top: 2.1rem;
         z-index: 4;
         background: var(--panel-header-bg);
       }
@@ -600,7 +611,7 @@ export function renderPathTreeHtml(
         list-style: none;
       }
 
-      /* tighten spacing between an open <details> summary and its children */
+      /* tighten spacing between open <details> summary and children */
       .section-node[open] > summary,
       .classification-node[open] > summary {
         margin-bottom: 0;
@@ -751,7 +762,7 @@ export function renderPathTreeHtml(
       }
     </style>
   </head>
-  <body data-sidebar-collapsed="false" data-properties-collapsed="false">
+  <body data-sidebar-collapsed="false" data-properties-collapsed="false" data-lazy-mdast="${lazyMdastStore}">
     <header class="container">
       <h1>${escapeHtml(title)}</h1>
     </header>
@@ -809,11 +820,24 @@ export function renderPathTreeHtml(
       // load serialized mdast nodes
       const mdastStoreEl = document.getElementById("mdast-store");
       let mdastNodes = [];
-      if (mdastStoreEl) {
+      const isLazyMdast = document.body.dataset.lazyMdast === "true";
+
+      if (mdastStoreEl && !isLazyMdast) {
         try {
           mdastNodes = JSON.parse(mdastStoreEl.textContent || "[]");
         } catch (err) {
           console.error("Failed to parse mdast store", err);
+        }
+      }
+
+      async function ensureMdastLoaded() {
+        if (!isLazyMdast || mdastNodes.length) return;
+        try {
+          const res = await fetch("/mdast.json");
+          if (!res.ok) return;
+          mdastNodes = await res.json();
+        } catch (err) {
+          console.error("Failed to fetch mdast store", err);
         }
       }
 
@@ -865,7 +889,6 @@ export function renderPathTreeHtml(
         pre.appendChild(code);
         root.appendChild(pre);
 
-        // toggle icon
         root.addEventListener("toggle", () => {
           icon.textContent = root.open ? "▾" : "▸";
         });
@@ -926,7 +949,6 @@ export function renderPathTreeHtml(
           });
         }
 
-        // JSON viewer for node.data
         if (node.data) {
           const dataHeading = document.createElement("h3");
           dataHeading.textContent = "Data (JSON)";
@@ -937,7 +959,9 @@ export function renderPathTreeHtml(
         }
       }
 
-      function renderPropertiesFromElement(nodeEl) {
+      async function renderPropertiesFromElement(nodeEl) {
+        await ensureMdastLoaded();
+
         const dataset = nodeEl.dataset;
         propsBody.innerHTML = "";
         if (mdastDetailsEl) mdastDetailsEl.innerHTML = "";
@@ -961,13 +985,11 @@ export function renderPathTreeHtml(
           propsBody.appendChild(tr);
         }
 
-        // extra inspector-style metadata derived from DOM
+        // inspector-style derived metadata
         const derivedRows = [];
 
-        // DOM tag name
         derivedRows.push(["DOM tag", nodeEl.tagName.toLowerCase()]);
 
-        // tree depth: number of ancestor .tree-node containers
         let depth = 0;
         let parent = nodeEl.parentElement;
         while (parent && parent !== treePanel) {
@@ -976,7 +998,6 @@ export function renderPathTreeHtml(
         }
         derivedRows.push(["Tree depth", String(depth)]);
 
-        // direct children and total descendants
         const childrenContainer = nodeEl.querySelector(":scope > .tree-children");
         let directChildren = 0;
         if (childrenContainer) {
@@ -989,7 +1010,6 @@ export function renderPathTreeHtml(
         const totalDesc = nodeEl.querySelectorAll(".tree-node").length - 1;
         derivedRows.push(["Total descendants", String(Math.max(0, totalDesc))]);
 
-        // append derived rows
         for (const [key, value] of derivedRows) {
           const tr = document.createElement("tr");
           const keyTd = document.createElement("td");
@@ -1020,7 +1040,7 @@ export function renderPathTreeHtml(
         selectedNodeEl = nodeEl;
         selectedNodeEl.classList.add("selected-node");
 
-        renderPropertiesFromElement(nodeEl);
+        void renderPropertiesFromElement(nodeEl);
       });
 
       const sidebarButtons = Array.from(
@@ -1080,5 +1100,13 @@ export function renderPathTreeHtml(
   </body>
 </html>`;
 
-  return html;
+  return { html, mdastNodes: ctx.mdastNodes };
+}
+
+// Backwards-compatible wrapper used when only HTML is needed.
+export function renderPathTreeHtml(
+  docs: readonly DocumentTree[],
+  options: RenderPathTreeHtmlOptions = {},
+): string {
+  return renderPathTreeHtmlWithStore(docs, options).html;
 }

@@ -29,7 +29,7 @@ import {
 } from "./path-tree.ts";
 
 import { markdownASTs, Yielded } from "../mdastctl/io.ts";
-import { renderPathTreeHtml } from "./path-tree-html.ts";
+import { renderPathTreeHtmlWithStore } from "./path-tree-html.ts";
 import { buildCombinedTrees } from "./path-tree.ts";
 
 // deno-lint-ignore no-explicit-any
@@ -156,7 +156,6 @@ function buildOntologyTreeRowsForFile(
         ? Object.keys(n.data).join(", ")
         : undefined;
 
-      // ---- NEW: highlight all code blocks in bright yellow ----
       const baseLabel = `${n.type === "code" ? "📃" : "📄"} ${
         ontSummarizeNode(n)
       }`;
@@ -171,7 +170,7 @@ function buildOntologyTreeRowsForFile(
           file: fileRef(n),
           kind: "content" as const,
           type: n.type,
-          label: coloredLabel, // <-- updated
+          label: coloredLabel,
           view: "ontology" as const,
           classInfo: c.classText,
           dataKeys: dk,
@@ -419,55 +418,326 @@ export class CLI {
   docCommand(cmdName = "doc") {
     return this.baseCommand({ examplesCmd: cmdName })
       .description(
-        "generate a static HTML page for the document ontology and write it to stdout",
+        "generate a static HTML page for the document ontology and write it to stdout, or serve with --serve",
       )
       .arguments("[paths...:string]")
       .option(
         "--save-as <file:string>",
         "also save the generated HTML to this file",
       )
+      .option(
+        "--serve",
+        "serve the generated HTML on a local web server with live reload",
+      )
+      .option(
+        "--port <port:number>",
+        "port for --serve (default 9876)",
+      )
+      .option(
+        "--listen <addr:string>",
+        "address/interface for --serve (default 127.0.0.1)",
+      )
+      .option(
+        "--no-open",
+        "with --serve, do not automatically open a browser",
+      )
       .action(async (options, ...paths: string[]) => {
-        const roots: Root[] = [];
-        const labels: string[] = [];
+        const defaultFiles = this.conf?.defaultFiles ?? [];
 
-        for await (
-          const viewable of viewableMarkdownASTs(
-            [],
-            paths,
-            this.conf?.defaultFiles ?? [],
-          )
-        ) {
-          roots.push(viewable.mdastRoot);
-          labels.push(viewable.fileRef());
-        }
+        // ------------------------
+        // Static (non-serve) mode
+        // ------------------------
+        if (!options.serve) {
+          const roots: Root[] = [];
+          const labels: string[] = [];
 
-        if (!roots.length) {
-          console.error(gray("No Markdown files to process."));
+          for await (
+            const viewable of viewableMarkdownASTs(
+              [],
+              paths,
+              defaultFiles,
+            )
+          ) {
+            roots.push(viewable.mdastRoot);
+            labels.push(viewable.fileRef());
+          }
+
+          if (!roots.length) {
+            console.error(gray("No Markdown files to process."));
+            return;
+          }
+
+          const docs = buildCombinedTrees(roots);
+          const result = renderPathTreeHtmlWithStore(docs, {
+            documentLabels: labels,
+            appVersion: computeSemVerSync(import.meta.url),
+            lazyMdastStore: false, // static mode: embed full store
+          });
+
+          const html = result.html;
+
+          // HTML always to stdout in static mode
+          console.log(html);
+
+          if (options.saveAs) {
+            await Deno.writeTextFile(options.saveAs, html);
+            console.error(`Saved ontology HTML to ${options.saveAs}`);
+          }
           return;
         }
 
-        const docs = buildCombinedTrees(roots);
-        const html = renderPathTreeHtml(docs, {
-          documentLabels: labels,
-          appVersion: computeSemVerSync(import.meta.url),
+        // ------------------------
+        // --serve mode
+        // ------------------------
+        const host = options.listen ?? "127.0.0.1";
+        const port = options.port ?? 9876;
+        const watchTargets: string[] = paths.length ? paths : defaultFiles;
+
+        let currentHtml = "";
+        let currentMdastStore: unknown[] = [];
+
+        const renderOnce = async (): Promise<boolean> => {
+          const roots: Root[] = [];
+          const labels: string[] = [];
+
+          for await (
+            const viewable of viewableMarkdownASTs(
+              [],
+              paths,
+              defaultFiles,
+            )
+          ) {
+            roots.push(viewable.mdastRoot);
+            labels.push(viewable.fileRef());
+          }
+
+          if (!roots.length) {
+            console.error(gray("No Markdown files to process."));
+            return false;
+          }
+
+          const docs = buildCombinedTrees(roots);
+          const result = renderPathTreeHtmlWithStore(docs, {
+            documentLabels: labels,
+            appVersion: computeSemVerSync(import.meta.url),
+            lazyMdastStore: true, // serve mode: lazy mdast
+          });
+
+          currentHtml = result.html;
+          currentMdastStore = result.mdastNodes;
+
+          if (options.saveAs) {
+            await Deno.writeTextFile(options.saveAs, currentHtml);
+            console.error(`Saved ontology HTML to ${options.saveAs}`);
+          }
+
+          return true;
+        };
+
+        // Set a minimal placeholder HTML so the server can start immediately.
+        currentHtml = `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Spry Programmable Markdown Ontology (starting…)</title>
+  </head>
+  <body>
+    <p>Starting ontology server and building initial view…</p>
+  </body>
+</html>`;
+
+        // Hand off to the server; it will trigger renderOnce() in the background.
+        await serveOntology({
+          host,
+          port,
+          openBrowserFlag: options.open,
+          watchTargets,
+          renderOnce,
+          getHtml: () => currentHtml,
+          getMdastStore: () => currentMdastStore,
         });
-
-        // Always send HTML to STDOUT
-        console.log(html);
-
-        // Optionally save to disk as well
-        if (options.saveAs) {
-          await Deno.writeTextFile(options.saveAs, html);
-          // stderr so HTML on stdout stays clean
-          console.error(`Saved ontology HTML to ${options.saveAs}`);
-        }
       });
   }
 }
 
-// ---------------------------------------------------------------------------
-// Stand-alone entrypoint
-// ---------------------------------------------------------------------------
+/* --------------------------------------------------------------------------- */
+/* Server + helpers                                                            */
+/* --------------------------------------------------------------------------- */
+
+interface ServeOntologyArgs {
+  host: string;
+  port: number;
+  openBrowserFlag: boolean;
+  watchTargets: string[];
+  renderOnce: () => Promise<boolean>;
+  getHtml: () => string;
+  getMdastStore: () => unknown[];
+}
+
+async function serveOntology(args: ServeOntologyArgs): Promise<void> {
+  const {
+    host,
+    port,
+    openBrowserFlag,
+    watchTargets,
+    renderOnce,
+    getHtml,
+    getMdastStore,
+  } = args;
+
+  // Live-reload clients via Server-Sent Events
+  const clients = new Set<(msg: string) => void>();
+
+  function injectReloadSnippet(srcHtml: string): string {
+    const snippet = `
+<script>
+  (() => {
+    try {
+      const es = new EventSource("/events");
+      es.onmessage = (ev) => {
+        if (ev.data === "reload") {
+          location.reload();
+        }
+      };
+      es.onerror = () => {
+        setTimeout(() => location.reload(), 3000);
+      };
+    } catch (e) {
+      console.error("Live reload error", e);
+    }
+  })();
+</script>`;
+    if (srcHtml.includes("</body>")) {
+      return srcHtml.replace("</body>", snippet + "</body>");
+    }
+    return srcHtml + snippet;
+  }
+
+  function broadcastReload() {
+    for (const send of clients) {
+      try {
+        send("reload");
+      } catch {
+        // ignore dead streams
+      }
+    }
+  }
+
+  const serverUrl = `http://${host}:${port}`;
+
+  Deno.serve({ hostname: host, port }, (req) => {
+    const url = new URL(req.url);
+    if (url.pathname === "/events") {
+      const stream = new ReadableStream({
+        start(controller) {
+          const send = (msg: string) => {
+            controller.enqueue(`data: ${msg}\\n\\n`);
+          };
+          clients.add(send);
+          send("connected");
+        },
+        cancel() {
+          clients.clear();
+        },
+      });
+
+      return new Response(stream, {
+        headers: {
+          "content-type": "text/event-stream",
+          "cache-control": "no-cache",
+          "connection": "keep-alive",
+          "access-control-allow-origin": "*",
+        },
+      });
+    }
+
+    if (url.pathname === "/mdast.json") {
+      return new Response(JSON.stringify(getMdastStore() ?? []), {
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "cache-control": "no-cache",
+          "access-control-allow-origin": "*",
+        },
+      });
+    }
+
+    // Main HTML page
+    const body = injectReloadSnippet(getHtml());
+    return new Response(body, {
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+      },
+    });
+  });
+
+  console.error(
+    `Serving ontology at ${serverUrl} (Ctrl+C to stop)`,
+  );
+
+  if (openBrowserFlag) {
+    openBrowser(`${serverUrl}/`).catch((err) => {
+      console.error("Failed to open browser:", err?.message ?? err);
+    });
+  }
+
+  // Kick off the initial build in the background so startup stays fast.
+  (async () => {
+    const ok = await renderOnce();
+    if (ok) {
+      broadcastReload();
+    }
+  })();
+
+  if (watchTargets.length) {
+    console.error(
+      `Watching for changes in: ${watchTargets.join(", ")}`,
+    );
+    for await (const ev of Deno.watchFs(watchTargets)) {
+      if (
+        ev.kind === "modify" ||
+        ev.kind === "create" ||
+        ev.kind === "remove"
+      ) {
+        console.error(
+          `Change detected, rebuilding ontology (kind=${ev.kind})`,
+        );
+        const ok = await renderOnce();
+        if (!ok) continue;
+        broadcastReload();
+      }
+    }
+  } else {
+    // nothing to watch; keep process alive
+    await new Promise(() => {});
+  }
+}
+
+// deno-lint-ignore require-await
+async function openBrowser(url: string): Promise<void> {
+  let cmd: string[];
+  switch (Deno.build.os) {
+    case "windows":
+      cmd = ["cmd", "/c", "start", "", url];
+      break;
+    case "darwin":
+      cmd = ["open", url];
+      break;
+    default:
+      cmd = ["xdg-open", url];
+      break;
+  }
+
+  try {
+    const proc = new Deno.Command(cmd[0], { args: cmd.slice(1) }).spawn();
+    void proc; // fire-and-forget
+  } catch (err) {
+    console.error("Unable to open browser automatically:", String(err) ?? err);
+  }
+}
+
+/* --------------------------------------------------------------------------- */
+/* Stand-alone entrypoint                                                     */
+/* --------------------------------------------------------------------------- */
 
 if (import.meta.main) {
   await new CLI().run();
