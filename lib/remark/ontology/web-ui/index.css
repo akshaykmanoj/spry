@@ -19,14 +19,17 @@
   --accent: #2563eb;
   --accent-soft: #dbeafe;
 
-  --font-main:
-    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-main: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
 
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
 
   --shadow-light: 0 1px 3px rgba(0, 0, 0, 0.08);
+
+  /* center column width, adjusted by JS via resizer */
+  --center-width: 1fr;
 }
 
 *,
@@ -102,11 +105,32 @@ footer {
 main#layout-grid {
   flex: 1;
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr) 360px;
+  grid-template-columns:
+    260px                       /* sidebar */
+    minmax(0, var(--center-width)) /* center */
+    6px                         /* resizer */
+    minmax(0, 1fr);             /* right panel */
   grid-template-rows: minmax(0, 1fr);
   gap: 0.5rem;
   padding: 0.5rem;
   min-height: 0;
+}
+
+/* Map elements to columns */
+#sidebar-panel {
+  grid-column: 1;
+}
+
+#relationship-view-panel {
+  grid-column: 2;
+}
+
+#center-right-resizer {
+  grid-column: 3;
+}
+
+#details-panel {
+  grid-column: 4;
 }
 
 /* Panels */
@@ -202,9 +226,8 @@ main#layout-grid {
 }
 
 .rel-name {
-  font-family:
-    "SF Mono", ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
+  font-family: "SF Mono", ui-monospace, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
 }
 
 .rel-count {
@@ -218,7 +241,7 @@ main#layout-grid {
   margin-bottom: 0.25rem;
 }
 
-/* Center panel: relationship view */
+/* Center panel */
 
 #relationship-view-panel {
   min-height: 0;
@@ -240,6 +263,39 @@ main#layout-grid {
 #relationship-meta {
   font-size: 0.75rem;
   color: var(--text-muted);
+}
+
+/* Node type filter chips */
+
+#node-type-filter {
+  margin-top: 0.15rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.node-type-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background-color: #f9fafb;
+  cursor: pointer;
+}
+
+.node-type-chip input {
+  margin: 0;
+}
+
+.node-type-chip.selected {
+  border-color: var(--accent);
+  background-color: var(--accent-soft);
+  color: #1f2933;
 }
 
 /* Hierarchy view */
@@ -268,34 +324,51 @@ ul.tree-children {
   gap: 0.35rem;
   padding: 0.1rem 0.25rem;
   border-radius: var(--radius-md);
-}
-
-/* Level-based coloring */
-.tree-node-header {
   border-left: 3px solid transparent;
 }
 
-/* Top-level sections / headings */
+.tree-node.selected .tree-node-header {
+  background-color: var(--accent-soft);
+  border-left: 3px solid var(--accent);
+}
+
+.tree-node-toggle {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font-size: 0.75rem;
+  width: 1.25rem;
+  text-align: center;
+}
+
+.tree-node-label {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+/* Level-based coloring */
 .tree-level-0 .tree-node-header {
   border-left-color: #0f766e; /* teal */
 }
 
-/* Level 1 */
 .tree-level-1 .tree-node-header {
   border-left-color: #2563eb; /* blue */
 }
 
-/* Level 2 */
 .tree-level-2 .tree-node-header {
   border-left-color: #7c3aed; /* violet */
 }
 
-/* Level 3 */
 .tree-level-3 .tree-node-header {
   border-left-color: #f59e0b; /* amber */
 }
 
-/* Level 4+ */
 .tree-level-4 .tree-node-header,
 .tree-level-5 .tree-node-header {
   border-left-color: #6b7280; /* gray */
@@ -314,7 +387,8 @@ ul.tree-children {
   gap: 0.15rem;
 }
 
-/* Base badge */
+/* Relationship badges */
+
 .rel-badge {
   padding: 0.05rem 0.3rem;
   border-radius: 999px;
@@ -324,7 +398,6 @@ ul.tree-children {
   white-space: nowrap;
 }
 
-/* Specific relationship groups */
 .rel-badge-structural {
   background-color: #dbeafe;
   border-color: #60a5fa;
@@ -365,37 +438,6 @@ ul.tree-children {
   background-color: #e5e7eb;
   border-color: #9ca3af;
   color: #374151;
-}
-
-.tree-node.selected .tree-node-header {
-  background-color: var(--accent-soft);
-  border-left: 2px solid var(--accent);
-}
-
-.tree-node-toggle {
-  border: none;
-  background: transparent;
-  padding: 0;
-  cursor: pointer;
-  font-size: 0.75rem;
-  width: 1.25rem;
-  text-align: center;
-}
-
-.tree-node-label {
-  flex: 1;
-  border: none;
-  background: transparent;
-  padding: 0;
-  text-align: left;
-  cursor: pointer;
-  font-size: 0.8rem;
-}
-
-.tree-node-badges {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  white-space: nowrap;
 }
 
 /* Edge table view */
@@ -445,11 +487,13 @@ ul.tree-children {
   text-decoration: underline;
 }
 
-/* Right panel: node details + mdast + source */
+/* Right panel: node details */
 
 #details-panel {
   gap: 0.4rem;
   font-size: 0.8rem;
+  min-height: 0;
+  overflow: auto; /* scroll inside the panel when content is long */
 }
 
 #details-panel section h2 {
@@ -482,6 +526,8 @@ ul.tree-children {
 #node-source {
   border-top: 1px solid var(--border-subtle);
   padding-top: 0.35rem;
+  max-height: 40%;
+  overflow: auto;
 }
 
 /* Code blocks */
@@ -491,9 +537,8 @@ ul.tree-children {
   padding: 0.35rem 0.45rem;
   background-color: #f3f4f6;
   border-radius: var(--radius-md);
-  font-family:
-    "SF Mono", ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
+  font-family: "SF Mono", ui-monospace, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
   font-size: 0.75rem;
   overflow: auto;
 }
@@ -502,7 +547,10 @@ ul.tree-children {
 
 #hierarchy-view,
 #edge-table-view,
-#details-panel .code-block {
+#details-panel .code-block,
+#node-mdast,
+#node-source,
+#details-panel {
   scrollbar-width: thin;
   scrollbar-color: #9ca3af #e5e7eb;
 }
@@ -510,26 +558,41 @@ ul.tree-children {
 /* WebKit scrollbar */
 #hierarchy-view::-webkit-scrollbar,
 #edge-table-view::-webkit-scrollbar,
-#details-panel .code-block::-webkit-scrollbar {
+#details-panel .code-block::-webkit-scrollbar,
+#node-mdast::-webkit-scrollbar,
+#node-source::-webkit-scrollbar,
+#details-panel::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 #hierarchy-view::-webkit-scrollbar-track,
 #edge-table-view::-webkit-scrollbar-track,
-#details-panel .code-block::-webkit-scrollbar-track {
+#details-panel .code-block::-webkit-scrollbar-track,
+#node-mdast::-webkit-scrollbar-track,
+#node-source::-webkit-scrollbar-track,
+#details-panel::-webkit-scrollbar-track {
   background: #e5e7eb;
 }
 
 #hierarchy-view::-webkit-scrollbar-thumb,
 #edge-table-view::-webkit-scrollbar-thumb,
-#details-panel .code-block::-webkit-scrollbar-thumb {
+#details-panel .code-block::-webkit-scrollbar-thumb,
+#node-mdast::-webkit-scrollbar-thumb,
+#node-source::-webkit-scrollbar-thumb,
+#details-panel::-webkit-scrollbar-thumb {
   background-color: #9ca3af;
   border-radius: 3px;
 }
 
-/* Responsive-ish tweak for narrower windows */
+/* Resizer */
+#center-right-resizer {
+  cursor: col-resize;
+  background: linear-gradient(to right, transparent, #d1d5db, transparent);
+  border-radius: 999px;
+}
 
+/* Responsive-ish tweak */
 @media (max-width: 1100px) {
   main#layout-grid {
     grid-template-columns: 220px minmax(0, 1fr);
@@ -540,14 +603,21 @@ ul.tree-children {
   }
 
   #sidebar-panel {
-    grid-area: sidebar;
+    grid-column: 1;
+    grid-row: 1;
   }
 
   #relationship-view-panel {
-    grid-area: relation;
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  #center-right-resizer {
+    display: none;
   }
 
   #details-panel {
-    grid-area: details;
+    grid-column: 1 / span 2;
+    grid-row: 2;
   }
 }
