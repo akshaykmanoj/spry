@@ -30,6 +30,12 @@ const relationships = defineRelationships(
   "isSelected",
   "codeDependsOn",
   "frontmatter",
+  "role:project",
+  "role:strategy",
+  "role:plan",
+  "role:suite",
+  "role:case",
+  "role:evidence",
 );
 type Relationship = (typeof relationships)[number];
 
@@ -45,6 +51,7 @@ function headingText(node: Node): string {
     const textNode = child as Text;
     if (textNode.type === "text" && typeof textNode.value === "string") {
       parts.push(textNode.value);
+      break;
     }
   }
   return parts.join("");
@@ -52,6 +59,8 @@ function headingText(node: Node): string {
 
 // Helper: flatten visible text from a node (ignores formatting)
 function nodePlainText(node: Node): string {
+  if (node.type === "root") return "root";
+
   const parts: string[] = [];
 
   function walk(n: Node) {
@@ -126,7 +135,7 @@ function parseInfo(info: string): Record<string, string> {
   return out;
 }
 
-Deno.test("Graph test", async () => {
+Deno.test("Ontology Graphs and Edges test", async () => {
   // Simulated parsed frontmatter
   const frontmatter: Record<string, unknown> = {
     "doc-classify": [
@@ -266,4 +275,29 @@ Deno.test("Graph test", async () => {
     "containedInSection",
     edges,
   ));
+
+  const relTexts = edges.reduce(
+    (acc, e) => {
+      const labelOf = (node: Node): string =>
+        (node as { type?: string }).type === "heading"
+          ? headingText(node)
+          : nodePlainText(node);
+
+      const entry = {
+        from: labelOf(e.from),
+        to: labelOf(e.to),
+      };
+
+      (acc[e.rel] ??= []).push(entry);
+      return acc;
+    },
+    {} as Record<Relationship, { from: string; to: string }[]>,
+  );
+
+  assert(relTexts["role:project"]);
+  assert(relTexts["role:strategy"]);
+  assert(relTexts["role:suite"]);
+  assert(relTexts["role:plan"]);
+  assert(relTexts["role:case"]);
+  assert(relTexts["role:evidence"]);
 });
