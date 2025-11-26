@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 
 <head>
@@ -6,6 +6,10 @@
   <title>Spry Graph Viewer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="./index.css" />
+
+  <!-- highlight.js (popular syntax highlighter) - load BEFORE our module -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 </head>
 
 <body>
@@ -41,8 +45,15 @@
         <h2 id="relationship-title"></h2>
         <div id="relationship-meta"></div>
 
-        <!-- Node-type filters for hierarchical view -->
-        <div id="node-type-filter"></div>
+        <!-- Controls that only apply in hierarchical mode -->
+        <div id="relationship-controls">
+          <div id="node-type-filter"></div>
+
+          <label class="toggle-checkbox">
+            <input type="checkbox" id="relationship-pills-toggle" />
+            Relationship pills
+          </label>
+        </div>
       </div>
 
       <!-- Hierarchical tree view -->
@@ -57,8 +68,6 @@
             <tr>
               <th>From</th>
               <th>To</th>
-              <th>From label</th>
-              <th>To label</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -72,41 +81,55 @@
     <!-- Right: node details -->
     <aside id="details-panel">
       <section id="node-details">
-        <h2>Node details</h2>
-        <dl>
-          <dt>Node id</dt>
-          <dd id="node-id"></dd>
-
-          <dt>Node type</dt>
-          <dd id="node-type"></dd>
-
-          <dt>Label</dt>
-          <dd id="node-label"></dd>
-
-          <dt>Relationships</dt>
-          <dd id="node-rels"></dd>
-
-          <dt>Path</dt>
-          <dd id="node-path"></dd>
-        </dl>
+        <h2>Spry Node Properties</h2>
+        <table id="node-properties-table">
+          <tbody>
+            <tr>
+              <th>Node id</th>
+              <td id="node-id"></td>
+            </tr>
+            <tr>
+              <th>Node type</th>
+              <td id="node-type"></td>
+            </tr>
+            <tr>
+              <th>Label</th>
+              <td id="node-label"></td>
+            </tr>
+            <tr>
+              <th>Relationships</th>
+              <td id="node-rels"></td>
+            </tr>
+            <tr>
+              <th>Path</th>
+              <td id="node-path"></td>
+            </tr>
+          </tbody>
+        </table>
       </section>
 
       <section id="node-mdast">
         <h2>mdast node (JSON)</h2>
-        <pre id="node-mdast-json" class="code-block"></pre>
+        <pre id="node-mdast-json" class="code-block">
+<code class="language-json"></code>
+          </pre>
       </section>
 
       <section id="node-source">
         <h2>Source code / text</h2>
-        <pre id="node-source-code" class="code-block"></pre>
+        <div id="node-code-header" class="code-header"></div> <!-- NEW -->
+        <pre id="node-source-code" class="code-block">
+<code class="language-plaintext"></code>
+          </pre>
       </section>
     </aside>
   </main>
 
   <footer>
     <span id="footer-left">© <span id="footer-year">2025</span></span>
-    <span id="footer-right">Spry Programmable Markdown ·
-      <span id="footer-version">0.1.0</span></span>
+    <span id="footer-right">
+      Spry Programmable Markdown · <span id="footer-version">0.1.0</span>
+    </span>
   </footer>
 
   <!-- Model injection (filled by Deno server) -->

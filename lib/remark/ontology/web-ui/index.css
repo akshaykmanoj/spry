@@ -265,10 +265,19 @@ main#layout-grid {
   color: var(--text-muted);
 }
 
+/* Controls inside header (hierarchical mode only) */
+
+#relationship-controls {
+  margin-top: 0.15rem;
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 /* Node type filter chips */
 
 #node-type-filter {
-  margin-top: 0.15rem;
   display: flex;
   flex-wrap: wrap;
   gap: 0.25rem;
@@ -296,6 +305,16 @@ main#layout-grid {
   border-color: var(--accent);
   background-color: var(--accent-soft);
   color: #1f2933;
+}
+
+/* Toggle checkbox (relationship pills) */
+
+.toggle-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
 /* Hierarchy view */
@@ -480,6 +499,7 @@ ul.tree-children {
   cursor: pointer;
   font-size: 0.8rem;
   padding: 0;
+  text-align: left;
 }
 
 .node-link.selected {
@@ -502,22 +522,28 @@ ul.tree-children {
   font-weight: 600;
 }
 
-#node-details {
-  border-bottom: 1px solid var(--border-subtle);
-  padding-bottom: 0.35rem;
+/* Node properties table */
+
+#node-properties-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
 }
 
-#node-details dl {
-  margin: 0;
+#node-properties-table th,
+#node-properties-table td {
+  padding: 0.15rem 0.25rem;
+  vertical-align: top;
 }
 
-#node-details dt {
+#node-properties-table th {
+  width: 30%;
+  text-align: left;
   font-weight: 600;
-  margin-top: 0.15rem;
+  color: var(--text-main);
 }
 
-#node-details dd {
-  margin: 0;
+#node-properties-table td {
   color: var(--text-muted);
   word-break: break-word;
 }
@@ -541,6 +567,23 @@ ul.tree-children {
     "Liberation Mono", "Courier New", monospace;
   font-size: 0.75rem;
   overflow: auto;
+}
+
+.code-header {
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  font-size: 0.8rem;
+  margin-bottom: 0.25rem;
+  white-space: pre;
+}
+
+.code-header .lang {
+  font-weight: 700;
+  color: #000;
+}
+
+.code-header .meta {
+  color: #0044cc;
+  font-weight: 400;
 }
 
 /* Scrollbars (subtle) */
@@ -585,6 +628,32 @@ ul.tree-children {
   border-radius: 3px;
 }
 
+/* Details panel layout: fixed headers, scrolling code blocks only */
+#details-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* no inner scrolling for the panel itself */
+}
+
+#node-details,
+#node-mdast,
+#node-source {
+  flex: 0 0 auto;   /* size to content, don't stretch */
+}
+
+/* Only the code areas scroll, headings stay fixed */
+#node-mdast-json,
+#node-source-code {
+  max-height: 260px;      /* tweak as you like */
+  overflow: auto;
+}
+
+#node-mdast-json code,
+#node-source-code code {
+  display: block;
+  min-width: 100%;
+}
+
 /* Resizer */
 #center-right-resizer {
   cursor: col-resize;
@@ -593,6 +662,7 @@ ul.tree-children {
 }
 
 /* Responsive-ish tweak */
+
 @media (max-width: 1100px) {
   main#layout-grid {
     grid-template-columns: 220px minmax(0, 1fr);
