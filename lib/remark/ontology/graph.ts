@@ -1,7 +1,8 @@
-import { Node } from "types/unist";
 import { Root } from "types/mdast";
+import { Node } from "types/unist";
 import { selectAll } from "unist-util-select";
 import { visit } from "unist-util-visit";
+import { docFrontmatterNDF } from "../plugin/doc/doc-frontmatter.ts";
 
 // -----------------------------------------------------------------------------
 // Core Types
@@ -678,9 +679,12 @@ export function frontmatterClassificationRule<
   Edge extends GraphEdge<Relationship>,
 >(
   frontmatterKey: string,
-  frontmatter: Record<string, unknown> | null | undefined,
+  frontmatter?: Record<string, unknown> | null | undefined,
 ): GraphEdgesRule<Relationship, Ctx, Edge> {
   return augmentRule<Relationship, Ctx, Edge>((ctx) => {
+    if (!frontmatter && docFrontmatterNDF.is(ctx.root)) {
+      frontmatter = ctx.root.data.documentFrontmatter.parsed.fm;
+    }
     if (!frontmatter) return false;
 
     const raw = frontmatter[frontmatterKey];

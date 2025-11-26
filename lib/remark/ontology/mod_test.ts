@@ -136,19 +136,6 @@ function parseInfo(info: string): Record<string, string> {
 }
 
 Deno.test("Ontology Graphs and Edges test", async () => {
-  // Simulated parsed frontmatter
-  const frontmatter: Record<string, unknown> = {
-    "doc-classify": [
-      { select: 'heading[depth="1"]', role: "project" },
-      { select: 'heading[depth="2"]', role: "strategy" },
-      { select: 'heading[depth="3"]', role: "plan" },
-      // Depths 4–6 are fine to include even if not present in this doc
-      { select: 'heading[depth="4"]', role: "suite" },
-      { select: 'heading[depth="5"]', role: "case" },
-      { select: 'heading[depth="6"]', role: "evidence" },
-    ],
-  };
-
   const builder = createGraphRulesBuilder<Relationship, TestCtx, TestEdge>();
   const rules = builder
     .use(
@@ -166,10 +153,11 @@ Deno.test("Ontology Graphs and Edges test", async () => {
         ["containedInHeading"] as Relationship[],
       ),
     )
-    .use(frontmatterClassificationRule<Relationship, TestCtx, TestEdge>(
-      "doc-classify",
-      frontmatter,
-    ))
+    .use(
+      frontmatterClassificationRule<Relationship, TestCtx, TestEdge>(
+        "doc-classify",
+      ),
+    )
     .use(selectedNodesClassificationRule<Relationship, TestCtx, TestEdge>(
       "emphasis",
       "isImportant",
