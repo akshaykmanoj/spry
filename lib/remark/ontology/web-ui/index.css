@@ -270,6 +270,103 @@ ul.tree-children {
   border-radius: var(--radius-md);
 }
 
+/* Level-based coloring */
+.tree-node-header {
+  border-left: 3px solid transparent;
+}
+
+/* Top-level sections / headings */
+.tree-level-0 .tree-node-header {
+  border-left-color: #0f766e; /* teal */
+}
+
+/* Level 1 */
+.tree-level-1 .tree-node-header {
+  border-left-color: #2563eb; /* blue */
+}
+
+/* Level 2 */
+.tree-level-2 .tree-node-header {
+  border-left-color: #7c3aed; /* violet */
+}
+
+/* Level 3 */
+.tree-level-3 .tree-node-header {
+  border-left-color: #f59e0b; /* amber */
+}
+
+/* Level 4+ */
+.tree-level-4 .tree-node-header,
+.tree-level-5 .tree-node-header {
+  border-left-color: #6b7280; /* gray */
+}
+
+.tree-level-3 .tree-node-label,
+.tree-level-4 .tree-node-label,
+.tree-level-5 .tree-node-label {
+  opacity: 0.9;
+  font-size: 0.78rem;
+}
+
+.tree-node-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.15rem;
+}
+
+/* Base badge */
+.rel-badge {
+  padding: 0.05rem 0.3rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  line-height: 1.2;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+/* Specific relationship groups */
+.rel-badge-structural {
+  background-color: #dbeafe;
+  border-color: #60a5fa;
+  color: #1d4ed8;
+}
+
+.rel-badge-frontmatter {
+  background-color: #fee2e2;
+  border-color: #f97373;
+  color: #b91c1c;
+}
+
+.rel-badge-role {
+  background-color: #ecfdf3;
+  border-color: #4ade80;
+  color: #166534;
+}
+
+.rel-badge-task {
+  background-color: #fef3c7;
+  border-color: #facc15;
+  color: #92400e;
+}
+
+.rel-badge-dep {
+  background-color: #f3e8ff;
+  border-color: #a855f7;
+  color: #6b21a8;
+}
+
+.rel-badge-important {
+  background-color: #fef2f2;
+  border-color: #fb7185;
+  color: #b91c1c;
+}
+
+.rel-badge-other {
+  background-color: #e5e7eb;
+  border-color: #9ca3af;
+  color: #374151;
+}
+
 .tree-node.selected .tree-node-header {
   background-color: var(--accent-soft);
   border-left: 2px solid var(--accent);

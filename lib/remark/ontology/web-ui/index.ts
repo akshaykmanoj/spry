@@ -218,28 +218,55 @@ function buildRules() {
 // -----------------------------------------------------------------------------
 
 function computeNodeLabel(node: Node): string {
-  const content = node as RootContent;
-  if (!node.type) return "(not a node!)";
+  const type = (node as { type?: string }).type ?? "unknown";
 
-  if (content.type === "heading" || content.type === "paragraph") {
-    let text = "";
-    let depth: number | false = false;
-
-    if (content.type === "heading") {
-      const heading = node as Heading;
-      text = headingText(heading);
-      depth = heading.depth;
-    } else if (content.type === "paragraph") {
-      text = nodePlainText(node);
-    }
-
-    if (text) {
-      const depthPart = typeof depth === "number" ? `#${depth} ` : "";
-      return `${content.type}:${depthPart}${text}`;
-    }
+  // Headings: "heading:#2 My title"
+  if (type === "heading") {
+    const heading = node as Heading;
+    const text = headingText(heading) || "(heading)";
+    const depthPart = typeof heading.depth === "number"
+      ? `#${heading.depth} `
+      : "";
+    return `heading:${depthPart}${text}`;
   }
 
-  return JSON.stringify(node);
+  // Paragraphs: "paragraph:First few words…"
+  if (type === "paragraph") {
+    const text = nodePlainText(node) || "(paragraph)";
+    return `paragraph:${truncate(text, 80)}`;
+  }
+
+  // Code blocks: "code:yaml @id mdast-io-project"
+  if (type === "code") {
+    const c = node as Node & { lang?: string | null; value?: string };
+    const lang = c.lang ? c.lang.toLowerCase() : "";
+    const firstLine = (c.value ?? "").split(/\r?\n/, 1)[0] ?? "";
+    const langPart = lang ? `${lang} ` : "";
+    const textPart = firstLine ? truncate(firstLine, 60) : "(code)";
+    return `code:${langPart}${textPart}`;
+  }
+
+  // Lists and list items: "list", "- First list item…"
+  if (type === "listItem" || type === "list") {
+    const text = nodePlainText(node);
+    if (text) {
+      const prefix = type === "listItem" ? "- " : "list:";
+      return `${prefix}${truncate(text, 80)}`;
+    }
+    return type;
+  }
+
+  // Fallback: type + truncated visible text, never JSON
+  const text = nodePlainText(node);
+  if (text) {
+    return `${type}:${truncate(text, 80)}`;
+  }
+  return type;
+}
+
+function truncate(text: string, max: number): string {
+  if (text.length <= max) return text;
+  return text.slice(0, max - 1).trimEnd() + "…";
 }
 
 // Flatten visible text from a node (ignores formatting)
