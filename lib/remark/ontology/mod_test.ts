@@ -2,7 +2,9 @@ import { assert, assertEquals } from "@std/assert";
 import { fromFileUrl } from "@std/path";
 import { Heading, Text } from "types/mdast";
 import { Node } from "types/unist";
+import { queryPosixPI } from "../../universal/posix-pi.ts";
 import { markdownASTs } from "../mdastctl/io.ts";
+import { codeFrontmatterNDF } from "../plugin/node/code-frontmatter.ts";
 import {
   astGraphEdges,
   buildHierarchyTrees,
@@ -120,21 +122,6 @@ const headingLikeSectionContainer: IsSectionContainer = (node) => {
   return false;
 };
 
-//
-// Helper: extract fence info, example: "js name=A deps=B,C"
-//
-function parseInfo(info: string): Record<string, string> {
-  const parts = info.split(/\s+/).map((p) => p.trim());
-  const out: Record<string, string> = {};
-  for (const part of parts) {
-    if (part.includes("=")) {
-      const [k, v] = part.split("=");
-      out[k] = v;
-    }
-  }
-  return out;
-}
-
 Deno.test("Ontology Graphs and Edges test", async () => {
   const builder = createGraphRulesBuilder<Relationship, TestCtx, TestEdge>();
   const rules = builder
@@ -172,22 +159,14 @@ Deno.test("Ontology Graphs and Edges test", async () => {
       "codeDependsOn",
       (node): boolean => node.type === "code",
       (node, name): boolean => {
-        if (node.type !== "code") return false;
-        const code = node as unknown as { lang?: string; meta?: string };
-        if (!code.meta) return false;
-
-        const parsed = parseInfo(code.meta);
-        return parsed.name === name;
+        if (!codeFrontmatterNDF.is(node)) return false;
+        return node.data.codeFM.pi.pos[0] == name;
       },
       (node) => {
-        if (node.type !== "code") return false;
-        const code = node as unknown as { meta?: string };
-        if (!code.meta) return false;
-
-        const parsed = parseInfo(code.meta);
-        if (!parsed.deps) return false;
-
-        return parsed.deps.split(",").map((d) => d.trim()).filter(Boolean);
+        if (!codeFrontmatterNDF.is(node)) return false;
+        const qf = queryPosixPI(node.data.codeFM.pi);
+        const deps = qf.getTextFlagValues("dep");
+        return deps.length > 0 ? deps : false;
       },
     ))
     .build();
