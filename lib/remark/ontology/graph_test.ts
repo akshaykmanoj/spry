@@ -7,7 +7,6 @@ import type { Heading, Root, RootContent, Text } from "types/mdast";
 import type { Node } from "types/unist";
 import {
   astGraphEdges,
-  buildHierarchyTrees,
   containedInHeadingRule,
   containedInSectionRule,
   createGraphRulesBuilder,
@@ -228,84 +227,6 @@ Deno.test("graph domain rules on synthetic markdown", async (t) => {
       );
     }
   });
-
-  await t.step(
-    "buildHierarchyTrees - heading hierarchy from containedInHeading edges",
-    () => {
-      const edges = [
-        ...astGraphEdges<Relationship, TestEdge, TestCtx>(root, {
-          prepareContext: () => baseCtx,
-          rules: () => [
-            containedInHeadingRule<Relationship, TestCtx, TestEdge>(
-              "containedInHeading",
-            ),
-          ],
-        }),
-      ];
-
-      const trees = buildHierarchyTrees<Relationship, TestEdge>(
-        "containedInHeading",
-        edges,
-      );
-
-      // Collect heading nodes + their tree wrappers
-      type HeadingTree = {
-        node: Heading;
-        children: ReturnType<typeof buildHierarchyTrees>[number]["children"];
-      };
-
-      const headingTrees: HeadingTree[] = [];
-
-      function collectHeadingTrees(tree: (typeof trees)[number]): void {
-        const n = tree.node as Heading;
-        if (n.type === "heading") {
-          headingTrees.push({
-            node: n,
-            children: tree.children,
-          });
-        }
-        for (const child of tree.children) {
-          collectHeadingTrees(child);
-        }
-      }
-
-      for (const tRoot of trees) {
-        collectHeadingTrees(tRoot);
-      }
-
-      const byText = new Map<string, HeadingTree>();
-      for (const ht of headingTrees) {
-        byText.set(headingText(ht.node), ht);
-      }
-
-      const h1Tree = byText.get("Heading 1");
-      const h2Tree = byText.get("Heading 2");
-      const s11Tree = byText.get("Subheading 1.1");
-      const s111Tree = byText.get("Sub-subheading 1.1.1");
-      const s12Tree = byText.get("Subheading 1.2");
-
-      assert(h1Tree);
-      assert(h2Tree);
-      assert(s11Tree);
-      assert(s111Tree);
-      assert(s12Tree);
-
-      const headingChildLabels = (ht: HeadingTree): string[] =>
-        ht.children
-          .map((c) => c.node as Heading)
-          .filter((n) => n.type === "heading")
-          .map((n) => headingText(n));
-
-      assertEquals(
-        headingChildLabels(h1Tree),
-        ["Subheading 1.1", "Subheading 1.2"],
-      );
-      assertEquals(headingChildLabels(s11Tree), ["Sub-subheading 1.1.1"]);
-      assertEquals(headingChildLabels(s12Tree), []);
-      assertEquals(headingChildLabels(h2Tree), []);
-      assertEquals(headingChildLabels(s111Tree), []);
-    },
-  );
 
   await t.step(
     "containedInHeadingRule - heading hierarchy reconstruction",
@@ -707,65 +628,6 @@ Deno.test("containedInSectionRule - mixed headings and heading-like sections", a
 
     return undefined;
   }
-
-  await t.step(
-    "buildHierarchyTrees - section containers from mixed headings and heading-like sections",
-    () => {
-      const trees = buildHierarchyTrees<Relationship, TestEdge>(
-        "containedInHeading",
-        edges,
-      );
-
-      type TreeNode = (typeof trees)[number];
-
-      const findContainerTree = (label: string): TreeNode | undefined => {
-        const stack: TreeNode[] = [...trees];
-
-        while (stack.length) {
-          const tree = stack.pop()!;
-          const n = tree.node as Node;
-
-          if (n.type === "paragraph") {
-            const plain = nodePlainText(n).trim();
-            if (plain.endsWith(":")) {
-              const lbl = plain.slice(0, -1).trim();
-              if (lbl === label) return tree;
-            }
-          }
-
-          for (const child of tree.children as TreeNode[]) {
-            stack.push(child);
-          }
-        }
-
-        return undefined;
-      };
-
-      const alphaTree = findContainerTree("Alpha section");
-      const bravoTree = findContainerTree("Bravo section");
-
-      assert(alphaTree, "Alpha section container tree not found");
-      assert(bravoTree, "Bravo section container tree not found");
-
-      const childParagraphTexts = (tree: TreeNode): string[] =>
-        tree.children
-          .map((c) => c.node as Node)
-          .filter((n) => n.type === "paragraph")
-          .map((n) => nodePlainText(n).trim());
-
-      const alphaChildren = childParagraphTexts(alphaTree!);
-      const bravoChildren = childParagraphTexts(bravoTree!);
-
-      assert(
-        alphaChildren.includes("Content A under Alpha."),
-        "Alpha section should contain 'Content A under Alpha.' as a direct child paragraph",
-      );
-      assert(
-        bravoChildren.includes("Content B under Bravo."),
-        "Bravo section should contain 'Content B under Bravo.' as a direct child paragraph",
-      );
-    },
-  );
 
   await t.step(
     "content before first heading-like paragraph belongs to real heading",

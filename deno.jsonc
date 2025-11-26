@@ -64,6 +64,7 @@
     "unist-util-select": "https://esm.sh/unist-util-select@^5",
     "unist-util-map": "https://esm.sh/unist-util-map@^4",
     "unist-util-filter": "https://esm.sh/unist-util-filter@^5",
+    "mdast-util-to-markdown": "https://esm.sh/mdast-util-to-markdown@2",
     "github-slugger": "npm:github-slugger@^2"
   }
 }

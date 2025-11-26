@@ -1,18 +1,12 @@
 import { assert, assertEquals } from "@std/assert";
 import { fromFileUrl } from "@std/path";
-import { Node } from "types/unist";
+import { toMarkdown } from "mdast-util-to-markdown";
+import { Heading, Paragraph } from "types/mdast";
 import { queryPosixPI } from "../../universal/posix-pi.ts";
-import { markdownASTs } from "../mdastctl/io.ts";
 import { codeFrontmatterNDF } from "../plugin/node/code-frontmatter.ts";
-import {
-  headingText,
-  nodePlainText,
-  visitGraph,
-  visitHier,
-} from "./graph-visit.ts";
+import { graphEdgesTree, headingsTreeText } from "./graph-tree.ts";
 import {
   astGraphEdges,
-  buildHierarchyTrees,
   containedInHeadingRule,
   containedInSectionRule,
   createGraphRulesBuilder,
@@ -21,6 +15,10 @@ import {
   Graph,
   GraphEdge,
   graphToDot,
+  headingLikeTextDef,
+  headingText,
+  isBoldSingleLineParagraph,
+  isColonSingleLineParagraph,
   IsSectionContainer,
   nodeDependencyRule,
   nodesClassificationRule,
@@ -28,6 +26,7 @@ import {
   sectionFrontmatterRule,
   selectedNodesClassificationRule,
 } from "./graph.ts";
+import { markdownASTs } from "./io.ts";
 
 const relationships = defineRelationships(
   "containedInHeading",
@@ -67,28 +66,25 @@ const headingLikeSectionContainer: IsSectionContainer = (node) => {
     return {
       nature: "heading",
       label: headingText(node),
-      mdLabel: headingText(node),
+      mdLabel: toMarkdown(node as Heading), // TODO: stringify the node
     };
   }
 
-  if (node.type === "paragraph") {
-    const plain = nodePlainText(node).trim();
-    if (plain.endsWith(":")) {
-      const label = plain.slice(0, -1).trim();
-      if (label.length > 0) {
-        return {
-          nature: "section",
-          label,
-          mdLabel: plain,
-        };
-      }
-    }
-  }
+  if (node.type !== "paragraph") return false;
 
-  return false;
+  const candidate = isBoldSingleLineParagraph(node as Paragraph) ??
+    isColonSingleLineParagraph(node as Paragraph);
+
+  if (candidate == false) return false;
+
+  headingLikeTextDef.factory.attach(node, true);
+  return {
+    nature: "section",
+    ...candidate,
+  };
 };
 
-Deno.test("Ontology Graphs and Edges test", async (t) => {
+Deno.test("Ontology Graphs and Edges test", async () => {
   const builder = createGraphRulesBuilder<Relationship, TestCtx, TestEdge>();
   const rules = builder
     .use(
@@ -185,9 +181,9 @@ Deno.test("Ontology Graphs and Edges test", async (t) => {
     {} as Record<Relationship, number>,
   );
   assertEquals(relCounts, {
-    containedInHeading: 1138,
+    containedInHeading: 1206,
     frontmatter: 12,
-    containedInSection: 1117,
+    containedInSection: 1206,
     isTask: 175,
     "role:case": 8,
     "role:evidence": 6,
@@ -198,108 +194,13 @@ Deno.test("Ontology Graphs and Edges test", async (t) => {
     // deno-lint-ignore no-explicit-any
   } as any);
 
-  // TODO: figure out why trees aren't working -- probably need two-way rels?
-
-  assert(buildHierarchyTrees<Relationship, TestEdge>(
-    "containedInHeading",
-    edges,
-  ));
-
-  assert(buildHierarchyTrees<Relationship, TestEdge>(
-    "containedInSection",
-    edges,
-  ));
-
-  const relTexts = edges.reduce(
-    (acc, e) => {
-      const labelOf = (node: Node): string =>
-        (node as { type?: string }).type === "heading"
-          ? headingText(node)
-          : nodePlainText(node);
-
-      const entry = {
-        from: labelOf(e.from),
-        to: labelOf(e.to),
-      };
-
-      (acc[e.rel] ??= []).push(entry);
-      return acc;
-    },
-    {} as Record<Relationship, { from: string; to: string }[]>,
-  );
-
-  assert(relTexts["role:project"]);
-  assert(relTexts["role:strategy"]);
-  assert(relTexts["role:suite"]);
-  assert(relTexts["role:plan"]);
-  assert(relTexts["role:case"]);
-  assert(relTexts["role:evidence"]);
-
-  await t.step("Vist all relationships and edges", () => {
-    visitGraph(graph, (_rel, _edge) => {
-      // console.log(rel, ":", headingText(edge.from), "→", headingText(edge.to));
-      // count or collect nodes
-    });
+  const geTree = graphEdgesTree<Relationship, TestEdge>(edges, {
+    relationships: ["containedInSection"],
   });
-
-  await t.step("Vist specific relationship and sort headings by label", () => {
-    visitGraph(
-      graph,
-      (_rel, _edge) => {
-        // TODO: add count or something
-      },
-      {
-        test: "role:strategy",
-        edgeOrder: "from",
-      },
-    );
-  });
-
-  await t.step("visit heading hierarchy (containedInHeading)", () => {
-    visitHier(graph, (node, ancestors) => {
-      const _label = node.type === "heading"
-        ? headingText(node)
-        : nodePlainText(node);
-
-      const _breadcrumb = ancestors
-        .map((a) =>
-          (a as { type?: string }).type === "heading"
-            ? headingText(a)
-            : nodePlainText(a)
-        )
-        .filter(Boolean)
-        .join(" / ");
-
-      // TODO: figure out how to assert / test
-      // console.log(`- ${breadcrumb ? breadcrumb + " / " : ""}${label}`);
-    }, {
-      relTest: "containedInHeading",
-      direction: "childToParent",
-    });
-  });
-
-  await t.step(
-    "custom children rule (e.g., only follow certain rels or node types)",
-    () => {
-      visitHier(
-        graph,
-        (_node, _ancestors, _ctx) => {
-          // TODO: figure out how to test
-          // console.log(
-          //   "Visiting:",
-          //   nodePlainText(node),
-          //   "depth",
-          //   ancestors.length,
-          // );
-        },
-        {
-          relTest: (rel) => rel === "containedInSection" || rel === "role:plan",
-          childrenOf: (_node, { outgoing }) =>
-            outgoing
-              .filter((e) => (e.to as { type?: string }).type !== "code")
-              .map((e) => e.from),
-        },
-      );
-    },
+  assertEquals(
+    headingsTreeText(geTree, false),
+    await Deno.readTextFile(
+      fromFileUrl(import.meta.resolve("./mod_test-fixture-01.txt.golden")),
+    ),
   );
 });
