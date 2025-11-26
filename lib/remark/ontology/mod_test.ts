@@ -4,7 +4,12 @@ import { Node } from "types/unist";
 import { queryPosixPI } from "../../universal/posix-pi.ts";
 import { markdownASTs } from "../mdastctl/io.ts";
 import { codeFrontmatterNDF } from "../plugin/node/code-frontmatter.ts";
-import { headingText, nodePlainText, visitGraph } from "./graph-visit.ts";
+import {
+  headingText,
+  nodePlainText,
+  visitGraph,
+  visitHier,
+} from "./graph-visit.ts";
 import {
   astGraphEdges,
   buildHierarchyTrees,
@@ -249,4 +254,52 @@ Deno.test("Ontology Graphs and Edges test", async (t) => {
       },
     );
   });
+
+  await t.step("visit heading hierarchy (containedInHeading)", () => {
+    visitHier(graph, (node, ancestors) => {
+      const _label = node.type === "heading"
+        ? headingText(node)
+        : nodePlainText(node);
+
+      const _breadcrumb = ancestors
+        .map((a) =>
+          (a as { type?: string }).type === "heading"
+            ? headingText(a)
+            : nodePlainText(a)
+        )
+        .filter(Boolean)
+        .join(" / ");
+
+      // TODO: figure out how to assert / test
+      // console.log(`- ${breadcrumb ? breadcrumb + " / " : ""}${label}`);
+    }, {
+      relTest: "containedInHeading",
+      direction: "childToParent",
+    });
+  });
+
+  await t.step(
+    "custom children rule (e.g., only follow certain rels or node types)",
+    () => {
+      visitHier(
+        graph,
+        (_node, _ancestors, _ctx) => {
+          // TODO: figure out how to test
+          // console.log(
+          //   "Visiting:",
+          //   nodePlainText(node),
+          //   "depth",
+          //   ancestors.length,
+          // );
+        },
+        {
+          relTest: (rel) => rel === "containedInSection" || rel === "role:plan",
+          childrenOf: (_node, { outgoing }) =>
+            outgoing
+              .filter((e) => (e.to as { type?: string }).type !== "code")
+              .map((e) => e.from),
+        },
+      );
+    },
+  );
 });
