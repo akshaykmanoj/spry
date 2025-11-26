@@ -10,6 +10,7 @@ import {
   containedInSectionRule,
   createGraphRulesBuilder,
   defineRelationships,
+  frontmatterClassificationRule,
   Graph,
   GraphEdge,
   graphToDot,
@@ -126,6 +127,19 @@ function parseInfo(info: string): Record<string, string> {
 }
 
 Deno.test("Graph test", async () => {
+  // Simulated parsed frontmatter
+  const frontmatter: Record<string, unknown> = {
+    "doc-classify": [
+      { select: 'heading[depth="1"]', role: "project" },
+      { select: 'heading[depth="2"]', role: "strategy" },
+      { select: 'heading[depth="3"]', role: "plan" },
+      // Depths 4–6 are fine to include even if not present in this doc
+      { select: 'heading[depth="4"]', role: "suite" },
+      { select: 'heading[depth="5"]', role: "case" },
+      { select: 'heading[depth="6"]', role: "evidence" },
+    ],
+  };
+
   const builder = createGraphRulesBuilder<Relationship, TestCtx, TestEdge>();
   const rules = builder
     .use(
@@ -143,6 +157,10 @@ Deno.test("Graph test", async () => {
         ["containedInHeading"] as Relationship[],
       ),
     )
+    .use(frontmatterClassificationRule<Relationship, TestCtx, TestEdge>(
+      "doc-classify",
+      frontmatter,
+    ))
     .use(selectedNodesClassificationRule<Relationship, TestCtx, TestEdge>(
       "emphasis",
       "isImportant",
@@ -210,6 +228,12 @@ Deno.test("Graph test", async () => {
     "containedInHeading",
     "frontmatter",
     "containedInSection",
+    "role:project",
+    "role:strategy",
+    "role:plan",
+    "role:suite",
+    "role:case",
+    "role:evidence",
     "isTask",
   ]);
 
@@ -222,6 +246,12 @@ Deno.test("Graph test", async () => {
     frontmatter: 12,
     containedInSection: 1117,
     isTask: 175,
+    "role:case": 8,
+    "role:evidence": 6,
+    "role:plan": 6,
+    "role:project": 1,
+    "role:strategy": 8,
+    "role:suite": 6,
     // deno-lint-ignore no-explicit-any
   } as any);
 
