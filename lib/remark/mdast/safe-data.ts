@@ -246,12 +246,34 @@ export function mergeData<
 /* Scalar/object Data factories (unsafe, no Zod)                              */
 /* -------------------------------------------------------------------------- */
 
-export interface DataFactoryOptions<T> {
+export interface DataFactoryOptions<
+  T,
+  Key extends string = string,
+> {
   /**
    * If true, attach() will deep-merge new values with existing values when both
    * are plain objects. For non-plain objects, attach() falls back to overwrite.
    */
   merge?: boolean;
+
+  /**
+   * Default initializer hook for this key.
+   *
+   * Called by factory.init(node, onFirstAccessAuto?). Implementations typically
+   * call factory.attach(...) or factory.get(...) to seed data for the node.
+   */
+  init?: (
+    node: Node,
+    factory: DataFactory<Key, T>,
+    onFirstAccessAuto?: boolean,
+  ) => void;
+
+  /**
+   * If true and `init` is defined, the first time this key is accessed on a
+   * given node via get/safeGet and no value exists yet, init(node, true) will
+   * be invoked automatically before resolving the access.
+   */
+  initOnFirstAccess?: boolean;
 }
 
 export interface DataFactory<
@@ -305,6 +327,13 @@ export interface DataFactory<
   ): void;
 
   hasAny(root: Root): boolean;
+
+  /**
+   * Default initializer for this data key on a given node.
+   *
+   * This always exists (no-op if no init option was provided).
+   */
+  init<N extends Node>(node: N, onFirstAccessAuto?: boolean): void;
 }
 
 /**
@@ -315,11 +344,11 @@ export function nodeDataFactory<
   T,
 >(
   key: Key,
-  options?: DataFactoryOptions<T>,
+  options?: DataFactoryOptions<T, Key>,
 ): DataFactory<Key, T> {
   const mergeEnabled = options?.merge === true;
 
-  return {
+  const factory: DataFactory<Key, T> = {
     key,
 
     attach<N extends Node>(node: N, value: T) {
@@ -344,7 +373,17 @@ export function nodeDataFactory<
     },
 
     get<N extends Node>(node: N, ifNotExists?: (node: N) => T): T | undefined {
-      const existing = getData<T, N, Key>(node, key);
+      let existing = getData<T, N, Key>(node, key);
+
+      if (
+        existing === undefined &&
+        options?.init &&
+        options.initOnFirstAccess
+      ) {
+        factory.init(node, true);
+        existing = getData<T, N, Key>(node, key);
+      }
+
       if (existing !== undefined) return existing;
 
       if (!ifNotExists) return undefined;
@@ -358,8 +397,8 @@ export function nodeDataFactory<
       node: N,
       ifNotExists?: (node: N) => T,
     ): T | undefined {
-      // Unsafe factory: safeGet == get
-      return this.get(node, ifNotExists);
+      // Unsafe factory: safeGet == get (includes initOnFirstAccess behavior)
+      return factory.get(node, ifNotExists);
     },
 
     is<N extends Node>(node: N): node is DataSupplierNode<N, Key, T> {
@@ -390,19 +429,47 @@ export function nodeDataFactory<
     hasAny(root: Root): boolean {
       return hasAnyData(root, key);
     },
+
+    init<N extends Node>(node: N, onFirstAccessAuto?: boolean): void {
+      options?.init?.(node, factory, onFirstAccessAuto);
+    },
   };
+
+  return factory;
 }
 
 /* -------------------------------------------------------------------------- */
 /* Array-valued factories (unsafe, no Zod)                                    */
 /* -------------------------------------------------------------------------- */
 
-export interface ArrayDataFactoryOptions {
+export interface ArrayDataFactoryOptions<
+  Key extends string = string,
+  T = unknown,
+> {
   /**
    * If true (default), add() appends to any existing array.
    * If false, add() replaces the array with the new items.
    */
   merge?: boolean;
+
+  /**
+   * Default initializer hook for this array-valued key.
+   *
+   * Called by factory.init(node, onFirstAccessAuto?). Implementations typically
+   * call factory.add(...) or factory.get(...) to seed data for the node.
+   */
+  init?: (
+    node: Node,
+    factory: ArrayDataFactory<Key, T>,
+    onFirstAccessAuto?: boolean,
+  ) => void;
+
+  /**
+   * If true and `init` is defined, the first time this key is accessed on a
+   * given node via get/safeGet and no array exists yet, init(node, true) will
+   * be invoked automatically before resolving the access.
+   */
+  initOnFirstAccess?: boolean;
 }
 
 export interface ArrayDataFactory<
@@ -458,6 +525,13 @@ export interface ArrayDataFactory<
 
   // True if any node has a non-empty array for this key
   hasAny(root: Root): boolean;
+
+  /**
+   * Default initializer for this array-valued key on a given node.
+   *
+   * This always exists (no-op if no init option was provided).
+   */
+  init<N extends Node>(node: N, onFirstAccessAuto?: boolean): void;
 }
 
 /**
@@ -468,11 +542,11 @@ export function nodeArrayDataFactory<
   T,
 >(
   key: Key,
-  options?: ArrayDataFactoryOptions,
+  options?: ArrayDataFactoryOptions<Key, T>,
 ): ArrayDataFactory<Key, T> {
   const merge = options?.merge !== false; // default: true
 
-  return {
+  const factory: ArrayDataFactory<Key, T> = {
     key,
 
     add<N extends Node>(node: N, ...items: readonly T[]) {
@@ -485,7 +559,17 @@ export function nodeArrayDataFactory<
       node: N,
       ifNotExists?: (node: N) => T[],
     ): T[] {
-      const existing = getData<T[], N, Key>(node, key);
+      let existing = getData<T[], N, Key>(node, key);
+
+      if (
+        existing === undefined &&
+        options?.init &&
+        options.initOnFirstAccess
+      ) {
+        factory.init(node, true);
+        existing = getData<T[], N, Key>(node, key);
+      }
+
       if (existing !== undefined) return existing as T[];
 
       if (!ifNotExists) return [];
@@ -499,8 +583,8 @@ export function nodeArrayDataFactory<
       node: N,
       ifNotExists?: (node: N) => T[],
     ): T[] {
-      // Unsafe factory: safeGet == get
-      return this.get(node, ifNotExists);
+      // Unsafe factory: safeGet == get (includes initOnFirstAccess behavior)
+      return factory.get(node, ifNotExists);
     },
 
     is<N extends Node>(node: N): node is DataSupplierNode<N, Key, T[]> {
@@ -557,14 +641,23 @@ export function nodeArrayDataFactory<
       });
       return found;
     },
+
+    init<N extends Node>(node: N, onFirstAccessAuto?: boolean): void {
+      options?.init?.(node, factory, onFirstAccessAuto);
+    },
   };
+
+  return factory;
 }
 
 /* -------------------------------------------------------------------------- */
 /* Safe factories (Zod-backed, callback-driven error handling)                */
 /* -------------------------------------------------------------------------- */
 
-export interface SafeDataFactoryOptions<T> extends DataFactoryOptions<T> {
+export interface SafeDataFactoryOptions<
+  T,
+  Key extends string = string,
+> extends DataFactoryOptions<T, Key> {
   /**
    * Called when attach() fails safeParse on the new value.
    *
@@ -605,8 +698,10 @@ export interface SafeDataFactoryOptions<T> extends DataFactoryOptions<T> {
   }) => T | null | undefined;
 }
 
-export interface SafeArrayDataFactoryOptions<T>
-  extends ArrayDataFactoryOptions {
+export interface SafeArrayDataFactoryOptions<
+  T,
+  Key extends string = string,
+> extends ArrayDataFactoryOptions<Key, T> {
   /**
    * Called when add() fails safeParse on the incoming items.
    *
@@ -730,11 +825,11 @@ export function safeNodeDataFactory<
 >(
   key: Key,
   schema: z.ZodType<T>,
-  options?: SafeDataFactoryOptions<T>,
+  options?: SafeDataFactoryOptions<T, Key>,
 ): DataFactory<Key, T> {
   const mergeEnabled = options?.merge === true;
 
-  return {
+  const factory: DataFactory<Key, T> = {
     key,
 
     attach<N extends Node>(node: N, value: T) {
@@ -801,7 +896,17 @@ export function safeNodeDataFactory<
       ifNotExists?: (node: N) => T,
     ): T | undefined {
       // Raw, unvalidated access: no Zod, no callbacks.
-      const raw = getData<unknown, N, Key>(node, key);
+      let raw = getData<unknown, N, Key>(node, key);
+
+      if (
+        raw === undefined &&
+        options?.init &&
+        options.initOnFirstAccess
+      ) {
+        factory.init(node, true);
+        raw = getData<unknown, N, Key>(node, key);
+      }
+
       if (raw !== undefined) return raw as T;
 
       if (!ifNotExists) return undefined;
@@ -815,7 +920,16 @@ export function safeNodeDataFactory<
       node: N,
       ifNotExists?: (node: N) => T,
     ): T | undefined {
-      const raw = getData<unknown, N, Key>(node, key);
+      let raw = getData<unknown, N, Key>(node, key);
+
+      if (
+        raw === undefined &&
+        options?.init &&
+        options.initOnFirstAccess
+      ) {
+        factory.init(node, true);
+        raw = getData<unknown, N, Key>(node, key);
+      }
 
       if (raw !== undefined) {
         const parsed = safeParseWithHandler<T>(
@@ -872,7 +986,13 @@ export function safeNodeDataFactory<
     hasAny(root: Root): boolean {
       return hasAnyData(root, key);
     },
+
+    init<N extends Node>(node: N, onFirstAccessAuto?: boolean): void {
+      options?.init?.(node, factory, onFirstAccessAuto);
+    },
   };
+
+  return factory;
 }
 
 /**
@@ -892,12 +1012,12 @@ export function safeNodeArrayDataFactory<
 >(
   key: Key,
   itemSchema: z.ZodType<T>,
-  options?: SafeArrayDataFactoryOptions<T>,
+  options?: SafeArrayDataFactoryOptions<T, Key>,
 ): ArrayDataFactory<Key, T> {
   const merge = options?.merge !== false; // default: true
   const arraySchema = z.array(itemSchema);
 
-  return {
+  const factory: ArrayDataFactory<Key, T> = {
     key,
 
     add<N extends Node>(node: N, ...items: readonly T[]) {
@@ -953,7 +1073,17 @@ export function safeNodeArrayDataFactory<
       node: N,
       ifNotExists?: (node: N) => T[],
     ): T[] {
-      const raw = getData<unknown, N, Key>(node, key);
+      let raw = getData<unknown, N, Key>(node, key);
+
+      if (
+        raw === undefined &&
+        options?.init &&
+        options.initOnFirstAccess
+      ) {
+        factory.init(node, true);
+        raw = getData<unknown, N, Key>(node, key);
+      }
+
       if (raw !== undefined) return raw as T[];
 
       if (!ifNotExists) return [];
@@ -967,7 +1097,17 @@ export function safeNodeArrayDataFactory<
       node: N,
       ifNotExists?: (node: N) => T[],
     ): T[] {
-      const raw = getData<unknown, N, Key>(node, key);
+      let raw = getData<unknown, N, Key>(node, key);
+
+      if (
+        raw === undefined &&
+        options?.init &&
+        options.initOnFirstAccess
+      ) {
+        factory.init(node, true);
+        raw = getData<unknown, N, Key>(node, key);
+      }
+
       if (raw !== undefined) {
         const res = arraySchema.safeParse(raw);
         if (res.success) return res.data;
@@ -1044,7 +1184,13 @@ export function safeNodeArrayDataFactory<
       });
       return found;
     },
+
+    init<N extends Node>(node: N, onFirstAccessAuto?: boolean): void {
+      options?.init?.(node, factory, onFirstAccessAuto);
+    },
   };
+
+  return factory;
 }
 
 export const flexibleTextSchema = z.union([z.string(), z.array(z.string())]);
@@ -1110,7 +1256,11 @@ export interface NodeDataDef<
  *
  * Usage:
  *   const codeFrontmatterDef =
- *     defineNodeData("codeFM" as const)<CodeFrontmatter, Code>({ merge: true });
+ *     defineNodeData("codeFM" as const)<CodeFrontmatter, Code>({
+ *       merge: true,
+ *       initOnFirstAccess: true,
+ *       init(node, factory, auto) { ... },
+ *     });
  *
  *   // Or if you don't care about a specific Node subtype:
  *   const fooDef = defineNodeData("foo" as const)<Foo>();
@@ -1120,7 +1270,7 @@ export function defineNodeData<Key extends string>(key: Key) {
     T,
     N extends Node = Node,
   >(
-    options?: DataFactoryOptions<T>,
+    options?: DataFactoryOptions<T, Key>,
   ): NodeDataDef<Key, T, N> => ({
     key,
     factory: nodeDataFactory<Key, T>(key, options),
@@ -1134,7 +1284,11 @@ export function defineNodeData<Key extends string>(key: Key) {
  *   const safeCodeFrontmatterDef =
  *     defineSafeNodeData("codeFM" as const)<CodeFrontmatter, Code>(
  *       codeFrontmatterSchema,
- *       { merge: true },
+ *       {
+ *         merge: true,
+ *         initOnFirstAccess: true,
+ *         init(node, factory, auto) { ... },
+ *       },
  *     );
  */
 export function defineSafeNodeData<Key extends string>(key: Key) {
@@ -1143,7 +1297,7 @@ export function defineSafeNodeData<Key extends string>(key: Key) {
     N extends Node = Node,
   >(
     schema: z.ZodType<T>,
-    options?: SafeDataFactoryOptions<T>,
+    options?: SafeDataFactoryOptions<T, Key>,
   ): NodeDataDef<Key, T, N> => ({
     key,
     factory: safeNodeDataFactory<Key, T>(key, schema, options),
@@ -1203,14 +1357,18 @@ export interface NodeArrayDataDef<
  *
  * Usage:
  *   const tagsDef =
- *     defineNodeArrayData("tags" as const)<string, Paragraph>({ merge: true });
+ *     defineNodeArrayData("tags" as const)<string, Paragraph>({
+ *       merge: true,
+ *       initOnFirstAccess: true,
+ *       init(node, factory, auto) { ... },
+ *     });
  */
 export function defineNodeArrayData<Key extends string>(key: Key) {
   return <
     T,
     N extends Node = Node,
   >(
-    options?: ArrayDataFactoryOptions,
+    options?: ArrayDataFactoryOptions<Key, T>,
   ): NodeArrayDataDef<Key, T, N> => ({
     key,
     factory: nodeArrayDataFactory<Key, T>(key, options),
@@ -1224,7 +1382,11 @@ export function defineNodeArrayData<Key extends string>(key: Key) {
  *   const safeTagsDef =
  *     defineSafeNodeArrayData("tags" as const)<string, Paragraph>(
  *       z.string(),
- *       { merge: true },
+ *       {
+ *         merge: true,
+ *         initOnFirstAccess: true,
+ *         init(node, factory, auto) { ... },
+ *       },
  *     );
  */
 export function defineSafeNodeArrayData<Key extends string>(key: Key) {
@@ -1233,7 +1395,7 @@ export function defineSafeNodeArrayData<Key extends string>(key: Key) {
     N extends Node = Node,
   >(
     itemSchema: z.ZodType<T>,
-    options?: SafeArrayDataFactoryOptions<T>,
+    options?: SafeArrayDataFactoryOptions<T, Key>,
   ): NodeArrayDataDef<Key, T, N> => ({
     key,
     factory: safeNodeArrayDataFactory<Key, T>(key, itemSchema, options),
