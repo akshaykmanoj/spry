@@ -1,81 +1,50 @@
 // data-bag.ts
 //
 // Generalized, type-safe utilities for attaching arbitrary strongly-typed
-// data structures onto "nodes" that expose an optional `data` bag, with
-// optional Zod validation and a typed event bus.
+// data structures onto objects that carry a `data` bag, with optional Zod
+// validation and typed Web-standard events via eventBus.
 //
 // - Core primitives: ensureData, attachData, getData, isDataSupplier,
 //   collectData, forEachData, hasAnyData
+// - Deep merge helpers: deepMerge, mergeData
 // - Factories (scalar/object):
-//   - nodeDataFactory() / safeNodeDataFactory()
-//   - defineNodeData() / defineSafeNodeData()
+//     nodeDataFactory / safeNodeDataFactory
 // - Factories (array-valued):
-//   - nodeArrayDataFactory() / safeNodeArrayDataFactory()
-//   - defineNodeArrayData() / defineSafeNodeArrayData()
+//     nodeArrayDataFactory / safeNodeArrayDataFactory
+// - Definition helpers (public surface you typically use):
+//     defineNodeData / defineSafeNodeData
+//     defineNodeArrayData / defineSafeNodeArrayData
+// - Convenience:
+//     flexibleTextSchema / mergeFlexibleText
 //
-// Traversal is fully generic via a caller-supplied `visitFn`, so this module
-// has no direct dependency on mdast/unist. In an mdast/unist setting you can
-// pass a thin wrapper around `unist-util-visit`:
+// The API is fully generic and *not* tied to mdast/unist. To use with mdast:
+//   - Define your own `VisitFn<Root>` that walks the tree and calls a callback
+//     for each node whose shape is compatible with `DataBagNode`.
+//   - Pass that VisitFn into `collect` / `forEach` / `hasAny` on factories.
 //
-//   const visitFn: VisitFn<Root> = (root, visitor) => {
-//     visit(root, (node) => visitor(node as unknown as DataBagNode));
-//   };
-//
-// and feed that into factory options.
-//
-// Events:
-// - Scalar factories emit: "assign", "init", "init-auto"
-// - Array factories emit:  "add", "assign", "init", "init-auto"
-// via the shared `eventBus` from ./event-bus.ts.
-//
-import { z } from "@zod/zod";
+// Example VisitFn for a unist-style tree is shown in data-bag_test.ts.
+
+import * as z from "@zod/zod";
 import { eventBus } from "./event-bus.ts";
 
 /* -------------------------------------------------------------------------- */
-/* Core node & traversal types                                                */
+/* Core structural types                                                      */
 /* -------------------------------------------------------------------------- */
 
 /**
- * Minimal "node" shape that can carry a data bag.
+ * Minimal node shape: anything with an optional `data` bag.
  *
- * This is intentionally loose, so it can be used with mdast, unist, or any
- * other AST-like structure that has a `data` slot.
+ * You can intersect this with your own AST node types as needed.
  */
-export interface DataBagNode {
+export type DataBagNode = {
   data?: Record<string, unknown>;
+  // Allow arbitrary additional properties
   // deno-lint-ignore no-explicit-any
   [key: string]: any;
-}
+};
 
 /**
- * Generic traversal function:
- *   - `Root` is whatever your tree root type is.
- *   - `visitor` receives each node as a `DataBagNode`.
- */
-export type VisitFn<Root = unknown> = (
-  root: Root,
-  visitor: (node: DataBagNode) => void,
-) => void;
-
-/* -------------------------------------------------------------------------- */
-/* Core primitives                                                            */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Ensure `node.data` exists and return it as a mutable bag.
- */
-export function ensureData<N extends DataBagNode>(
-  node: N,
-): Record<string, unknown> {
-  const n = node as DataBagNode;
-  if (!n.data) n.data = {};
-  return n.data;
-}
-
-/**
- * A node that supplies some named data bag, like:
- *
- *   node.data[key] = T
+ * Node type with a strongly-typed data entry `data[Key] = T`.
  */
 export type DataSupplierNode<
   N extends DataBagNode = DataBagNode,
@@ -86,6 +55,31 @@ export type DataSupplierNode<
     readonly [K in Key]: T;
   };
 };
+
+/**
+ * Generic "visit" function: walks a root structure and calls `fn` for each
+ * node that is compatible with DataBagNode.
+ *
+ * You provide this (see tests for a unist-style example).
+ */
+export type VisitFn<Root = unknown> = (
+  root: Root,
+  fn: (node: DataBagNode) => void,
+) => void;
+
+/* -------------------------------------------------------------------------- */
+/* Core primitives                                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Ensure `node.data` exists and return it as mutable Record.
+ */
+export function ensureData<N extends DataBagNode>(
+  node: N,
+): Record<string, unknown> {
+  if (!node.data) node.data = {};
+  return node.data;
+}
 
 /**
  * Attach strongly typed data under a given key.
@@ -104,7 +98,7 @@ export function attachData<
 ): DataSupplierNode<N, Key, T> {
   const data = ensureData(node);
   (data as Record<string, unknown>)[key] = value;
-  return node as DataSupplierNode<N, Key, T>;
+  return node as unknown as DataSupplierNode<N, Key, T>;
 }
 
 /**
@@ -112,10 +106,6 @@ export function attachData<
  *
  * If a Zod schema is supplied, the value is validated before returning.
  * Throws if validation fails.
- *
- * NOTE: This is the low-level primitive and *can* throw; safe factories
- * wrap validation with safeParse and user-provided callbacks instead of
- * throwing.
  */
 export function getData<
   T,
@@ -126,7 +116,7 @@ export function getData<
   key: Key,
   schema?: z.ZodType<T>,
 ): T | undefined {
-  const data = (node as DataBagNode).data;
+  const data = node.data;
   if (!data) return undefined;
 
   const value = (data as Record<string, unknown>)[key] as T | undefined;
@@ -153,7 +143,7 @@ export function isDataSupplier<
   node: N,
   key: Key,
 ): node is DataSupplierNode<N, Key, T> {
-  const data = (node as DataBagNode).data;
+  const data = node.data;
   return !!data && key in data;
 }
 
@@ -169,11 +159,12 @@ export function collectData<
 >(
   root: Root,
   key: Key,
-  visitFn: VisitFn<Root>,
+  visitFn?: VisitFn<Root>,
 ): readonly T[] {
+  if (!visitFn) return [];
   const out: T[] = [];
   visitFn(root, (node) => {
-    if (isDataSupplier<T, DataBagNode, Key>(node, key)) {
+    if (isDataSupplier<T>(node, key)) {
       out.push((node.data as Record<Key, T>)[key]);
     }
   });
@@ -190,11 +181,12 @@ export function forEachData<
 >(
   root: Root,
   key: Key,
-  visitFn: VisitFn<Root>,
   fn: (value: T, owner: DataSupplierNode<DataBagNode, Key, T>) => void,
+  visitFn?: VisitFn<Root>,
 ): void {
+  if (!visitFn) return;
   visitFn(root, (node) => {
-    if (isDataSupplier<T, DataBagNode, Key>(node, key)) {
+    if (isDataSupplier<T>(node, key)) {
       fn(
         (node.data as Record<Key, T>)[key],
         node as DataSupplierNode<DataBagNode, Key, T>,
@@ -212,8 +204,9 @@ export function hasAnyData<
 >(
   root: Root,
   key: Key,
-  visitFn: VisitFn<Root>,
+  visitFn?: VisitFn<Root>,
 ): boolean {
+  if (!visitFn) return false;
   let found = false;
   visitFn(root, (node) => {
     if (found) return;
@@ -284,135 +277,113 @@ export function mergeData<
 
   const next = existing ? deepMerge(existing, patch) : (patch as T);
   (data as Record<string, unknown>)[key] = next;
-  return node as DataSupplierNode<N, Key, T>;
+  return node as unknown as DataSupplierNode<N, Key, T>;
 }
 
 /* -------------------------------------------------------------------------- */
-/* Event maps for factories                                                   */
+/* Event types for factories                                                  */
 /* -------------------------------------------------------------------------- */
 
-export type DataBagScalarEvents<
-  Key extends string,
-  V,
-> = {
-  /**
-   * A value for this key was assigned (including merge cases).
-   */
-  assign: {
-    readonly key: Key;
-    readonly node: DataBagNode;
-    readonly previous: V | undefined;
-    readonly next: V;
-  };
-
-  /**
-   * Explicit initialization via factory.init(node, …).
-   */
-  init: {
+// After
+export interface ScalarDataBagEvents<Key extends string, V>
+  extends Record<string, unknown | void> {
+  "assign": {
     readonly key: Key;
     readonly node: DataBagNode;
     readonly previous: V | undefined;
     readonly next: V | undefined;
   };
-
-  /**
-   * Implicit initialization via initOnFirstAccess.
-   */
+  "init": {
+    readonly key: Key;
+    readonly node: DataBagNode;
+    readonly previous: V | undefined;
+    readonly next: V | undefined;
+  };
   "init-auto": {
     readonly key: Key;
     readonly node: DataBagNode;
     readonly previous: V | undefined;
     readonly next: V | undefined;
   };
-};
+}
 
-export type DataBagArrayEvents<
-  Key extends string,
-  V,
-> = {
-  /**
-   * One or more items were added/replaced.
-   */
-  add: {
+// Before
+// export interface ArrayDataBagEvents<Key extends string, T> {
+//   "assign": { ... };
+//   "init": { ... };
+//   "init-auto": { ... };
+//   "add": { ... };
+// }
+
+// After
+export interface ArrayDataBagEvents<Key extends string, T>
+  extends Record<string, unknown | void> {
+  "assign": {
     readonly key: Key;
     readonly node: DataBagNode;
-    readonly previous: readonly V[] | undefined;
-    readonly added: readonly V[];
-    readonly next: readonly V[];
+    readonly previous: readonly T[] | undefined;
+    readonly next: readonly T[] | undefined;
   };
-
-  /**
-   * Full array assignment (e.g., from get(ifNotExists)).
-   */
-  assign: {
+  "init": {
     readonly key: Key;
     readonly node: DataBagNode;
-    readonly previous: readonly V[] | undefined;
-    readonly next: readonly V[];
+    readonly previous: readonly T[] | undefined;
+    readonly next: readonly T[] | undefined;
   };
-
-  init: {
-    readonly key: Key;
-    readonly node: DataBagNode;
-    readonly previous: readonly V[] | undefined;
-    readonly next: readonly V[] | undefined;
-  };
-
   "init-auto": {
     readonly key: Key;
     readonly node: DataBagNode;
-    readonly previous: readonly V[] | undefined;
-    readonly next: readonly V[] | undefined;
+    readonly previous: readonly T[] | undefined;
+    readonly next: readonly T[] | undefined;
   };
-};
-
-export type DataBagScalarEventBus<Key extends string, V> = ReturnType<
-  typeof eventBus<DataBagScalarEvents<Key, V>>
->;
-
-export type DataBagArrayEventBus<Key extends string, V> = ReturnType<
-  typeof eventBus<DataBagArrayEvents<Key, V>>
->;
+  "add": {
+    readonly key: Key;
+    readonly node: DataBagNode;
+    readonly previous: readonly T[] | undefined;
+    readonly added: readonly T[];
+    readonly next: readonly T[];
+  };
+}
 
 /* -------------------------------------------------------------------------- */
 /* Scalar/object Data factories (unsafe, no Zod)                              */
 /* -------------------------------------------------------------------------- */
 
-export interface DataFactoryOptions<
-  Key extends string,
-  T,
-> {
+export interface DataFactoryOptions<T> {
   /**
    * If true, attach() will deep-merge new values with existing values when both
    * are plain objects. For non-plain objects, attach() falls back to overwrite.
    */
-  readonly merge?: boolean;
+  merge?: boolean;
 
   /**
-   * Generic tree traversal function. If omitted, collect/forEach/hasAny will
-   * effectively become no-ops.
+   * Optional lazy initializer. Called to prepare the data bag for a node.
+   * The same callback is used for manual `factory.init(node)` and automatic
+   * first-access initialization.
    */
-  readonly visitFn?: VisitFn<unknown>;
-
-  /**
-   * Init callback invoked by factory.init(...) and (optionally) automatically
-   * on first access if initOnFirstAccess is true.
-   *
-   * - `onFirstAccessAuto === false` when called via factory.init(node)
-   * - `onFirstAccessAuto === true`  when invoked automatically on first access
-   */
-  readonly init?: (
+  init?: (
     node: DataBagNode,
-    factory: DataFactory<Key, T>,
-    onFirstAccessAuto: boolean,
+    ctx: {
+      factory: DataFactory<string, unknown>;
+      onFirstAccessAuto?: boolean;
+    },
   ) => void;
 
   /**
-   * If true and `init` is defined, the factory will automatically call
-   * init(node, factory, true) the first time a node is accessed (get/safeGet/
-   * attach/add) and has no data for this key yet.
+   * If true, the init callback is invoked automatically the first time the
+   * factory is accessed for a given node (via get/safeGet or is(..., "auto-init")).
    */
-  readonly initOnFirstAccess?: boolean;
+  initOnFirstAccess?: boolean;
+
+  /**
+   * If true and both `init` and `initOnFirstAccess` are set, calling
+   * `factory.is(node)` (no mode argument) is allowed to auto-init the node
+   * before checking for data. Default: false.
+   *
+   * `factory.is(node, "auto-init")` will *always* allow auto-init regardless
+   * of this flag.
+   */
+  autoInitOnIs?: boolean;
 }
 
 export interface DataFactory<
@@ -422,19 +393,19 @@ export interface DataFactory<
   readonly key: Key;
 
   /**
-   * Typed event bus for this key/value pair.
+   * Typed event bus for this factory.
    *
    * Events:
-   * - "assign"    → { key, node, previous, next }
-   * - "init"      → { key, node, previous, next }
-   * - "init-auto" → { key, node, previous, next }
+   * - "assign": fired on attach/merge, with previous/next values
+   * - "init": fired after an explicit `factory.init(node, { onFirstAccessAuto: false })`
+   * - "init-auto": fired after an implicit first-access or is(..., "auto-init") init
    */
-  readonly events: DataBagScalarEventBus<Key, T>;
+  readonly events: ReturnType<typeof eventBus<ScalarDataBagEvents<Key, T>>>;
 
   /**
    * Attach a value (overwriting or merging based on options).
    */
-  attach<N extends DataBagNode>(node: N, value: T): N;
+  attach<N extends DataBagNode>(node: N, value: T): DataSupplierNode<N, Key, T>;
 
   /**
    * Raw access: returns whatever is stored under the key (no validation).
@@ -457,34 +428,56 @@ export interface DataFactory<
   ): T | undefined;
 
   /**
-   * Explicit initializer. Usually called internally when `initOnFirstAccess`
-   * is enabled, but can be invoked manually as well.
+   * Type guard for nodes that currently have the key set.
+   *
+   * - `is(node)` is pure unless `autoInitOnIs: true` (and init/initOnFirstAccess set),
+   *   in which case it may perform auto-init once.
+   * - `is(node, "auto-init")` is allowed to auto-init (if configured) and then
+   *   returns a type guard if data is attached.
    */
-  init<N extends DataBagNode>(
+  is<N extends DataBagNode>(
     node: N,
-    opts?: { onFirstAccessAuto?: boolean },
-  ): void;
+  ): node is DataSupplierNode<N, Key, T>;
+  is<N extends DataBagNode>(
+    node: N,
+    mode: "auto-init",
+  ): node is DataSupplierNode<N, Key, T>;
 
   /**
-   * Type guard for nodes that have the key set.
+   * Non-guard, side-effect free hint:
+   * True if data is currently present *or* could appear via lazy init.
    */
-  is<N extends DataBagNode>(node: N): node is N & { data: { [K in Key]: T } };
+  isPossibly<N extends DataBagNode>(node: N): boolean;
 
-  collect<Root>(root: Root): readonly T[];
+  /**
+   * Collect all values from a visited root.
+   */
+  collect<Root>(root: Root, visitFn?: VisitFn<Root>): readonly T[];
 
   /**
    * Like collect(), but returns the owning nodes instead of the values.
    */
   collectNodes<Root, N extends DataBagNode = DataBagNode>(
     root: Root,
-  ): readonly N[];
+    visitFn?: VisitFn<Root>,
+  ): readonly DataSupplierNode<N, Key, T>[];
 
   forEach<Root>(
     root: Root,
-    fn: (value: T, owner: DataBagNode) => void,
+    fn: (value: T, owner: DataSupplierNode<DataBagNode, Key, T>) => void,
+    visitFn?: VisitFn<Root>,
   ): void;
 
-  hasAny<Root>(root: Root): boolean;
+  hasAny<Root>(root: Root, visitFn?: VisitFn<Root>): boolean;
+
+  /**
+   * Explicit initializer. Calls the user-provided `options.init`, if present,
+   * and emits an "init" or "init-auto" event (depending on ctx.onFirstAccessAuto).
+   */
+  init<N extends DataBagNode>(
+    node: N,
+    ctx?: { onFirstAccessAuto?: boolean },
+  ): void;
 }
 
 /**
@@ -495,480 +488,128 @@ export function nodeDataFactory<
   T,
 >(
   key: Key,
-  options?: DataFactoryOptions<Key, T>,
+  options?: DataFactoryOptions<T>,
 ): DataFactory<Key, T> {
   const mergeEnabled = options?.merge === true;
-  const defaultVisitFn = options?.visitFn;
+  const events = eventBus<ScalarDataBagEvents<Key, T>>();
 
-  const events = eventBus<DataBagScalarEvents<Key, T>>();
-
-  // deno-lint-ignore prefer-const
-  let factory!: DataFactory<Key, T>;
-
-  const emitInit = (
-    node: DataBagNode,
-    previous: T | undefined,
-    next: T | undefined,
-    auto: boolean,
-  ) => {
-    events.emit(auto ? "init-auto" : "init", {
-      key,
-      node,
-      previous,
-      next,
-    });
-  };
-
-  const emitAssign = (
-    node: DataBagNode,
-    previous: T | undefined,
-    next: T,
-  ) => {
-    events.emit("assign", { key, node, previous, next });
-  };
-
-  const runInit = (node: DataBagNode, auto: boolean) => {
-    if (!options?.init) return;
-
-    const data = ensureData(node);
-    const previous = data[key] as T | undefined;
-
-    options.init(node, factory, auto);
-
-    const after = ensureData(node)[key] as T | undefined;
-    if (previous !== after) {
-      emitInit(node, previous, after, auto);
-    }
-  };
-
-  const maybeAutoInit = (node: DataBagNode) => {
-    if (!options?.initOnFirstAccess || !options.init) return;
-    const data = ensureData(node);
-    if (data[key] !== undefined) return;
-    runInit(node, true);
-  };
-
-  const attach = <N extends DataBagNode>(node: N, value: T): N => {
-    maybeAutoInit(node);
-
-    const data = ensureData(node);
-    const previous = data[key] as T | undefined;
-
-    let next: T;
-    if (
-      mergeEnabled &&
-      previous !== undefined &&
-      isPlainObject(previous) &&
-      isPlainObject(value)
-    ) {
-      next = deepMerge(previous, value as Partial<T>);
-    } else {
-      next = value;
-    }
-
-    (data as Record<string, unknown>)[key] = next;
-    emitAssign(node, previous, next);
-    return node;
-  };
-
-  const get = <N extends DataBagNode>(
-    node: N,
-    ifNotExists?: (node: N) => T | null | undefined,
-  ): T | undefined => {
-    maybeAutoInit(node);
-
-    const data = (node as DataBagNode).data;
-    const existing = data ? (data[key] as T | undefined) : undefined;
-    if (existing !== undefined) return existing;
-
-    if (!ifNotExists) return undefined;
-    const created = ifNotExists(node);
-    if (created === null || created === undefined) return undefined;
-
-    const d = ensureData(node);
-    const previous = d[key] as T | undefined;
-    (d as Record<string, unknown>)[key] = created;
-    emitAssign(node, previous, created);
-    return created;
-  };
-
-  const safeGet = <N extends DataBagNode>(
-    node: N,
-    ifNotExists?: (node: N) => T | null | undefined,
-  ): T | undefined => {
-    // Unsafe factory: safeGet == get
-    return get(node, ifNotExists);
-  };
-
-  const is = <N extends DataBagNode>(
-    node: N,
-  ): node is N & { data: { [K in Key]: T } } => {
-    const data = (node as DataBagNode).data;
-    return !!data && key in data;
-  };
-
-  const collect = <Root>(root: Root): readonly T[] => {
-    if (!defaultVisitFn) return [];
-    const visit = defaultVisitFn as VisitFn<Root>;
-    return collectData<T, Key, Root>(root, key, visit);
-  };
-
-  const collectNodes = <Root, N extends DataBagNode = DataBagNode>(
-    root: Root,
-  ): readonly N[] => {
-    const out: N[] = [];
-    if (!defaultVisitFn) return out;
-    const visit = defaultVisitFn as VisitFn<Root>;
-    visit(root, (node) => {
-      if (is(node)) out.push(node as unknown as N);
-    });
-    return out;
-  };
-
-  const forEach = <Root>(
-    root: Root,
-    fn: (value: T, owner: DataBagNode) => void,
-  ): void => {
-    if (!defaultVisitFn) return;
-    const visit = defaultVisitFn as VisitFn<Root>;
-    forEachData<T, Key, Root>(
-      root,
-      key,
-      visit,
-      (value, owner) => fn(value, owner),
-    );
-  };
-
-  const hasAny = <Root>(root: Root): boolean => {
-    if (!defaultVisitFn) return false;
-    const visit = defaultVisitFn as VisitFn<Root>;
-    return hasAnyData<Key, Root>(root, key, visit);
-  };
-
-  factory = {
+  const factory: DataFactory<Key, T> = {
     key,
     events,
-    attach,
-    get,
-    safeGet,
-    init<N extends DataBagNode>(
-      node: N,
-      opts?: { onFirstAccessAuto?: boolean },
-    ) {
-      runInit(node, !!opts?.onFirstAccessAuto);
-    },
-    is,
-    collect,
-    collectNodes,
-    forEach,
-    hasAny,
-  };
 
-  return factory;
-}
-
-/* -------------------------------------------------------------------------- */
-/* Array-valued factories (unsafe, no Zod)                                    */
-/* -------------------------------------------------------------------------- */
-
-export interface ArrayDataFactoryOptions<
-  Key extends string,
-  T,
-> {
-  /**
-   * If true (default), add() appends to any existing array.
-   * If false, add() replaces the array with the new items.
-   */
-  readonly merge?: boolean;
-
-  readonly visitFn?: VisitFn<unknown>;
-
-  readonly init?: (
-    node: DataBagNode,
-    factory: ArrayDataFactory<Key, T>,
-    onFirstAccessAuto: boolean,
-  ) => void;
-
-  readonly initOnFirstAccess?: boolean;
-}
-
-export interface ArrayDataFactory<
-  Key extends string,
-  T,
-> {
-  readonly key: Key;
-
-  /**
-   * Typed event bus for array-valued data:
-   *
-   * - "add"       → { key, node, previous, added, next }
-   * - "assign"    → { key, node, previous, next }
-   * - "init"      → { key, node, previous, next }
-   * - "init-auto" → { key, node, previous, next }
-   */
-  readonly events: DataBagArrayEventBus<Key, T>;
-
-  // Append or replace items in the per-node array (depending on merge option)
-  add<N extends DataBagNode>(
-    node: N,
-    ...items: readonly T[]
-  ): N;
-
-  /**
-   * Raw access: always returns an array (empty if none stored yet).
-   *
-   * If `ifNotExists` is provided and no array is stored yet, it will be called
-   * to create an initial array, which is then attached and returned.
-   */
-  get<N extends DataBagNode>(
-    node: N,
-    ifNotExists?: (node: N) => T[],
-  ): T[];
-
-  /**
-   * For "unsafe" factories (no schema), safeGet is equivalent to get().
-   */
-  safeGet<N extends DataBagNode>(
-    node: N,
-    ifNotExists?: (node: N) => T[],
-  ): T[];
-
-  // Type guard for nodes that have an array at this key
-  is<N extends DataBagNode>(
-    node: N,
-  ): node is N & { data: { [K in Key]: T[] } };
-
-  // Flatten all arrays from all nodes into a single array
-  collect<Root>(root: Root): readonly T[];
-
-  /**
-   * Like collect(), but returns the owning nodes (one per node) instead
-   * of individual items. Nodes with empty or non-array buckets are skipped.
-   */
-  collectNodes<Root, N extends DataBagNode = DataBagNode>(
-    root: Root,
-  ): readonly N[];
-
-  // Visit each individual item together with its owning node
-  forEach<Root>(
-    root: Root,
-    fn: (item: T, owner: DataBagNode) => void,
-  ): void;
-
-  // True if any node has a non-empty array for this key
-  hasAny<Root>(root: Root): boolean;
-
-  /**
-   * Explicit initializer (array-valued).
-   */
-  init<N extends DataBagNode>(
-    node: N,
-    opts?: { onFirstAccessAuto?: boolean },
-  ): void;
-}
-
-/**
- * Create an array-valued data factory bound to a specific key (no validation).
- */
-export function nodeArrayDataFactory<
-  Key extends string,
-  T,
->(
-  key: Key,
-  options?: ArrayDataFactoryOptions<Key, T>,
-): ArrayDataFactory<Key, T> {
-  const merge = options?.merge !== false; // default: true
-  const defaultVisitFn = options?.visitFn;
-
-  const events = eventBus<DataBagArrayEvents<Key, T>>();
-
-  // deno-lint-ignore prefer-const
-  let factory!: ArrayDataFactory<Key, T>;
-
-  const emitInit = (
-    node: DataBagNode,
-    previous: readonly T[] | undefined,
-    next: readonly T[] | undefined,
-    auto: boolean,
-  ) => {
-    events.emit(auto ? "init-auto" : "init", {
-      key,
-      node,
-      previous,
-      next,
-    });
-  };
-
-  const emitAssign = (
-    node: DataBagNode,
-    previous: readonly T[] | undefined,
-    next: readonly T[],
-  ) => {
-    events.emit("assign", { key, node, previous, next });
-  };
-
-  const emitAdd = (
-    node: DataBagNode,
-    previous: readonly T[] | undefined,
-    added: readonly T[],
-    next: readonly T[],
-  ) => {
-    events.emit("add", { key, node, previous, added, next });
-  };
-
-  const runInit = (node: DataBagNode, auto: boolean) => {
-    if (!options?.init) return;
-    const data = ensureData(node);
-    const previous = data[key] as T[] | undefined;
-
-    options.init(node, factory, auto);
-
-    const after = ensureData(node)[key] as T[] | undefined;
-    if (previous !== after) {
-      emitInit(node, previous, after, auto);
-    }
-  };
-
-  const maybeAutoInit = (node: DataBagNode) => {
-    if (!options?.initOnFirstAccess || !options.init) return;
-    const data = ensureData(node);
-    if (data[key] !== undefined) return;
-    runInit(node, true);
-  };
-
-  const add = <N extends DataBagNode>(
-    node: N,
-    ...items: readonly T[]
-  ): N => {
-    maybeAutoInit(node);
-
-    const data = ensureData(node);
-    const previous = (data[key] as T[] | undefined) ?? [];
-
-    const base = merge ? previous : [];
-    const next = base.concat(items);
-    (data as Record<string, unknown>)[key] = next;
-
-    emitAdd(
-      node,
-      previous.length ? previous : undefined,
-      items,
-      next,
-    );
-    return node;
-  };
-
-  const get = <N extends DataBagNode>(
-    node: N,
-    ifNotExists?: (node: N) => T[],
-  ): T[] => {
-    maybeAutoInit(node);
-
-    const data = (node as DataBagNode).data;
-    const existing = data ? (data[key] as T[] | undefined) : undefined;
-    if (existing !== undefined) return existing;
-
-    if (!ifNotExists) return [];
-    const created = ifNotExists(node);
-    if (!created) return [];
-
-    const d = ensureData(node);
-    const previous = d[key] as T[] | undefined;
-    (d as Record<string, unknown>)[key] = created;
-    emitAssign(node, previous, created);
-    return created;
-  };
-
-  const safeGet = <N extends DataBagNode>(
-    node: N,
-    ifNotExists?: (node: N) => T[],
-  ): T[] => {
-    // Unsafe factory: safeGet == get
-    return get(node, ifNotExists);
-  };
-
-  const is = <N extends DataBagNode>(
-    node: N,
-  ): node is N & { data: { [K in Key]: T[] } } => {
-    const data = (node as DataBagNode).data;
-    return !!data && key in data && Array.isArray(data[key]);
-  };
-
-  const collect = <Root>(root: Root): readonly T[] => {
-    if (!defaultVisitFn) return [];
-    const visit = defaultVisitFn as VisitFn<Root>;
-    const buckets = collectData<T[], Key, Root>(root, key, visit);
-    const out: T[] = [];
-    for (const bucket of buckets) {
-      if (Array.isArray(bucket)) out.push(...bucket);
-    }
-    return out;
-  };
-
-  const collectNodes = <Root, N extends DataBagNode = DataBagNode>(
-    root: Root,
-  ): readonly N[] => {
-    const out: N[] = [];
-    if (!defaultVisitFn) return out;
-    const visit = defaultVisitFn as VisitFn<Root>;
-    visit(root, (node) => {
-      if (!is(node)) return;
-      const arr = (node.data as Record<Key, unknown>)[key];
-      if (Array.isArray(arr) && arr.length > 0) {
-        out.push(node as unknown as N);
-      }
-    });
-    return out;
-  };
-
-  const forEach = <Root>(
-    root: Root,
-    fn: (item: T, owner: DataBagNode) => void,
-  ): void => {
-    if (!defaultVisitFn) return;
-    const visit = defaultVisitFn as VisitFn<Root>;
-    forEachData<T[], Key, Root>(
-      root,
-      key,
-      visit,
-      (bucket, owner) => {
-        if (!Array.isArray(bucket)) return;
-        for (const item of bucket) {
-          fn(item, owner);
+    attach<N extends DataBagNode>(node: N, value: T) {
+      const previous = getData<T, N, Key>(node, key);
+      const next: T = (() => {
+        if (!mergeEnabled) return value;
+        if (
+          previous !== undefined &&
+          isPlainObject(previous) &&
+          isPlainObject(value)
+        ) {
+          return deepMerge(previous, value as Partial<T>);
         }
-      },
-    );
-  };
+        return value;
+      })();
 
-  const hasAny = <Root>(root: Root): boolean => {
-    if (!defaultVisitFn) return false;
-    const visit = defaultVisitFn as VisitFn<Root>;
-    let found = false;
-    visit(root, (node) => {
-      if (found) return;
-      if (!is(node)) return;
-      const arr = (node.data as Record<Key, unknown>)[key];
-      if (Array.isArray(arr) && arr.length > 0) found = true;
-    });
-    return found;
-  };
+      const result = attachData<N, Key, T>(node, key, next);
+      events.emit("assign", { key, node, previous, next });
+      return result;
+    },
 
-  factory = {
-    key,
-    events,
-    add,
-    get,
-    safeGet,
-    is,
-    collect,
-    collectNodes,
-    forEach,
-    hasAny,
+    get<N extends DataBagNode>(
+      node: N,
+      ifNotExists?: (node: N) => T | null | undefined,
+    ): T | undefined {
+      const existing = getData<T, N, Key>(node, key);
+      if (existing !== undefined) return existing;
+
+      if (!ifNotExists) return undefined;
+      const created = ifNotExists(node);
+      if (created === null || created === undefined) return undefined;
+      return factory.attach(node, created).data[key];
+    },
+
+    safeGet<N extends DataBagNode>(
+      node: N,
+      ifNotExists?: (node: N) => T | null | undefined,
+    ): T | undefined {
+      // Unsafe factory: safeGet == get
+      return this.get(node, ifNotExists);
+    },
+
+    is<N extends DataBagNode>(
+      node: N,
+      mode?: "auto-init",
+    ): node is DataSupplierNode<N, Key, T> {
+      if (isDataSupplier<T, N, Key>(node, key)) return true;
+
+      const shouldAutoInit =
+        (mode === "auto-init" || options?.autoInitOnIs === true) &&
+        options?.init &&
+        options?.initOnFirstAccess;
+
+      if (shouldAutoInit && options?.init) {
+        factory.init(node, { onFirstAccessAuto: true });
+        return isDataSupplier<T, N, Key>(node, key);
+      }
+
+      return false;
+    },
+
+    isPossibly<N extends DataBagNode>(node: N): boolean {
+      if (isDataSupplier<T, N, Key>(node, key)) return true;
+      return !!(options?.init && options?.initOnFirstAccess);
+    },
+
+    collect<Root>(root: Root, visitFn?: VisitFn<Root>): readonly T[] {
+      return collectData<T, Key, Root>(root, key, visitFn);
+    },
+
+    collectNodes<Root, N extends DataBagNode = DataBagNode>(
+      root: Root,
+      visitFn?: VisitFn<Root>,
+    ): readonly DataSupplierNode<N, Key, T>[] {
+      const out: DataSupplierNode<DataBagNode, Key, T>[] = [];
+      forEachData<T, Key, Root>(
+        root,
+        key,
+        (_value, owner) => {
+          out.push(owner as DataSupplierNode<DataBagNode, Key, T>);
+        },
+        visitFn,
+      );
+      return out as DataSupplierNode<N, Key, T>[];
+    },
+
+    forEach<Root>(
+      root: Root,
+      fn: (value: T, owner: DataSupplierNode<DataBagNode, Key, T>) => void,
+      visitFn?: VisitFn<Root>,
+    ): void {
+      forEachData<T, Key, Root>(root, key, fn, visitFn);
+    },
+
+    hasAny<Root>(root: Root, visitFn?: VisitFn<Root>): boolean {
+      return hasAnyData<Key, Root>(root, key, visitFn);
+    },
+
     init<N extends DataBagNode>(
       node: N,
-      opts?: { onFirstAccessAuto?: boolean },
-    ) {
-      runInit(node, !!opts?.onFirstAccessAuto);
+      ctx?: { onFirstAccessAuto?: boolean },
+    ): void {
+      if (!options?.init) return;
+      const previous = getData<T, N, Key>(node, key);
+      options.init(node, {
+        factory: factory as unknown as DataFactory<string, unknown>,
+        onFirstAccessAuto: ctx?.onFirstAccessAuto,
+      });
+      const next = getData<T, N, Key>(node, key);
+      events.emit(ctx?.onFirstAccessAuto ? "init-auto" : "init", {
+        key,
+        node,
+        previous,
+        next,
+      });
     },
   };
 
@@ -979,10 +620,7 @@ export function nodeArrayDataFactory<
 /* Safe factories (Zod-backed, callback-driven error handling)                */
 /* -------------------------------------------------------------------------- */
 
-export interface SafeDataFactoryOptions<
-  Key extends string,
-  T,
-> extends DataFactoryOptions<Key, T> {
+export interface SafeDataFactoryOptions<T> extends DataFactoryOptions<T> {
   /**
    * Called when attach() fails safeParse on the new value.
    *
@@ -990,7 +628,7 @@ export interface SafeDataFactoryOptions<
    * - T: replacement value which will then be attached (and validated again).
    * - null | undefined: do nothing (value is not stored).
    */
-  readonly onAttachSafeParseError?: (ctx: {
+  onAttachSafeParseError?: (ctx: {
     node: DataBagNode;
     attemptedValue: unknown;
     error: z.ZodError<T>;
@@ -1003,7 +641,7 @@ export interface SafeDataFactoryOptions<
    * - T: replacement value which is used as the "existing" side for merge.
    * - null | undefined: treat as if there was no existing value.
    */
-  readonly onExistingSafeParseError?: (ctx: {
+  onExistingSafeParseError?: (ctx: {
     node: DataBagNode;
     existingValue: unknown;
     error: z.ZodError<T>;
@@ -1016,55 +654,11 @@ export interface SafeDataFactoryOptions<
    * - T: replacement value which safeGet() will return.
    * - null | undefined: safeGet() returns undefined.
    */
-  readonly onSafeGetSafeParseError?: (ctx: {
+  onSafeGetSafeParseError?: (ctx: {
     node: DataBagNode;
     storedValue: unknown;
     error: z.ZodError<T>;
   }) => T | null | undefined;
-}
-
-export interface SafeArrayDataFactoryOptions<
-  Key extends string,
-  T,
-> extends ArrayDataFactoryOptions<Key, T> {
-  /**
-   * Called when add() fails safeParse on the incoming items.
-   *
-   * Return:
-   * - T[]: replacement array of items to use instead.
-   * - null | undefined: do nothing (no items stored).
-   */
-  readonly onAddSafeParseError?: (ctx: {
-    node: DataBagNode;
-    attemptedItems: readonly unknown[];
-    error: z.ZodError<T[]>;
-  }) => T[] | null | undefined;
-
-  /**
-   * Called when add() with merge=true fails safeParse on an existing array.
-   *
-   * Return:
-   * - T[]: replacement array used as the "existing" side for merge.
-   * - null | undefined: treat as if there was no existing array.
-   */
-  readonly onExistingSafeParseError?: (ctx: {
-    node: DataBagNode;
-    existingValue: unknown;
-    error: z.ZodError<T[]>;
-  }) => T[] | null | undefined;
-
-  /**
-   * Called when safeGet() fails safeParse on the stored array.
-   *
-   * Return:
-   * - T[]: replacement array which safeGet() will return.
-   * - null | undefined: safeGet() returns [].
-   */
-  readonly onSafeGetSafeParseError?: (ctx: {
-    node: DataBagNode;
-    storedValue: unknown;
-    error: z.ZodError<T[]>;
-  }) => T[] | null | undefined;
 }
 
 /**
@@ -1084,7 +678,10 @@ function safeParseWithHandler<T>(
       error: z.ZodError<T>;
     }) => T | null | undefined)
     | undefined,
-  kind: "attach" | "existing" | "safeGet",
+  kind:
+    | "attach"
+    | "existing"
+    | "safeGet",
 ): T | undefined {
   const res = schema.safeParse(value);
   if (res.success) return res.data as T;
@@ -1147,266 +744,532 @@ export function safeNodeDataFactory<
 >(
   key: Key,
   schema: z.ZodType<T>,
-  options?: SafeDataFactoryOptions<Key, T>,
+  options?: SafeDataFactoryOptions<T>,
 ): DataFactory<Key, T> {
   const mergeEnabled = options?.merge === true;
-  const defaultVisitFn = options?.visitFn;
+  const events = eventBus<ScalarDataBagEvents<Key, T>>();
 
-  const events = eventBus<DataBagScalarEvents<Key, T>>();
-
-  // deno-lint-ignore prefer-const
-  let factory!: DataFactory<Key, T>;
-
-  const emitInit = (
-    node: DataBagNode,
-    previous: T | undefined,
-    next: T | undefined,
-    auto: boolean,
-  ) => {
-    events.emit(auto ? "init-auto" : "init", {
-      key,
-      node,
-      previous,
-      next,
-    });
-  };
-
-  const emitAssign = (
-    node: DataBagNode,
-    previous: T | undefined,
-    next: T,
-  ) => {
-    events.emit("assign", { key, node, previous, next });
-  };
-
-  const runInit = (node: DataBagNode, auto: boolean) => {
-    if (!options?.init) return;
-
-    const data = ensureData(node);
-    const previousRaw = data[key];
-    const previous = previousRaw === undefined
-      ? undefined
-      : safeParseWithHandler(
-        node,
-        previousRaw,
-        schema,
-        options.onExistingSafeParseError
-          ? (ctx) =>
-            options.onExistingSafeParseError?.({
-              node: ctx.node,
-              existingValue: ctx.existingValue,
-              error: ctx.error,
-            })
-          : undefined,
-        "existing",
-      );
-
-    options.init(node, factory, auto);
-
-    const afterRaw = ensureData(node)[key];
-    const after = afterRaw === undefined ? undefined : safeParseWithHandler(
-      node,
-      afterRaw,
-      schema,
-      options.onExistingSafeParseError
-        ? (ctx) =>
-          options.onExistingSafeParseError?.({
-            node: ctx.node,
-            existingValue: ctx.existingValue,
-            error: ctx.error,
-          })
-        : undefined,
-      "existing",
-    );
-
-    if (previous !== after) {
-      emitInit(node, previous, after, auto);
-    }
-  };
-
-  const maybeAutoInit = (node: DataBagNode) => {
-    if (!options?.initOnFirstAccess || !options.init) return;
-    const data = ensureData(node);
-    if (data[key] !== undefined) return;
-    runInit(node, true);
-  };
-
-  const attach = <N extends DataBagNode>(node: N, value: T): N => {
-    maybeAutoInit(node);
-
-    const parsed = safeParseWithHandler<T>(
-      node,
-      value,
-      schema,
-      options?.onAttachSafeParseError
-        ? (ctx) =>
-          options.onAttachSafeParseError?.({
-            node: ctx.node,
-            attemptedValue: ctx.attemptedValue,
-            error: ctx.error,
-          })
-        : undefined,
-      "attach",
-    );
-
-    if (parsed === undefined) {
-      // Validation failed and handler declined to fix it.
-      return node;
-    }
-
-    const data = ensureData(node);
-    const existingRaw = data[key];
-    let existingParsed: T | undefined;
-
-    if (mergeEnabled && existingRaw !== undefined) {
-      existingParsed = safeParseWithHandler<T>(
-        node,
-        existingRaw,
-        schema,
-        options?.onExistingSafeParseError
-          ? (ctx) =>
-            options.onExistingSafeParseError?.({
-              node: ctx.node,
-              existingValue: ctx.existingValue,
-              error: ctx.error,
-            })
-          : undefined,
-        "existing",
-      );
-    }
-
-    let next: T;
-    if (
-      mergeEnabled &&
-      existingParsed !== undefined &&
-      isPlainObject(existingParsed) &&
-      isPlainObject(parsed)
-    ) {
-      next = deepMerge(existingParsed, parsed as Partial<T>);
-    } else {
-      next = parsed;
-    }
-
-    (data as Record<string, unknown>)[key] = next;
-    emitAssign(node, existingParsed, next);
-    return node;
-  };
-
-  const get = <N extends DataBagNode>(
-    node: N,
-    ifNotExists?: (node: N) => T | null | undefined,
-  ): T | undefined => {
-    maybeAutoInit(node);
-
-    // Raw, unvalidated access: no Zod, no callbacks.
-    const raw = getData<unknown, N, Key>(node, key);
-    if (raw !== undefined) return raw as T;
-
-    if (!ifNotExists) return undefined;
-    const created = ifNotExists(node);
-    if (created === undefined || created === null) return undefined;
-    attach(node, created);
-    return created;
-  };
-
-  const safeGet = <N extends DataBagNode>(
-    node: N,
-    ifNotExists?: (node: N) => T | null | undefined,
-  ): T | undefined => {
-    const raw = getData<unknown, N, Key>(node, key);
-
-    if (raw !== undefined) {
-      const parsed = safeParseWithHandler<T>(
-        node,
-        raw,
-        schema,
-        options?.onSafeGetSafeParseError
-          ? (ctx) =>
-            options.onSafeGetSafeParseError?.({
-              node: ctx.node,
-              storedValue: ctx.storedValue,
-              error: ctx.error,
-            })
-          : undefined,
-        "safeGet",
-      );
-      return parsed;
-    }
-
-    if (!ifNotExists) return undefined;
-    const created = ifNotExists(node);
-    if (created === undefined || created === null) return undefined;
-
-    // We trust the provided default and attach it directly (validated via attach).
-    attach(node, created);
-    return created;
-  };
-
-  const is = <N extends DataBagNode>(
-    node: N,
-  ): node is N & { data: { [K in Key]: T } } => {
-    const data = (node as DataBagNode).data;
-    return !!data && key in data;
-  };
-
-  const collect = <Root>(root: Root): readonly T[] => {
-    if (!defaultVisitFn) return [];
-    const visit = defaultVisitFn as VisitFn<Root>;
-    return collectData<T, Key, Root>(root, key, visit);
-  };
-
-  const collectNodes = <Root, N extends DataBagNode = DataBagNode>(
-    root: Root,
-  ): readonly N[] => {
-    const out: N[] = [];
-    if (!defaultVisitFn) return out;
-    const visit = defaultVisitFn as VisitFn<Root>;
-    visit(root, (node) => {
-      if (is(node)) out.push(node as unknown as N);
-    });
-    return out;
-  };
-
-  const forEach = <Root>(
-    root: Root,
-    fn: (value: T, owner: DataBagNode) => void,
-  ): void => {
-    if (!defaultVisitFn) return;
-    const visit = defaultVisitFn as VisitFn<Root>;
-    forEachData<T, Key, Root>(
-      root,
-      key,
-      visit,
-      (value, owner) => fn(value, owner),
-    );
-  };
-
-  const hasAny = <Root>(root: Root): boolean => {
-    if (!defaultVisitFn) return false;
-    const visit = defaultVisitFn as VisitFn<Root>;
-    return hasAnyData<Key, Root>(root, key, visit);
-  };
-
-  factory = {
+  const factory: DataFactory<Key, T> = {
     key,
     events,
-    attach,
-    get,
-    safeGet,
+
+    attach<N extends DataBagNode>(node: N, value: T) {
+      const parsed = safeParseWithHandler<T>(
+        node,
+        value,
+        schema,
+        options?.onAttachSafeParseError
+          ? (ctx) =>
+            options.onAttachSafeParseError?.({
+              node: ctx.node,
+              attemptedValue: ctx.attemptedValue,
+              error: ctx.error,
+            })
+          : undefined,
+        "attach",
+      );
+
+      if (parsed === undefined) {
+        // Validation failed and handler declined to fix it.
+        return node as unknown as DataSupplierNode<N, Key, T>;
+      }
+
+      if (!mergeEnabled) {
+        const previous = getData<T, N, Key>(node, key);
+        const result = attachData<N, Key, T>(node, key, parsed);
+        events.emit("assign", { key, node, previous, next: parsed });
+        return result;
+      }
+
+      const existingRaw = getData<unknown, N, Key>(node, key);
+      let existingParsed: T | undefined;
+
+      if (existingRaw !== undefined) {
+        existingParsed = safeParseWithHandler<T>(
+          node,
+          existingRaw,
+          schema,
+          options?.onExistingSafeParseError
+            ? (ctx) =>
+              options.onExistingSafeParseError?.({
+                node: ctx.node,
+                existingValue: ctx.existingValue,
+                error: ctx.error,
+              })
+            : undefined,
+          "existing",
+        );
+      }
+
+      let next: T;
+      if (
+        existingParsed !== undefined &&
+        isPlainObject(existingParsed) &&
+        isPlainObject(parsed)
+      ) {
+        next = deepMerge(existingParsed, parsed as Partial<T>);
+      } else {
+        next = parsed;
+      }
+
+      const previous = existingParsed ?? undefined;
+      const result = attachData<N, Key, T>(node, key, next);
+      events.emit("assign", { key, node, previous, next });
+      return result;
+    },
+
+    get<N extends DataBagNode>(
+      node: N,
+      ifNotExists?: (node: N) => T | null | undefined,
+    ): T | undefined {
+      // Raw, unvalidated access: no Zod, no callbacks.
+      const raw = getData<unknown, N, Key>(node, key);
+      if (raw !== undefined) return raw as T;
+
+      if (!ifNotExists) return undefined;
+      const created = ifNotExists(node);
+      if (created === null || created === undefined) return undefined;
+      return factory.attach(node, created).data[key];
+    },
+
+    safeGet<N extends DataBagNode>(
+      node: N,
+      ifNotExists?: (node: N) => T | null | undefined,
+    ): T | undefined {
+      const raw = getData<unknown, N, Key>(node, key);
+
+      if (raw !== undefined) {
+        const parsed = safeParseWithHandler<T>(
+          node,
+          raw,
+          schema,
+          options?.onSafeGetSafeParseError
+            ? (ctx) =>
+              options.onSafeGetSafeParseError?.({
+                node: ctx.node,
+                storedValue: ctx.storedValue,
+                error: ctx.error,
+              })
+            : undefined,
+          "safeGet",
+        );
+        return parsed;
+      }
+
+      if (!ifNotExists) return undefined;
+      const created = ifNotExists(node);
+      if (created === null || created === undefined) return undefined;
+
+      // We trust the provided default and attach it directly.
+      return factory.attach(node, created).data[key];
+    },
+
+    is<N extends DataBagNode>(
+      node: N,
+      mode?: "auto-init",
+    ): node is DataSupplierNode<N, Key, T> {
+      if (isDataSupplier<T, N, Key>(node, key)) return true;
+
+      const shouldAutoInit =
+        (mode === "auto-init" || options?.autoInitOnIs === true) &&
+        options?.init &&
+        options?.initOnFirstAccess;
+
+      if (shouldAutoInit && options?.init) {
+        factory.init(node, { onFirstAccessAuto: true });
+        return isDataSupplier<T, N, Key>(node, key);
+      }
+
+      return false;
+    },
+
+    isPossibly<N extends DataBagNode>(node: N): boolean {
+      if (isDataSupplier<T, N, Key>(node, key)) return true;
+      return !!(options?.init && options?.initOnFirstAccess);
+    },
+
+    collect<Root>(root: Root, visitFn?: VisitFn<Root>): readonly T[] {
+      return collectData<T, Key, Root>(root, key, visitFn);
+    },
+
+    collectNodes<Root, N extends DataBagNode = DataBagNode>(
+      root: Root,
+      visitFn?: VisitFn<Root>,
+    ): readonly DataSupplierNode<N, Key, T>[] {
+      const out: DataSupplierNode<DataBagNode, Key, T>[] = [];
+      forEachData<T, Key, Root>(
+        root,
+        key,
+        (_value, owner) => {
+          out.push(owner as DataSupplierNode<DataBagNode, Key, T>);
+        },
+        visitFn,
+      );
+      return out as DataSupplierNode<N, Key, T>[];
+    },
+
+    forEach<Root>(
+      root: Root,
+      fn: (value: T, owner: DataSupplierNode<DataBagNode, Key, T>) => void,
+      visitFn?: VisitFn<Root>,
+    ): void {
+      forEachData<T, Key, Root>(root, key, fn, visitFn);
+    },
+
+    hasAny<Root>(root: Root, visitFn?: VisitFn<Root>): boolean {
+      return hasAnyData<Key, Root>(root, key, visitFn);
+    },
+
     init<N extends DataBagNode>(
       node: N,
-      opts?: { onFirstAccessAuto?: boolean },
-    ) {
-      runInit(node, !!opts?.onFirstAccessAuto);
+      ctx?: { onFirstAccessAuto?: boolean },
+    ): void {
+      if (!options?.init) return;
+      const previous = getData<T, N, Key>(node, key);
+      options.init(node, {
+        factory: factory as unknown as DataFactory<string, unknown>,
+        onFirstAccessAuto: ctx?.onFirstAccessAuto,
+      });
+      const next = getData<T, N, Key>(node, key);
+      events.emit(ctx?.onFirstAccessAuto ? "init-auto" : "init", {
+        key,
+        node,
+        previous,
+        next,
+      });
     },
-    is,
-    collect,
-    collectNodes,
-    forEach,
-    hasAny,
   };
 
   return factory;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Array-valued factories (unsafe, no Zod)                                    */
+/* -------------------------------------------------------------------------- */
+
+export interface ArrayDataFactoryOptions {
+  /**
+   * If true (default), add() appends to any existing array.
+   * If false, add() replaces the array with the new items.
+   */
+  merge?: boolean;
+
+  /**
+   * Optional lazy initializer for the array bag.
+   */
+  init?: (
+    node: DataBagNode,
+    ctx: {
+      factory: ArrayDataFactory<string, unknown>;
+      onFirstAccessAuto?: boolean;
+    },
+  ) => void;
+
+  /**
+   * If true, the init callback is invoked automatically the first time the
+   * factory is accessed for a given node (via get/safeGet or is(..., "auto-init")).
+   */
+  initOnFirstAccess?: boolean;
+
+  /**
+   * If true and both `init` and `initOnFirstAccess` are set, calling
+   * `factory.is(node)` (no mode argument) is allowed to auto-init the node
+   * before checking for data. Default: false.
+   */
+  autoInitOnIs?: boolean;
+}
+
+export interface ArrayDataFactory<
+  Key extends string,
+  T,
+> {
+  readonly key: Key;
+
+  readonly events: ReturnType<typeof eventBus<ArrayDataBagEvents<Key, T>>>;
+
+  // Append or replace items in the per-node array (depending on merge option)
+  add<N extends DataBagNode>(
+    node: N,
+    ...items: readonly T[]
+  ): DataSupplierNode<N, Key, T[]>;
+
+  /**
+   * Raw access: always returns an array (empty if none stored yet).
+   *
+   * If `ifNotExists` is provided and no array is stored yet, it will be called
+   * to create an initial array, which is then attached and returned.
+   */
+  get<N extends DataBagNode>(
+    node: N,
+    ifNotExists?: (node: N) => T[],
+  ): T[];
+
+  /**
+   * For "unsafe" factories (no schema), safeGet is equivalent to get().
+   */
+  safeGet<N extends DataBagNode>(
+    node: N,
+    ifNotExists?: (node: N) => T[],
+  ): T[];
+
+  // Type guard for nodes that have an array at this key
+  is<N extends DataBagNode>(
+    node: N,
+  ): node is DataSupplierNode<N, Key, T[]>;
+  is<N extends DataBagNode>(
+    node: N,
+    mode: "auto-init",
+  ): node is DataSupplierNode<N, Key, T[]>;
+
+  isPossibly<N extends DataBagNode>(node: N): boolean;
+
+  // Flatten all arrays from all nodes into a single array
+  collect<Root>(root: Root, visitFn?: VisitFn<Root>): readonly T[];
+
+  /**
+   * Like collect(), but returns the owning nodes (one per node) instead
+   * of individual items. Nodes with empty or non-array buckets are skipped.
+   */
+  collectNodes<Root, N extends DataBagNode = DataBagNode>(
+    root: Root,
+    visitFn?: VisitFn<Root>,
+  ): readonly DataSupplierNode<N, Key, T[]>[];
+
+  // Visit each individual item together with its owning node
+  forEach<Root>(
+    root: Root,
+    fn: (item: T, owner: DataSupplierNode<DataBagNode, Key, T[]>) => void,
+    visitFn?: VisitFn<Root>,
+  ): void;
+
+  // True if any node has a non-empty array for this key
+  hasAny<Root>(root: Root, visitFn?: VisitFn<Root>): boolean;
+
+  init<N extends DataBagNode>(
+    node: N,
+    ctx?: { onFirstAccessAuto?: boolean },
+  ): void;
+}
+
+/**
+ * Create an array-valued data factory bound to a specific key (no validation).
+ */
+export function nodeArrayDataFactory<
+  Key extends string,
+  T,
+>(
+  key: Key,
+  options?: ArrayDataFactoryOptions,
+): ArrayDataFactory<Key, T> {
+  const merge = options?.merge !== false; // default: true
+  const events = eventBus<ArrayDataBagEvents<Key, T>>();
+
+  const factory: ArrayDataFactory<Key, T> = {
+    key,
+    events,
+
+    add<N extends DataBagNode>(node: N, ...items: readonly T[]) {
+      const existingRaw = merge ? getData<T[], N, Key>(node, key) ?? [] : [];
+      const previous = existingRaw ?? undefined;
+      const base = Array.isArray(existingRaw) ? existingRaw : [];
+      const next = base.concat(items);
+      const result = attachData<N, Key, T[]>(node, key, next);
+      events.emit("add", { key, node, previous, added: items, next });
+      events.emit("assign", { key, node, previous, next });
+      return result;
+    },
+
+    get<N extends DataBagNode>(
+      node: N,
+      ifNotExists?: (node: N) => T[],
+    ): T[] {
+      const existing = getData<T[], N, Key>(node, key);
+      if (existing !== undefined) return existing as T[];
+
+      if (!ifNotExists) return [];
+      const created = ifNotExists(node);
+      if (!created) return [];
+      const result = attachData<N, Key, T[]>(node, key, created);
+      // For raw get, we treat created as assign.
+      events.emit("assign", {
+        key,
+        node,
+        previous: undefined,
+        next: created,
+      });
+      return result.data[key];
+    },
+
+    safeGet<N extends DataBagNode>(
+      node: N,
+      ifNotExists?: (node: N) => T[],
+    ): T[] {
+      // Unsafe factory: safeGet == get
+      return this.get(node, ifNotExists);
+    },
+
+    is<N extends DataBagNode>(
+      node: N,
+      mode?: "auto-init",
+    ): node is DataSupplierNode<N, Key, T[]> {
+      if (isDataSupplier<T[], N, Key>(node, key)) return true;
+
+      const shouldAutoInit =
+        (mode === "auto-init" || options?.autoInitOnIs === true) &&
+        options?.init &&
+        options?.initOnFirstAccess;
+
+      if (shouldAutoInit && options?.init) {
+        factory.init(node, { onFirstAccessAuto: true });
+        return isDataSupplier<T[], N, Key>(node, key);
+      }
+
+      return false;
+    },
+
+    isPossibly<N extends DataBagNode>(node: N): boolean {
+      if (isDataSupplier<T[], N, Key>(node, key)) return true;
+      return !!(options?.init && options?.initOnFirstAccess);
+    },
+
+    collect<Root>(root: Root, visitFn?: VisitFn<Root>): readonly T[] {
+      const buckets = collectData<T[], Key, Root>(root, key, visitFn);
+      const out: T[] = [];
+      for (const bucket of buckets) {
+        if (Array.isArray(bucket)) out.push(...bucket);
+      }
+      return out;
+    },
+
+    collectNodes<Root, N extends DataBagNode = DataBagNode>(
+      root: Root,
+      visitFn?: VisitFn<Root>,
+    ): readonly DataSupplierNode<N, Key, T[]>[] {
+      const out: DataSupplierNode<DataBagNode, Key, T[]>[] = [];
+      const seen = new Set<DataSupplierNode<DataBagNode, Key, T[]>>();
+
+      forEachData<T[], Key, Root>(
+        root,
+        key,
+        (bucket, owner) => {
+          if (!Array.isArray(bucket) || bucket.length === 0) return;
+
+          const typedOwner = owner as DataSupplierNode<
+            DataBagNode,
+            Key,
+            T[]
+          >;
+          if (seen.has(typedOwner)) return;
+
+          seen.add(typedOwner);
+          out.push(typedOwner);
+        },
+        visitFn,
+      );
+
+      return out as DataSupplierNode<N, Key, T[]>[];
+    },
+
+    forEach<Root>(
+      root: Root,
+      fn: (item: T, owner: DataSupplierNode<DataBagNode, Key, T[]>) => void,
+      visitFn?: VisitFn<Root>,
+    ): void {
+      forEachData<T[], Key, Root>(
+        root,
+        key,
+        (bucket, owner) => {
+          if (!Array.isArray(bucket)) return;
+          for (const item of bucket) {
+            fn(item, owner as DataSupplierNode<DataBagNode, Key, T[]>);
+          }
+        },
+        visitFn,
+      );
+    },
+
+    hasAny<Root>(root: Root, visitFn?: VisitFn<Root>): boolean {
+      let found = false;
+      forEachData<T[], Key, Root>(
+        root,
+        key,
+        (bucket) => {
+          if (!found && Array.isArray(bucket) && bucket.length > 0) {
+            found = true;
+          }
+        },
+        visitFn,
+      );
+      return found;
+    },
+
+    init<N extends DataBagNode>(
+      node: N,
+      ctx?: { onFirstAccessAuto?: boolean },
+    ): void {
+      if (!options?.init) return;
+      const previous = getData<T[], N, Key>(node, key) ?? undefined;
+      options.init(node, {
+        factory: factory as unknown as ArrayDataFactory<string, unknown>,
+        onFirstAccessAuto: ctx?.onFirstAccessAuto,
+      });
+      const next = getData<T[], N, Key>(node, key) ?? undefined;
+      events.emit(ctx?.onFirstAccessAuto ? "init-auto" : "init", {
+        key,
+        node,
+        previous,
+        next,
+      });
+    },
+  };
+
+  return factory;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Safe array-valued factories (Zod-backed)                                   */
+/* -------------------------------------------------------------------------- */
+
+export interface SafeArrayDataFactoryOptions<T>
+  extends ArrayDataFactoryOptions {
+  /**
+   * Called when add() fails safeParse on the incoming items.
+   *
+   * Return:
+   * - T[]: replacement array of items to use instead.
+   * - null | undefined: do nothing (no items stored).
+   */
+  onAddSafeParseError?: (ctx: {
+    node: DataBagNode;
+    attemptedItems: readonly unknown[];
+    error: z.ZodError<T[]>;
+  }) => T[] | null | undefined;
+
+  /**
+   * Called when add() with merge=true fails safeParse on an existing array.
+   *
+   * Return:
+   * - T[]: replacement array used as the "existing" side for merge.
+   * - null | undefined: treat as if there was no existing array.
+   */
+  onExistingSafeParseError?: (ctx: {
+    node: DataBagNode;
+    existingValue: unknown;
+    error: z.ZodError<T[]>;
+  }) => T[] | null | undefined;
+
+  /**
+   * Called when safeGet() fails safeParse on the stored array.
+   *
+   * Return:
+   * - T[]: replacement array which safeGet() will return.
+   * - null | undefined: safeGet() returns [].
+   */
+  onSafeGetSafeParseError?: (ctx: {
+    node: DataBagNode;
+    storedValue: unknown;
+    error: z.ZodError<T[]>;
+  }) => T[] | null | undefined;
 }
 
 /**
@@ -1426,298 +1289,237 @@ export function safeNodeArrayDataFactory<
 >(
   key: Key,
   itemSchema: z.ZodType<T>,
-  options?: SafeArrayDataFactoryOptions<Key, T>,
+  options?: SafeArrayDataFactoryOptions<T>,
 ): ArrayDataFactory<Key, T> {
   const merge = options?.merge !== false; // default: true
-  const defaultVisitFn = options?.visitFn;
   const arraySchema = z.array(itemSchema);
+  const events = eventBus<ArrayDataBagEvents<Key, T>>();
 
-  const events = eventBus<DataBagArrayEvents<Key, T>>();
-
-  // deno-lint-ignore prefer-const
-  let factory!: ArrayDataFactory<Key, T>;
-
-  const emitInit = (
-    node: DataBagNode,
-    previous: readonly T[] | undefined,
-    next: readonly T[] | undefined,
-    auto: boolean,
-  ) => {
-    events.emit(auto ? "init-auto" : "init", {
-      key,
-      node,
-      previous,
-      next,
-    });
-  };
-
-  const emitAssign = (
-    node: DataBagNode,
-    previous: readonly T[] | undefined,
-    next: readonly T[],
-  ) => {
-    events.emit("assign", { key, node, previous, next });
-  };
-
-  const emitAdd = (
-    node: DataBagNode,
-    previous: readonly T[] | undefined,
-    added: readonly T[],
-    next: readonly T[],
-  ) => {
-    events.emit("add", { key, node, previous, added, next });
-  };
-
-  const runInit = (node: DataBagNode, auto: boolean) => {
-    if (!options?.init) return;
-    const data = ensureData(node);
-    const previousRaw = data[key];
-    let previous: T[] | undefined;
-
-    if (previousRaw !== undefined) {
-      const res = arraySchema.safeParse(previousRaw);
-      if (res.success) {
-        previous = res.data;
-      } else if (options.onExistingSafeParseError) {
-        const replacement = options.onExistingSafeParseError({
-          node,
-          existingValue: previousRaw,
-          error: res.error,
-        });
-        if (replacement) {
-          const again = arraySchema.safeParse(replacement);
-          if (again.success) previous = again.data;
-        }
-      }
-    }
-
-    options.init(node, factory, auto);
-
-    const afterRaw = ensureData(node)[key];
-    let after: T[] | undefined;
-
-    if (afterRaw !== undefined) {
-      const res = arraySchema.safeParse(afterRaw);
-      if (res.success) {
-        after = res.data;
-      } else if (options.onExistingSafeParseError) {
-        const replacement = options.onExistingSafeParseError({
-          node,
-          existingValue: afterRaw,
-          error: res.error,
-        });
-        if (replacement) {
-          const again = arraySchema.safeParse(replacement);
-          if (again.success) after = again.data;
-        }
-      }
-    }
-
-    if (previous !== after) {
-      emitInit(node, previous, after, auto);
-    }
-  };
-
-  const maybeAutoInit = (node: DataBagNode) => {
-    if (!options?.initOnFirstAccess || !options.init) return;
-    const data = ensureData(node);
-    if (data[key] !== undefined) return;
-    runInit(node, true);
-  };
-
-  const add = <N extends DataBagNode>(
-    node: N,
-    ...items: readonly T[]
-  ): N => {
-    maybeAutoInit(node);
-
-    // Validate the incoming items as an array
-    const parsedItems = ((): T[] | undefined => {
-      const res = arraySchema.safeParse(items);
-      if (res.success) return res.data;
-
-      if (!options?.onAddSafeParseError) return undefined;
-      const replacement = options.onAddSafeParseError({
-        node,
-        attemptedItems: items,
-        error: res.error,
-      });
-
-      if (!replacement) return undefined;
-      const again = arraySchema.safeParse(replacement);
-      return again.success ? again.data : undefined;
-    })();
-
-    if (!parsedItems) {
-      return node;
-    }
-
-    const data = ensureData(node);
-    const existingRaw = merge ? data[key] : undefined;
-
-    const existingParsed = ((): T[] | undefined => {
-      if (existingRaw === undefined) return undefined;
-
-      const res = arraySchema.safeParse(existingRaw);
-      if (res.success) return res.data;
-
-      if (!options?.onExistingSafeParseError) return undefined;
-      const replacement = options.onExistingSafeParseError({
-        node,
-        existingValue: existingRaw,
-        error: res.error,
-      });
-
-      if (!replacement) return undefined;
-      const again = arraySchema.safeParse(replacement);
-      return again.success ? again.data : undefined;
-    })();
-
-    const base: T[] = existingParsed ?? [];
-    const next = base.concat(parsedItems);
-    (data as Record<string, unknown>)[key] = next;
-
-    emitAdd(
-      node,
-      existingParsed ?? undefined,
-      parsedItems,
-      next,
-    );
-    return node;
-  };
-
-  const get = <N extends DataBagNode>(
-    node: N,
-    ifNotExists?: (node: N) => T[],
-  ): T[] => {
-    maybeAutoInit(node);
-
-    const raw = getData<unknown, N, Key>(node, key);
-    if (raw !== undefined) return raw as T[];
-
-    if (!ifNotExists) return [];
-    const created = ifNotExists(node);
-    if (!created) return [];
-    const data = ensureData(node);
-    const previous = data[key] as T[] | undefined;
-    (data as Record<string, unknown>)[key] = created;
-    emitAssign(node, previous, created);
-    return created;
-  };
-
-  const safeGet = <N extends DataBagNode>(
-    node: N,
-    ifNotExists?: (node: N) => T[],
-  ): T[] => {
-    const raw = getData<unknown, N, Key>(node, key);
-    if (raw !== undefined) {
-      const res = arraySchema.safeParse(raw);
-      if (res.success) return res.data;
-
-      if (!options?.onSafeGetSafeParseError) return [];
-      const replacement = options.onSafeGetSafeParseError({
-        node,
-        storedValue: raw,
-        error: res.error,
-      });
-
-      if (!replacement) return [];
-      const again = arraySchema.safeParse(replacement);
-      return again.success ? again.data : [];
-    }
-
-    if (!ifNotExists) return [];
-    const created = ifNotExists(node);
-    if (!created) return [];
-    const data = ensureData(node);
-    const previous = data[key] as T[] | undefined;
-    (data as Record<string, unknown>)[key] = created;
-    emitAssign(node, previous, created);
-    return created;
-  };
-
-  const is = <N extends DataBagNode>(
-    node: N,
-  ): node is N & { data: { [K in Key]: T[] } } => {
-    const data = (node as DataBagNode).data;
-    return !!data && key in data && Array.isArray(data[key]);
-  };
-
-  const collect = <Root>(root: Root): readonly T[] => {
-    if (!defaultVisitFn) return [];
-    const visit = defaultVisitFn as VisitFn<Root>;
-    const buckets = collectData<T[], Key, Root>(root, key, visit);
-    const out: T[] = [];
-    for (const bucket of buckets) {
-      if (Array.isArray(bucket)) out.push(...bucket);
-    }
-    return out;
-  };
-
-  const collectNodes = <Root, N extends DataBagNode = DataBagNode>(
-    root: Root,
-  ): readonly N[] => {
-    const out: N[] = [];
-    if (!defaultVisitFn) return out;
-    const visit = defaultVisitFn as VisitFn<Root>;
-    visit(root, (node) => {
-      if (!is(node)) return;
-      const arr = (node.data as Record<Key, unknown>)[key];
-      if (Array.isArray(arr) && arr.length > 0) {
-        out.push(node as unknown as N);
-      }
-    });
-    return out;
-  };
-
-  const forEach = <Root>(
-    root: Root,
-    fn: (item: T, owner: DataBagNode) => void,
-  ): void => {
-    if (!defaultVisitFn) return;
-    const visit = defaultVisitFn as VisitFn<Root>;
-    forEachData<T[], Key, Root>(
-      root,
-      key,
-      visit,
-      (bucket, owner) => {
-        if (!Array.isArray(bucket)) return;
-        for (const item of bucket) {
-          fn(item, owner);
-        }
-      },
-    );
-  };
-
-  const hasAny = <Root>(root: Root): boolean => {
-    if (!defaultVisitFn) return false;
-    const visit = defaultVisitFn as VisitFn<Root>;
-    let found = false;
-    visit(root, (node) => {
-      if (found) return;
-      if (!is(node)) return;
-      const arr = (node.data as Record<Key, unknown>)[key];
-      if (Array.isArray(arr) && arr.length > 0) found = true;
-    });
-    return found;
-  };
-
-  factory = {
+  const factory: ArrayDataFactory<Key, T> = {
     key,
     events,
-    add,
-    get,
-    safeGet,
-    is,
-    collect,
-    collectNodes,
-    forEach,
-    hasAny,
+
+    add<N extends DataBagNode>(node: N, ...items: readonly T[]) {
+      // Validate the incoming items as an array
+      const parsedItems = ((): T[] | undefined => {
+        const res = arraySchema.safeParse(items);
+        if (res.success) return res.data;
+
+        if (!options?.onAddSafeParseError) return undefined;
+        const replacement = options.onAddSafeParseError({
+          node,
+          attemptedItems: items,
+          error: res.error,
+        });
+
+        if (!replacement) return undefined;
+        const again = arraySchema.safeParse(replacement);
+        return again.success ? again.data : undefined;
+      })();
+
+      if (!parsedItems) {
+        return node as unknown as DataSupplierNode<N, Key, T[]>;
+      }
+
+      const existingRaw = merge
+        ? getData<unknown, N, Key>(node, key)
+        : undefined;
+
+      const existingParsed = ((): T[] | undefined => {
+        if (existingRaw === undefined) return undefined;
+
+        const res = arraySchema.safeParse(existingRaw);
+        if (res.success) return res.data;
+
+        if (!options?.onExistingSafeParseError) return undefined;
+        const replacement = options.onExistingSafeParseError({
+          node,
+          existingValue: existingRaw,
+          error: res.error,
+        });
+
+        if (!replacement) return undefined;
+        const again = arraySchema.safeParse(replacement);
+        return again.success ? again.data : undefined;
+      })();
+
+      const previous = existingParsed ?? undefined;
+      const base: T[] = existingParsed ?? [];
+      const next = base.concat(parsedItems);
+      const result = attachData<N, Key, T[]>(node, key, next);
+
+      events.emit("add", { key, node, previous, added: parsedItems, next });
+      events.emit("assign", { key, node, previous, next });
+
+      return result;
+    },
+
+    get<N extends DataBagNode>(
+      node: N,
+      ifNotExists?: (node: N) => T[],
+    ): T[] {
+      const raw = getData<unknown, N, Key>(node, key);
+      if (raw !== undefined) return raw as T[];
+
+      if (!ifNotExists) return [];
+      const created = ifNotExists(node);
+      if (!created) return [];
+      const result = attachData<N, Key, T[]>(node, key, created);
+      events.emit("assign", {
+        key,
+        node,
+        previous: undefined,
+        next: created,
+      });
+      return result.data[key];
+    },
+
+    safeGet<N extends DataBagNode>(
+      node: N,
+      ifNotExists?: (node: N) => T[],
+    ): T[] {
+      const raw = getData<unknown, N, Key>(node, key);
+      if (raw !== undefined) {
+        const res = arraySchema.safeParse(raw);
+        if (res.success) return res.data;
+
+        if (!options?.onSafeGetSafeParseError) return [];
+        const replacement = options.onSafeGetSafeParseError({
+          node,
+          storedValue: raw,
+          error: res.error,
+        });
+
+        if (!replacement) return [];
+        const again = arraySchema.safeParse(replacement);
+        return again.success ? again.data : [];
+      }
+
+      if (!ifNotExists) return [];
+      const created = ifNotExists(node);
+      if (!created) return [];
+      const result = attachData<N, Key, T[]>(node, key, created);
+      events.emit("assign", {
+        key,
+        node,
+        previous: undefined,
+        next: created,
+      });
+      return result.data[key];
+    },
+
+    is<N extends DataBagNode>(
+      node: N,
+      mode?: "auto-init",
+    ): node is DataSupplierNode<N, Key, T[]> {
+      if (isDataSupplier<T[], N, Key>(node, key)) return true;
+
+      const shouldAutoInit =
+        (mode === "auto-init" || options?.autoInitOnIs === true) &&
+        options?.init &&
+        options?.initOnFirstAccess;
+
+      if (shouldAutoInit && options?.init) {
+        factory.init(node, { onFirstAccessAuto: true });
+        return isDataSupplier<T[], N, Key>(node, key);
+      }
+
+      return false;
+    },
+
+    isPossibly<N extends DataBagNode>(node: N): boolean {
+      if (isDataSupplier<T[], N, Key>(node, key)) return true;
+      return !!(options?.init && options?.initOnFirstAccess);
+    },
+
+    collect<Root>(root: Root, visitFn?: VisitFn<Root>): readonly T[] {
+      const buckets = collectData<T[], Key, Root>(root, key, visitFn);
+      const out: T[] = [];
+      for (const bucket of buckets) {
+        if (Array.isArray(bucket)) out.push(...bucket);
+      }
+      return out;
+    },
+
+    collectNodes<Root, N extends DataBagNode = DataBagNode>(
+      root: Root,
+      visitFn?: VisitFn<Root>,
+    ): readonly DataSupplierNode<N, Key, T[]>[] {
+      const out: DataSupplierNode<DataBagNode, Key, T[]>[] = [];
+      const seen = new Set<DataSupplierNode<DataBagNode, Key, T[]>>();
+
+      forEachData<T[], Key, Root>(
+        root,
+        key,
+        (bucket, owner) => {
+          if (!Array.isArray(bucket) || bucket.length === 0) return;
+
+          const typedOwner = owner as DataSupplierNode<
+            DataBagNode,
+            Key,
+            T[]
+          >;
+          if (seen.has(typedOwner)) return;
+
+          seen.add(typedOwner);
+          out.push(typedOwner);
+        },
+        visitFn,
+      );
+
+      return out as DataSupplierNode<N, Key, T[]>[];
+    },
+
+    forEach<Root>(
+      root: Root,
+      fn: (item: T, owner: DataSupplierNode<DataBagNode, Key, T[]>) => void,
+      visitFn?: VisitFn<Root>,
+    ): void {
+      forEachData<T[], Key, Root>(
+        root,
+        key,
+        (bucket, owner) => {
+          if (!Array.isArray(bucket)) return;
+          for (const item of bucket) {
+            fn(item, owner as DataSupplierNode<DataBagNode, Key, T[]>);
+          }
+        },
+        visitFn,
+      );
+    },
+
+    hasAny<Root>(root: Root, visitFn?: VisitFn<Root>): boolean {
+      let found = false;
+      forEachData<T[], Key, Root>(
+        root,
+        key,
+        (bucket) => {
+          if (!found && Array.isArray(bucket) && bucket.length > 0) {
+            found = true;
+          }
+        },
+        visitFn,
+      );
+      return found;
+    },
+
     init<N extends DataBagNode>(
       node: N,
-      opts?: { onFirstAccessAuto?: boolean },
-    ) {
-      runInit(node, !!opts?.onFirstAccessAuto);
+      ctx?: { onFirstAccessAuto?: boolean },
+    ): void {
+      if (!options?.init) return;
+      const previous = getData<T[], N, Key>(node, key) ?? undefined;
+      options.init(node, {
+        factory: factory as unknown as ArrayDataFactory<string, unknown>,
+        onFirstAccessAuto: ctx?.onFirstAccessAuto,
+      });
+      const next = getData<T[], N, Key>(node, key) ?? undefined;
+      events.emit(ctx?.onFirstAccessAuto ? "init-auto" : "init", {
+        key,
+        node,
+        previous,
+        next,
+      });
     },
   };
 
@@ -1725,7 +1527,7 @@ export function safeNodeArrayDataFactory<
 }
 
 /* -------------------------------------------------------------------------- */
-/* Flexible text helper                                                       */
+/* Flexible text helpers                                                      */
 /* -------------------------------------------------------------------------- */
 
 export const flexibleTextSchema = z.union([z.string(), z.array(z.string())]);
@@ -1793,18 +1595,14 @@ export interface NodeDataDef<
  *   const codeFrontmatterDef =
  *     defineNodeData("codeFM" as const)<CodeFrontmatter, Code>({
  *       merge: true,
- *       visitFn: (root, visitor) => { ... },
  *     });
- *
- *   // Or if you don't care about a specific Node subtype:
- *   const fooDef = defineNodeData("foo" as const)<Foo>();
  */
 export function defineNodeData<Key extends string>(key: Key) {
   return <
     T,
     N extends DataBagNode = DataBagNode,
   >(
-    options?: DataFactoryOptions<Key, T>,
+    options?: DataFactoryOptions<T>,
   ): NodeDataDef<Key, T, N> => ({
     key,
     factory: nodeDataFactory<Key, T>(key, options),
@@ -1818,7 +1616,7 @@ export function defineNodeData<Key extends string>(key: Key) {
  *   const safeCodeFrontmatterDef =
  *     defineSafeNodeData("codeFM" as const)<CodeFrontmatter, Code>(
  *       codeFrontmatterSchema,
- *       { merge: true, visitFn: (root, visitor) => { ... } },
+ *       { merge: true },
  *     );
  */
 export function defineSafeNodeData<Key extends string>(key: Key) {
@@ -1827,16 +1625,16 @@ export function defineSafeNodeData<Key extends string>(key: Key) {
     N extends DataBagNode = DataBagNode,
   >(
     schema: z.ZodType<T>,
-    options?: SafeDataFactoryOptions<Key, T>,
+    options?: SafeDataFactoryOptions<T>,
   ): NodeDataDef<Key, T, N> => ({
     key,
     factory: safeNodeDataFactory<Key, T>(key, schema, options),
   });
 }
 
-/* -------------------------------------------------------------------------- */
-/* Type extractors for scalar/object data                                     */
-/* -------------------------------------------------------------------------- */
+// ---------------------------------------------------------------------------
+// Type extractors for scalar/object data
+// ---------------------------------------------------------------------------
 
 export type NodeDataKey<
   Def extends NodeDataDef<string, unknown, DataBagNode>,
@@ -1865,9 +1663,9 @@ export type NodeWithData<
   NodeDataType<Def>
 >;
 
-/* -------------------------------------------------------------------------- */
-/* Data definition helpers (array-valued data)                                */
-/* -------------------------------------------------------------------------- */
+// ---------------------------------------------------------------------------
+// Data definition helpers (array-valued data)
+// ---------------------------------------------------------------------------
 
 export interface NodeArrayDataDef<
   Key extends string,
@@ -1887,17 +1685,14 @@ export interface NodeArrayDataDef<
  *
  * Usage:
  *   const tagsDef =
- *     defineNodeArrayData("tags" as const)<string, Paragraph>({
- *       merge: true,
- *       visitFn: (root, visitor) => { ... },
- *     });
+ *     defineNodeArrayData("tags" as const)<string, Paragraph>({ merge: true });
  */
 export function defineNodeArrayData<Key extends string>(key: Key) {
   return <
     T,
     N extends DataBagNode = DataBagNode,
   >(
-    options?: ArrayDataFactoryOptions<Key, T>,
+    options?: ArrayDataFactoryOptions,
   ): NodeArrayDataDef<Key, T, N> => ({
     key,
     factory: nodeArrayDataFactory<Key, T>(key, options),
@@ -1911,7 +1706,7 @@ export function defineNodeArrayData<Key extends string>(key: Key) {
  *   const safeTagsDef =
  *     defineSafeNodeArrayData("tags" as const)<string, Paragraph>(
  *       z.string(),
- *       { merge: true, visitFn: (root, visitor) => { ... } },
+ *       { merge: true },
  *     );
  */
 export function defineSafeNodeArrayData<Key extends string>(key: Key) {
@@ -1920,16 +1715,16 @@ export function defineSafeNodeArrayData<Key extends string>(key: Key) {
     N extends DataBagNode = DataBagNode,
   >(
     itemSchema: z.ZodType<T>,
-    options?: SafeArrayDataFactoryOptions<Key, T>,
+    options?: SafeArrayDataFactoryOptions<T>,
   ): NodeArrayDataDef<Key, T, N> => ({
     key,
     factory: safeNodeArrayDataFactory<Key, T>(key, itemSchema, options),
   });
 }
 
-/* -------------------------------------------------------------------------- */
-/* Type extractors for array-valued data                                      */
-/* -------------------------------------------------------------------------- */
+// ---------------------------------------------------------------------------
+// Type extractors for array-valued data
+// ---------------------------------------------------------------------------
 
 export type NodeArrayKey<
   Def extends NodeArrayDataDef<string, unknown, DataBagNode>,
