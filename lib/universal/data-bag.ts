@@ -36,8 +36,9 @@ import { eventBus } from "./event-bus.ts";
  *
  * You can intersect this with your own AST node types as needed.
  */
-export type DataBagNode = {
-  data?: Record<string, unknown>;
+// deno-lint-ignore no-explicit-any
+export type DataBagNode<Data = any> = {
+  data?: Data;
   // Allow arbitrary additional properties
   // deno-lint-ignore no-explicit-any
   [key: string]: any;
@@ -1636,32 +1637,80 @@ export function defineSafeNodeData<Key extends string>(key: Key) {
 // Type extractors for scalar/object data
 // ---------------------------------------------------------------------------
 
+/**
+ * Extract the string key literal from a scalar/object {@link NodeDataDef}.
+ *
+ * @typeParam Def - A concrete NodeDataDef returned by {@link defineNodeData}.
+ *
+ * @example
+ * ```ts
+ * const def = defineNodeData("codeFM" as const)<CodeFrontmatter, Code>({});
+ * type K = NodeDataKey<typeof def>; // "codeFM"
+ * ```
+ */
 export type NodeDataKey<
   Def extends NodeDataDef<string, unknown, DataBagNode>,
 > = Def["key"];
 
+/**
+ * Extract the value type stored under the data-bag key from a
+ * scalar/object {@link NodeDataDef}.
+ *
+ * @typeParam Def - A concrete NodeDataDef returned by {@link defineNodeData}.
+ *
+ * @example
+ * ```ts
+ * const def = defineNodeData("codeFM" as const)<CodeFrontmatter, Code>({});
+ * type V = NodeDataType<typeof def>; // CodeFrontmatter
+ * ```
+ */
 export type NodeDataType<
   Def extends NodeDataDef<string, unknown, DataBagNode>,
 > = Def extends NodeDataDef<string, infer T, DataBagNode> ? T : never;
 
+/**
+ * Extract the node type that this scalar/object {@link NodeDataDef} is
+ * intended to enrich.
+ *
+ * @typeParam Def - A concrete NodeDataDef returned by {@link defineNodeData}.
+ *
+ * @example
+ * ```ts
+ * const def = defineNodeData("codeFM" as const)<CodeFrontmatter, Code>({});
+ * type N = NodeDataNode<typeof def>; // Code (or a subtype)
+ * ```
+ */
 export type NodeDataNode<
   Def extends NodeDataDef<string, unknown, DataBagNode>,
 > = Def extends NodeDataDef<string, unknown, infer N> ? N : never;
 
 /**
- * Rebuild DataSupplierNode from a NodeDataDef.
+ * Infer the enriched node type from a definition or factory that exposes
+ * a type-guard-shaped `is` method:
  *
- * By default uses the Node type encoded in the definition,
- * but you can override N to be more generic if you want.
+ * - `factory.is(node, ...args): node is WithData`
+ *
+ * This works for both scalar and array data defs and is resilient to
+ * future changes in the NodeDataDef / NodeArrayDataDef generic shapes
+ * because it relies only on the type guard.
+ *
+ * @typeParam Def - Any object that has `factory.is(node, ...args)` as a
+ *                  type guard; typically a NodeDataDef or NodeArrayDataDef.
+ *
+ * @example
+ * ```ts
+ * const def = defineNodeData("codeFM" as const)<CodeFrontmatter, Code>({});
+ * type CodeWithFM = NodeWithData<typeof def>; // Code & { data: { codeFM: CodeFrontmatter } }
+ * ```
  */
-export type NodeWithData<
-  Def extends NodeDataDef<string, unknown, DataBagNode>,
-  N extends DataBagNode = NodeDataNode<Def>,
-> = DataSupplierNode<
-  N,
-  NodeDataKey<Def>,
-  NodeDataType<Def>
->;
+export type NodeWithData<Def> = Def extends {
+  factory: {
+    // We only care that this is a type guard; parameter types are irrelevant.
+    // deno-lint-ignore no-explicit-any
+    is(node: any, ...args: readonly unknown[]): node is infer WithData;
+  };
+} ? WithData
+  : never;
 
 // ---------------------------------------------------------------------------
 // Data definition helpers (array-valued data)
@@ -1726,21 +1775,74 @@ export function defineSafeNodeArrayData<Key extends string>(key: Key) {
 // Type extractors for array-valued data
 // ---------------------------------------------------------------------------
 
+/**
+ * Extract the string key literal from an array-valued {@link NodeArrayDataDef}.
+ *
+ * @typeParam Def - A concrete NodeArrayDataDef returned by
+ *                  {@link defineNodeArrayData}.
+ *
+ * @example
+ * ```ts
+ * const def = defineNodeArrayData("tags" as const)<string, Code>({});
+ * type K = NodeArrayKey<typeof def>; // "tags"
+ * ```
+ */
 export type NodeArrayKey<
   Def extends NodeArrayDataDef<string, unknown, DataBagNode>,
 > = Def["key"];
 
+/**
+ * Extract the item type stored in the array for an array-valued
+ * {@link NodeArrayDataDef}.
+ *
+ * @typeParam Def - A concrete NodeArrayDataDef returned by
+ *                  {@link defineNodeArrayData}.
+ *
+ * @example
+ * ```ts
+ * const def = defineNodeArrayData("tags" as const)<string, Code>({});
+ * type Item = NodeArrayItem<typeof def>; // string
+ * ```
+ */
 export type NodeArrayItem<
   Def extends NodeArrayDataDef<string, unknown, DataBagNode>,
 > = Def extends NodeArrayDataDef<string, infer T, DataBagNode> ? T : never;
 
+/**
+ * Extract the node type that this array-valued {@link NodeArrayDataDef}
+ * is intended to enrich.
+ *
+ * @typeParam Def - A concrete NodeArrayDataDef returned by
+ *                  {@link defineNodeArrayData}.
+ *
+ * @example
+ * ```ts
+ * const def = defineNodeArrayData("tags" as const)<string, Code>({});
+ * type N = NodeArrayNode<typeof def>; // Code (or a subtype)
+ * ```
+ */
 export type NodeArrayNode<
   Def extends NodeArrayDataDef<string, unknown, DataBagNode>,
 > = Def extends NodeArrayDataDef<string, unknown, infer N> ? N : never;
 
 /**
- * Rebuild DataSupplierNode from a NodeArrayDataDef.
- * Data is `Item[]`.
+ * Rebuild a {@link DataSupplierNode} type from an array-valued
+ * {@link NodeArrayDataDef}.
+ *
+ * The resulting node has the same base node type as the definition and a
+ * `data[key]` entry whose value is `Item[]`.
+ *
+ * @typeParam Def - A concrete NodeArrayDataDef returned by
+ *                  {@link defineNodeArrayData}.
+ * @typeParam N   - (Optional) Explicit base node type. Defaults to the node
+ *                  type inferred from the definition.
+ *
+ * @example
+ * ```ts
+ * const def = defineNodeArrayData("tags" as const)<string, Code>({});
+ * type CodeWithTags = NodeWithArrayData<typeof def>;
+ * // CodeWithTags ~ Code & { data: { tags: string[] } }
+ * ```
  */
 export type NodeWithArrayData<
   Def extends NodeArrayDataDef<string, unknown, DataBagNode>,
