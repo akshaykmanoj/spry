@@ -13,8 +13,8 @@ body {
 }
 
 body {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+  font-family:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: #111827;
   background-color: #f9fafb;
   display: flex;
@@ -186,8 +186,8 @@ main#layout-grid {
 #hierarchy-view,
 #edge-table-view {
   flex: 1 1 auto;
-  min-height: 0;          /* allow them to shrink inside flex container */
-  overflow: auto;         /* scroll inside these panes */
+  min-height: 0; /* allow them to shrink inside flex container */
+  overflow: auto; /* scroll inside these panes */
 }
 
 #relationship-view-header {
@@ -517,15 +517,17 @@ main#layout-grid {
 }
 
 .code-block code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
 }
 
 /* Code header line above source */
 
 #node-code-header {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
   white-space: pre;
   padding: 0.2rem 0.5rem;
   border: 1px solid #e5e7eb;
