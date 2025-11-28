@@ -138,12 +138,12 @@ Deno.test("core primitives", async (t) => {
     "getData retrieves data by key and returns undefined if missing",
     () => {
       const n1 = makeNode("paragraph");
-      const value1 = getData<unknown, TestNode, "foo">(n1, "foo");
+      const value1 = getData<TestNode, "foo">(n1, "foo");
       assertEquals(value1, undefined);
 
       const n2 = makeNode("paragraph");
       n2.data = { foo: 123 };
-      const value2 = getData<number, TestNode, "foo">(n2, "foo");
+      const value2 = getData<TestNode, "foo">(n2, "foo");
       assertStrictEquals(value2, 123);
     },
   );
@@ -159,7 +159,7 @@ Deno.test("core primitives", async (t) => {
 
     assertThrows(
       () =>
-        getData<{ name: string; score: number }, TestNode, "meta">(
+        getData<TestNode, "meta">(
           bad,
           "meta",
           schema,
@@ -447,8 +447,7 @@ Deno.test("defineNodeData (unsafe scalar)", async (t) => {
         init(node, { factory }) {
           factory.attach(node as TestNode, { initialized: true });
         },
-        initOnFirstAccess: false,
-        autoInitOnIs: true,
+        initOnFirstAccess: true,
       });
 
       const flags = def.factory;
