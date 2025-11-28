@@ -111,9 +111,9 @@ export const insertCodeImportNodes: Plugin<[CodeImportInsertOptions?], Root> = (
         })
       ) {
         imported.push(codeGenNDF.attach(g.generated, {
-          importedFrom: code,
+          importedFrom: `${code.lang} ${code.meta}`,
           provenance: g.provenance,
-          strategy: g.strategy,
+          importedSpecs: specs,
           isContentAcquired: g.isContentAcquired,
         }));
       }
