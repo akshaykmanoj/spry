@@ -4,7 +4,7 @@
 //
 // Spry Graph Viewer CLI
 // - Reads Markdown fixture(s)
-// - Builds a GraphViewerModel via buildGraphViewerModelFromFiles()
+// - Builds a GraphProjection via graphProjectionFromFiles()
 // - Shows the containedInSection hierarchy in a TUI tree
 
 import { Command } from "@cliffy/command";
@@ -18,11 +18,11 @@ import { computeSemVerSync } from "../../universal/version.ts";
 
 import type { Node, Position } from "types/unist";
 import * as webUI from "../web-ui/service.ts";
-import { buildGraphViewerModelFromFiles } from "../web-ui/view.ts";
+import { graphProjectionFromFiles } from "../projection.ts";
 import { headingLikeNodeDataBag } from "../edge/rule/mod.ts";
 
-type GraphViewerModel = Awaited<
-  ReturnType<typeof buildGraphViewerModelFromFiles>
+type GraphProjection = Awaited<
+  ReturnType<typeof graphProjectionFromFiles>
 >;
 
 type HierarchyRow = {
@@ -57,7 +57,7 @@ function resolveMarkdownPaths(
 }
 
 /**
- * Build flat rows suitable for TreeLister from the GraphViewerModel
+ * Build flat rows suitable for TreeLister from the GraphProjection
  * for a single hierarchical relationship (e.g., "containedInSection").
  *
  * `includeNodeType` controls which mdast node.type values are rendered as rows.
@@ -66,7 +66,7 @@ function resolveMarkdownPaths(
  * ancestor.
  */
 function buildHierarchyRowsForRelationship(
-  model: GraphViewerModel,
+  model: GraphProjection,
   relName: string,
   includeNodeType: (node: Node) => boolean,
 ): HierarchyRow[] {
@@ -230,7 +230,7 @@ export class CLI {
 
   /**
    * `ls` command:
-   * - builds GraphViewerModel from markdown sources
+   * - builds GraphProjection from markdown sources
    * - shows the `containedInSection` hierarchy as a tree
    * - by default shows only heading + code nodes
    * - `-n, --node <type>` adds more mdast node.type values (e.g., paragraph)
@@ -267,7 +267,7 @@ export class CLI {
             return;
           }
 
-          const model = await buildGraphViewerModelFromFiles(markdownPaths);
+          const model = await graphProjectionFromFiles(markdownPaths);
 
           // Default types: heading + code
           const baseTypes = new Set<string>(["heading", "code"]);

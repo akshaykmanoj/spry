@@ -1,3 +1,81 @@
+/**
+ * GraphProjection: build a reusable, UI-agnostic graph view over Markdown documents.
+ *
+ * This module projects one or more Markdown files into a normalized graph model
+ * (`GraphProjection`) that can be consumed by:
+ *   - web UIs (graph viewers, explorers, dashboards),
+ *   - text / CLI tools, or
+ *   - orchestration and business logic that needs a node+edge view of mdast.
+ *
+ * What it does
+ * ------------
+ * Given a list of Markdown paths, `graphProjectionFromFiles()`:
+ *   - Parses each file into an mdast `Root` via `markdownASTs`.
+ *   - Runs the edge pipeline (`typicalRules` + `astGraphEdges`) to discover
+ *     relationships between mdast nodes (e.g. `containedInSection`, etc.).
+ *   - Assigns stable per-document node IDs and builds:
+ *       - `documents`: logical documents discovered from the inputs.
+ *       - `nodes`: all participating mdast nodes, labeled for display or logging.
+ *       - `edges`: graph edges grouped by relationship name.
+ *       - `relationships`: aggregate metadata for each relationship type.
+ *       - `hierarchies`: tree-shaped views for hierarchical relationships
+ *         (currently `containedInSection`), per document.
+ *   - Stores the original mdast nodes in `mdastStore` so callers can
+ *     dereference back from a `GraphProjectionNode` to the underlying AST.
+ *
+ * How it works
+ * ------------
+ * For each Markdown document:
+ *   - A `docId` is generated (e.g. `doc0`, `doc1`, ...), and a human-friendly
+ *     label is derived from the file path or `fileRef`.
+ *   - Every mdast node that participates in any edge is assigned a unique ID
+ *     within that document and inserted into `nodes`.
+ *       - Headings, paragraphs, and code blocks get a `language` and `source`
+ *         snippet using `toMarkdown` or the code block contents.
+ *       - Node labels are computed via `computeNodeLabel()`, using visible text
+ *         only (no JSON dumps) so they are safe for UI and logs.
+ *   - The edge pipeline (`typicalRules` + `astGraphEdges`) produces
+ *     `TypicalGraphEdge` instances, which are normalized into
+ *     `GraphProjectionEdge` entries and grouped by relationship name.
+ *   - `buildGraphTreeForRoot()` turns hierarchical relationships into
+ *     forest-like structures; these are projected into `HierarchyNode`s and
+ *     stored in `hierarchies[relationshipName][documentId]`.
+ *   - Edge counts per relationship are summarized into
+ *     `GraphProjectionRelationship` entries.
+ *
+ * The resulting `GraphProjection` is stable and deterministic for a given set
+ * of inputs and rule configuration, making it safe for testing, caching, and
+ * downstream processing.
+ *
+ * Usage
+ * -----
+ * Typical usage in a CLI, web service, or orchestrator:
+ *
+ *   import { graphProjectionFromFiles } from "./projection.ts";
+ *
+ *   const projection = await graphProjectionFromFiles([
+ *     "docs/intro.md",
+ *     "docs/runbook.md",
+ *   ]);
+ *
+ *   // Example: list all relationships
+ *   for (const rel of projection.relationships) {
+ *     console.log(rel.name, rel.edgeCount);
+ *   }
+ *
+ *   // Example: inspect all nodes participating in a given relationship
+ *   const contained = projection.edges["containedInSection"] ?? [];
+ *   for (const edge of contained) {
+ *     const from = projection.nodes[edge.from];
+ *     const to = projection.nodes[edge.to];
+ *     // ... use node labels, types, or mdast indices for further logic
+ *   }
+ *
+ * The `GraphProjection` type is intentionally UI-neutral: it can be used as
+ * a backing model for different front-ends (web, TUI, tests) as well as
+ * for non-UI tasks such as automation, linting, or higher-level orchestration
+ * over the Markdown + Axiom edge layer.
+ */
 import { toMarkdown } from "mdast-util-to-markdown";
 import type { Heading, Root, RootContent } from "types/mdast";
 import type { Node } from "types/unist";
@@ -7,15 +85,15 @@ import {
   TypicalRelationship,
   TypicalRuleCtx,
   typicalRules,
-} from "../edge/pipeline/typical.ts";
-import { type GraphEdgeTreeNode } from "../edge/tree.ts";
-import { markdownASTs } from "../io/mod.ts";
-import { NodeDecorator } from "../remark/node-decorator.ts";
-import { headingText } from "../mdast/node-content.ts";
-import { astGraphEdges } from "../edge/mod.ts";
+} from "./edge/pipeline/typical.ts";
+import { type GraphEdgeTreeNode } from "./edge/tree.ts";
+import { markdownASTs } from "./io/mod.ts";
+import { NodeDecorator } from "./remark/node-decorator.ts";
+import { headingText } from "./mdast/node-content.ts";
+import { astGraphEdges } from "./edge/mod.ts";
 
 // -----------------------------------------------------------------------------
-// Types: GraphViewerModel (what index.js expects)
+// Types: GraphProjection (what index.js expects)
 // -----------------------------------------------------------------------------
 
 type HierarchyNode = {
@@ -25,19 +103,19 @@ type HierarchyNode = {
   readonly children: readonly HierarchyNode[];
 };
 
-type GraphViewerDocument = {
+export type GraphProjectionDocument = {
   readonly id: string;
   readonly label: string;
 };
 
-type GraphViewerRelationship = {
+export type GraphProjectionRelationship = {
   readonly name: string;
   readonly hierarchical: boolean;
   readonly description?: string;
   readonly edgeCount: number;
 };
 
-type GraphViewerNode = {
+export type GraphProjectionNode = {
   readonly id: string;
   readonly documentId: string;
   readonly type: string;
@@ -49,22 +127,22 @@ type GraphViewerNode = {
   readonly source?: string | null;
 };
 
-type GraphViewerEdge = {
+export type GraphProjectionEdge = {
   readonly id: string;
   readonly documentId: string;
   readonly from: string;
   readonly to: string;
 };
 
-type GraphViewerModel = {
+export type GraphProjection = {
   readonly title: string;
   readonly appVersion: string;
 
-  readonly documents: readonly GraphViewerDocument[];
-  readonly relationships: readonly GraphViewerRelationship[];
+  readonly documents: readonly GraphProjectionDocument[];
+  readonly relationships: readonly GraphProjectionRelationship[];
 
-  readonly nodes: Record<string, GraphViewerNode>;
-  readonly edges: Record<string, GraphViewerEdge[]>;
+  readonly nodes: Record<string, GraphProjectionNode>;
+  readonly edges: Record<string, GraphProjectionEdge[]>;
   readonly hierarchies: Record<string, Record<string, HierarchyNode[]>>;
 
   readonly mdastStore: readonly unknown[];
@@ -159,7 +237,7 @@ function nodePlainText(node: Node): string {
 }
 
 // -----------------------------------------------------------------------------
-// GraphViewerModel builder
+// GraphProjection builder
 // -----------------------------------------------------------------------------
 
 // The main hierarchical relationship we care about for the tree view.
@@ -167,12 +245,12 @@ const HIERARCHICAL_RELS = new Set<TypicalRelationship>([
   "containedInSection",
 ]);
 
-export async function buildGraphViewerModelFromFiles(
+export async function graphProjectionFromFiles(
   markdownPaths: string[],
-): Promise<GraphViewerModel> {
-  const documents: GraphViewerDocument[] = [];
-  const nodes: Record<string, GraphViewerNode> = {};
-  const edgesByRel: Record<string, GraphViewerEdge[]> = {};
+): Promise<GraphProjection> {
+  const documents: GraphProjectionDocument[] = [];
+  const nodes: Record<string, GraphProjectionNode> = {};
+  const edgesByRel: Record<string, GraphProjectionEdge[]> = {};
   const hierarchies: Record<string, Record<string, HierarchyNode[]>> = {};
   const mdastStore: unknown[] = [];
 
@@ -310,7 +388,7 @@ export async function buildGraphViewerModelFromFiles(
   }
 
   // Build relationships list from counts
-  const relationships: GraphViewerRelationship[] = [];
+  const relationships: GraphProjectionRelationship[] = [];
   for (const [name, count] of relEdgeCounts.entries()) {
     relationships.push({
       name,
@@ -329,7 +407,7 @@ export async function buildGraphViewerModelFromFiles(
     relationships.find((r) => r.hierarchical)?.name ??
       (relationships[0]?.name ?? null);
 
-  const model: GraphViewerModel = {
+  const model: GraphProjection = {
     title: "Spry Graph Viewer",
     appVersion: "0.1.0",
     documents,

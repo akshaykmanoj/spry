@@ -4,7 +4,7 @@
 // Deno entrypoint for the Spry Graph Viewer.
 // - Reads Markdown fixture(s)
 // - Runs the Ontology Graphs and Edges rule pipeline
-// - Builds a GraphViewerModel (graph-centric JSON)
+// - Builds a GraphProjection (graph-centric JSON)
 // - Injects that JSON into index.html and serves it via Deno.serve
 
 import { Command } from "@cliffy/command";
@@ -12,7 +12,7 @@ import { CompletionsCommand } from "@cliffy/completions";
 import { HelpCommand } from "@cliffy/help";
 import { fromFileUrl, relative } from "@std/path";
 import { computeSemVerSync } from "../../universal/version.ts";
-import { buildGraphViewerModelFromFiles } from "./view.ts";
+import { graphProjectionFromFiles } from "../projection.ts";
 
 /**
  * We use an "injection" model so that saving the file can allow the HTML to
@@ -24,7 +24,7 @@ async function ssrIndexHtml(mdSources: string[]) {
     fromFileUrl(new URL("./index.html", import.meta.url)),
   );
 
-  const model = await buildGraphViewerModelFromFiles(mdSources);
+  const model = await graphProjectionFromFiles(mdSources);
 
   const json = JSON.stringify(model);
 

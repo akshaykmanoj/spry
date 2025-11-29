@@ -106,7 +106,7 @@ but produce _semantic edges_ instead of textual mutations.
 Edges are stored as:
 
 ```ts
-type GraphViewerEdge = {
+type GraphProjectionEdge = {
   id: string;
   documentId: string;
   from: string;

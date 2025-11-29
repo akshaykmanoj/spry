@@ -144,20 +144,18 @@ Deno.test(`Axiom regression / smoke test of ${ff.relToCWD(fixtures.comprehensive
     .build();
 
   const graphs: Graph<Relationship, TestEdge>[] = [];
-  for await (
-    const viewable of markdownASTs([fixtures.comprehensiveMdPath])
-  ) {
+  for await (const mdAST of markdownASTs([fixtures.comprehensiveMdPath])) {
     const edges: TestEdge[] = [];
-    const baseCtx: TestCtx = { root: viewable.mdastRoot };
+    const baseCtx: TestCtx = { root: mdAST.mdastRoot };
 
     edges.push(
-      ...astGraphEdges<Relationship, TestEdge, TestCtx>(viewable.mdastRoot, {
+      ...astGraphEdges<Relationship, TestEdge, TestCtx>(mdAST.mdastRoot, {
         prepareContext: () => baseCtx,
         rules: () => rules,
       }),
     );
 
-    graphs.push({ root: viewable.mdastRoot, edges });
+    graphs.push({ root: mdAST.mdastRoot, edges });
   }
 
   const graph = graphs[0];
