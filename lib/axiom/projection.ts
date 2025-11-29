@@ -79,6 +79,7 @@
 import { toMarkdown } from "mdast-util-to-markdown";
 import type { Heading, Root, RootContent } from "types/mdast";
 import type { Node } from "types/unist";
+import { astGraphEdges } from "./edge/mod.ts";
 import {
   buildGraphTreeForRoot,
   TypicalGraphEdge,
@@ -87,10 +88,9 @@ import {
   typicalRules,
 } from "./edge/pipeline/typical.ts";
 import { type GraphEdgeTreeNode } from "./edge/tree.ts";
-import { markdownASTs } from "./io/mod.ts";
-import { NodeDecorator } from "./remark/node-decorator.ts";
+import { markdownASTs, MarkdownEncountered } from "./io/mod.ts";
 import { headingText } from "./mdast/node-content.ts";
-import { astGraphEdges } from "./edge/mod.ts";
+import { NodeDecorator } from "./remark/node-decorator.ts";
 
 // -----------------------------------------------------------------------------
 // Types: GraphProjection (what index.js expects)
@@ -136,7 +136,7 @@ export type GraphProjectionEdge = {
 
 export type GraphProjection = {
   readonly title: string;
-  readonly appVersion: string;
+  readonly version: string;
 
   readonly documents: readonly GraphProjectionDocument[];
   readonly relationships: readonly GraphProjectionRelationship[];
@@ -247,6 +247,7 @@ const HIERARCHICAL_RELS = new Set<TypicalRelationship>([
 
 export async function graphProjectionFromFiles(
   markdownPaths: string[],
+  encountered?: (projectable: MarkdownEncountered) => void,
 ): Promise<GraphProjection> {
   const documents: GraphProjectionDocument[] = [];
   const nodes: Record<string, GraphProjectionNode> = {};
@@ -260,13 +261,14 @@ export async function graphProjectionFromFiles(
 
   let docIndex = 0;
 
-  for await (const viewable of markdownASTs(markdownPaths)) {
-    const root = viewable.mdastRoot as Root;
+  for await (const projectable of markdownASTs(markdownPaths)) {
+    encountered?.(projectable);
+    const root = projectable.mdastRoot as Root;
 
     const docId = `doc${docIndex}`;
-    const docLabel = (viewable.file.path as string | undefined) ??
-      (viewable.fileRef
-        ? (viewable.fileRef(root as never) as string)
+    const docLabel = (projectable.file.path as string | undefined) ??
+      (projectable.fileRef
+        ? (projectable.fileRef(root as never) as string)
         : `Document ${docIndex + 1}`);
 
     documents.push({ id: docId, label: docLabel });
@@ -408,8 +410,8 @@ export async function graphProjectionFromFiles(
       (relationships[0]?.name ?? null);
 
   const model: GraphProjection = {
-    title: "Spry Graph Viewer",
-    appVersion: "0.1.0",
+    title: "Spry Axiom Graph Projection",
+    version: "0.1.0",
     documents,
     relationships,
     nodes,

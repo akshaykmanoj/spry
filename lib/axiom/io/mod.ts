@@ -163,3 +163,7 @@ export async function* markdownASTs<
     };
   }
 }
+
+export type MarkdownEncountered = Yielded<
+  Awaited<ReturnType<typeof markdownASTs>>
+>;

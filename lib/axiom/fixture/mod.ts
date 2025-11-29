@@ -15,25 +15,41 @@ export function fixturesFactory(
     relToCWD: (candidate: string) => relative(Deno.cwd(), candidate),
 
     path: fixturePath,
-    textContent: async (rel: string) =>
-      await Deno.readTextFile(fixturePath(rel)),
-    textContentSync: (rel: string) => Deno.readTextFileSync(fixturePath(rel)),
+    text: async (rel: string, data?: string) =>
+      data
+        ? await Deno.writeTextFile(fixturePath(rel), data)
+        : await Deno.readTextFile(fixturePath(rel)),
+    json: async (rel: string, data?: string, pretty?: "pretty") =>
+      data
+        ? await Deno.writeTextFile(
+          fixturePath(rel),
+          JSON.stringify(data, null, pretty ? 2 : 0),
+        )
+        : JSON.parse(await Deno.readTextFile(fixturePath(rel))),
 
     pmdPath,
-    pmdTextContent: async (rel: string) =>
-      await Deno.readTextFile(sundryPath(rel)),
-    pmdTextContentSync: (rel: string) => Deno.readTextFileSync(sundryPath(rel)),
+    pmdText: async (rel: string, data?: string) =>
+      data
+        ? await Deno.writeTextFile(pmdPath(rel), data)
+        : await Deno.readTextFile(pmdPath(rel)),
 
     sundryPath,
-    sundryTextContent: async (rel: string) =>
-      await Deno.readTextFile(sundryPath(rel)),
-    sundryTextContentSync: (rel: string) =>
-      Deno.readTextFileSync(sundryPath(rel)),
+    sundryText: async (rel: string, data?: string) =>
+      data
+        ? await Deno.writeTextFile(sundryPath(rel), data)
+        : await Deno.readTextFile(sundryPath(rel)),
 
     goldenPath,
-    goldenTextContent: async (rel: string) =>
-      await Deno.readTextFile(goldenPath(rel)),
-    goldenTextContentSync: (rel: string) =>
-      Deno.readTextFileSync(goldenPath(rel)),
+    goldenText: async (rel: string, data?: string) =>
+      data
+        ? await Deno.writeTextFile(goldenPath(rel), data)
+        : await Deno.readTextFile(goldenPath(rel)),
+    goldenJSON: async (rel: string, data?: unknown, pretty?: "pretty") =>
+      data
+        ? await Deno.writeTextFile(
+          goldenPath(rel),
+          JSON.stringify(data, null, pretty ? 2 : 0),
+        )
+        : JSON.parse(await Deno.readTextFile(goldenPath(rel))),
   };
 }

@@ -10,16 +10,19 @@
 import { Command } from "@cliffy/command";
 import { CompletionsCommand } from "@cliffy/completions";
 import { HelpCommand } from "@cliffy/help";
+
 import { bold, gray, magenta, yellow } from "@std/fmt/colors";
+
+import type { Node, Position } from "types/unist";
+import { inspect } from "unist-util-inspect";
 
 import { ListerBuilder } from "../../universal/lister-tabular-tui.ts";
 import { TreeLister } from "../../universal/lister-tree-tui.ts";
 import { computeSemVerSync } from "../../universal/version.ts";
-
-import type { Node, Position } from "types/unist";
-import * as webUI from "../web-ui/service.ts";
-import { graphProjectionFromFiles } from "../projection.ts";
 import { headingLikeNodeDataBag } from "../edge/rule/mod.ts";
+import { markdownASTs } from "../io/mod.ts";
+import { graphProjectionFromFiles } from "../projection.ts";
+import * as webUI from "../web-ui/service.ts";
 
 type GraphProjection = Awaited<
   ReturnType<typeof graphProjectionFromFiles>
@@ -201,7 +204,8 @@ export class CLI {
       .command("help", new HelpCommand())
       .command("completions", new CompletionsCommand())
       .command("web-ui", this.webUiCLI.docCommand())
-      .command("ls", this.lsCommand());
+      .command("ls", this.lsCommand())
+      .command("inspect", this.inspectCommand());
   }
 
   protected baseCommand({ examplesCmd }: { examplesCmd: string }) {
@@ -228,6 +232,40 @@ export class CLI {
       );
   }
 
+  inspectCommand(cmdName = "inspect") {
+    return this.baseCommand({ examplesCmd: cmdName })
+      .description("inspect mdast nodes as a hierarchy")
+      .arguments("[paths...:string]")
+      .option("--no-color", "Show output without ANSI colors")
+      .action(
+        async (
+          options: {
+            node?: string | string[];
+            color?: boolean;
+          },
+          ...paths: string[]
+        ) => {
+          const markdownPaths = resolveMarkdownPaths(
+            paths,
+            this.conf?.defaultFiles,
+          );
+
+          if (markdownPaths.length === 0) {
+            console.log(
+              gray(
+                "No markdown paths provided and no default files configured.",
+              ),
+            );
+            return;
+          }
+
+          for await (const mdAST of markdownASTs(markdownPaths)) {
+            console.log(inspect(mdAST.mdastRoot, { color: options.color }));
+          }
+        },
+      );
+  }
+
   /**
    * `ls` command:
    * - builds GraphProjection from markdown sources
@@ -235,7 +273,7 @@ export class CLI {
    * - by default shows only heading + code nodes
    * - `-n, --node <type>` adds more mdast node.type values (e.g., paragraph)
    */
-  lsCommand(cmdName = "graph") {
+  lsCommand(cmdName = "ls") {
     return this.baseCommand({ examplesCmd: cmdName })
       .description("browse containedInSection hierarchy as a tree")
       .arguments("[paths...:string]")

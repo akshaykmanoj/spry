@@ -1,0 +1,1920 @@
+root[194] (1:1-703:1, 0-18997)
+│ data: {"documentFrontmatter":{"node":{"type":"yaml","value":"doc-classify:\n  - select: heading[depth=\"1\"]\n    role: project\n  - select: heading[depth=\"2\"]\n    role: strategy\n  - select: heading[depth=\"3\"]\n    role: plan\n  - select: heading[depth=\"4\"]\n    role: suite\n  - select: heading[depth=\"5\"]\n    role: case\n  - select: heading[depth=\"6\"]\n    role: evidence","position":{"start":{"line":1,"column":1,"offset":0},"end":{"line":15,"column":4,"offset":309}},"data":{"parsedFM":{"fm":{"doc-classify":[{"select":"heading[depth=\"1\"]","role":"project"},{"select":"heading[depth=\"2\"]","role":"strategy"},{"select":"heading[depth=\"3\"]","role":"plan"},{"select":"heading[depth=\"4\"]","role":"suite"},{"select":"heading[depth=\"5\"]","role":"case"},{"select":"heading[depth=\"6\"]","role":"evidence"}]}}}},"parsed":{"fm":{"doc-classify":[{"select":"heading[depth=\"1\"]","role":"project"},{"select":"heading[depth=\"2\"]","role":"strategy"},{"select":"heading[depth=\"3\"]","role":"plan"},{"select":"heading[depth=\"4\"]","role":"suite"},{"select":"heading[depth=\"5\"]","role":"case"},{"select":"heading[depth=\"6\"]","role":"evidence"}]}}}}
+├─0   yaml "doc-classify:\n  - select: heading[depth=\"1\"]\n    role: project\n  - select: heading[depth=\"2\"]\n    role: strategy\n  - select: heading[depth=\"3\"]\n    role: plan\n  - select: heading[depth=\"4\"]\n    role: suite\n  - select: heading[depth=\"5\"]\n    role: case\n  - select: heading[depth=\"6\"]\n    role: evidence" (1:1-15:4, 0-309)
+│       data: {"parsedFM":{"fm":{"doc-classify":[{"select":"heading[depth=\"1\"]","role":"project"},{"select":"heading[depth=\"2\"]","role":"strategy"},{"select":"heading[depth=\"3\"]","role":"plan"},{"select":"heading[depth=\"4\"]","role":"suite"},{"select":"heading[depth=\"5\"]","role":"case"},{"select":"heading[depth=\"6\"]","role":"evidence"}]}}}
+├─1   heading[1] (17:1-17:40, 311-350)
+│     │ depth: 1
+│     └─0 text "Spry remark ecosystem Test Fixture 01" (17:3-17:40, 313-350)
+├─2   decorator<id> (19:1-19:21, 352-372)
+│       kind: "@"
+│       decorator: "id mdast-io-project"
+│       pi: {"args":["id","mdast-io-project"],"pos":["mdast-io-project"],"flags":{"mdast-io-project":true},"count":2,"posCount":1}
+├─3   paragraph[3] (21:1-23:6, 374-538)
+│     ├─0 text "This synthetic project exists " (21:1-21:31, 374-404)
+│     ├─1 strong[1] (21:31-21:39, 404-412)
+│     │   └─0 text "only" (21:33-21:37, 406-410)
+│     └─2 text " to exercise the full mdast-io and Spry\nremark plugin stack end-to-end. It is intentionally dense and over-documented so\nthat:" (21:39-23:6, 412-538)
+├─4   list[3] (25:1-35:67, 540-1061)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (25:1-25:54, 540-593)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[2] (25:3-25:54, 542-593)
+│     │       ├─0 inlineCode "remark" (25:3-25:11, 542-550)
+│     │       └─1 text " can parse the Markdown into an MDAST tree." (25:11-25:54, 550-593)
+│     ├─1 listItem[2] (26:1-33:55, 594-917)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   ├─0 paragraph[2] (26:3-26:33, 596-626)
+│     │   │   ├─0 strong[1] (26:3-26:28, 596-621)
+│     │   │   │   └─0 text "Spry’s remark plugins" (26:5-26:26, 598-619)
+│     │   │   └─1 text " can:" (26:28-26:33, 621-626)
+│     │   └─1 list[7] (27:3-33:55, 629-917)
+│     │       │ ordered: false
+│     │       │ start: null
+│     │       │ spread: false
+│     │       ├─0 listItem[1] (27:3-27:28, 629-654)
+│     │       │   │ spread: false
+│     │       │   │ checked: null
+│     │       │   └─0 paragraph[1] (27:5-27:28, 631-654)
+│     │       │       └─0 text "classify nodes by role," (27:5-27:28, 631-654)
+│     │       ├─1 listItem[1] (28:3-28:23, 657-677)
+│     │       │   │ spread: false
+│     │       │   │ checked: null
+│     │       │   └─0 paragraph[1] (28:5-28:23, 659-677)
+│     │       │       └─0 text "attach identities," (28:5-28:23, 659-677)
+│     │       ├─2 listItem[1] (29:3-29:44, 680-721)
+│     │       │   │ spread: false
+│     │       │   │ checked: null
+│     │       │   └─0 paragraph[1] (29:5-29:44, 682-721)
+│     │       │       └─0 text "parse document and heading frontmatter," (29:5-29:44, 682-721)
+│     │       ├─3 listItem[1] (30:3-30:59, 724-780)
+│     │       │   │ spread: false
+│     │       │   │ checked: null
+│     │       │   └─0 paragraph[1] (30:5-30:59, 726-780)
+│     │       │       └─0 text "decorate code fences with annotations and frontmatter," (30:5-30:59, 726-780)
+│     │       ├─4 listItem[1] (31:3-31:40, 783-820)
+│     │       │   │ spread: false
+│     │       │   │ checked: null
+│     │       │   └─0 paragraph[1] (31:5-31:40, 785-820)
+│     │       │       └─0 text "stitch partial code cells together," (31:5-31:40, 785-820)
+│     │       ├─5 listItem[1] (32:3-32:42, 823-862)
+│     │       │   │ spread: false
+│     │       │   │ checked: null
+│     │       │   └─0 paragraph[1] (32:5-32:42, 825-862)
+│     │       │       └─0 text "inject external and internal content," (32:5-32:42, 825-862)
+│     │       └─6 listItem[1] (33:3-33:55, 865-917)
+│     │           │ spread: false
+│     │           │ checked: null
+│     │           └─0 paragraph[1] (33:5-33:55, 867-917)
+│     │               └─0 text "validate structured schemas derived from Markdown." (33:5-33:55, 867-917)
+│     └─2 listItem[1] (34:1-35:67, 918-1061)
+│         │ spread: false
+│         │ checked: null
+│         └─0 paragraph[2] (34:3-35:67, 920-1061)
+│             ├─0 inlineCode "mdast-io" (34:3-34:13, 920-930)
+│             └─1 text " and related libraries can serialize, re-hydrate, and round-trip\nthis tree without losing any structural or semantic information." (34:13-35:67, 930-1061)
+├─5   paragraph[3] (37:1-38:15, 1063-1151)
+│     ├─0 text "Although this file is synthetic, it is " (37:1-37:40, 1063-1102)
+│     ├─1 strong[1] (37:40-38:10, 1102-1146)
+│     │   └─0 text "designed as a comprehensive test\nfixture" (37:42-38:8, 1104-1144)
+│     └─2 text " for:" (38:10-38:15, 1146-1151)
+├─6   list[3] (40:1-42:59, 1153-1290)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (40:1-40:34, 1153-1186)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[2] (40:3-40:34, 1155-1186)
+│     │       ├─0 inlineCode "mdast-io" (40:3-40:13, 1155-1165)
+│     │       └─1 text " read/write behavior," (40:13-40:34, 1165-1186)
+│     ├─1 listItem[1] (41:1-41:45, 1187-1231)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[1] (41:3-41:45, 1189-1231)
+│     │       └─0 text "the Spry MDAST notebook/runtime pipelines," (41:3-41:45, 1189-1231)
+│     └─2 listItem[1] (42:1-42:59, 1232-1290)
+│         │ spread: false
+│         │ checked: null
+│         └─0 paragraph[1] (42:3-42:59, 1234-1290)
+│             └─0 text "pipeline orchestration in Deno / TypeScript test suites." (42:3-42:59, 1234-1290)
+├─7   paragraph[1] (44:1-44:15, 1292-1306)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (44:1-44:15, 1292-1306)
+│         └─0 text "Objectives" (44:3-44:13, 1294-1304)
+├─8   list[9] (46:1-59:40, 1308-2130)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (46:1-46:81, 1308-1388)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[5] (46:3-46:81, 1310-1388)
+│     │       ├─0 text "Demonstrate how " (46:3-46:19, 1310-1326)
+│     │       ├─1 strong[1] (46:19-46:38, 1326-1345)
+│     │       │   └─0 text "doc frontmatter" (46:21-46:36, 1328-1343)
+│     │       ├─2 text " is parsed and attached to the " (46:38-46:69, 1345-1376)
+│     │       ├─3 inlineCode "Root" (46:69-46:75, 1376-1382)
+│     │       └─4 text " node." (46:75-46:81, 1382-1388)
+│     ├─1 listItem[1] (47:1-48:10, 1389-1472)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[3] (47:3-48:10, 1391-1472)
+│     │       ├─0 text "Show how the " (47:3-47:16, 1391-1404)
+│     │       ├─1 strong[1] (47:16-47:37, 1404-1425)
+│     │       │   └─0 text "doc schema plugin" (47:18-47:35, 1406-1423)
+│     │       └─2 text " validates that frontmatter against a\nschema." (47:37-48:10, 1425-1472)
+│     ├─2 listItem[1] (49:1-49:72, 1473-1544)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[3] (49:3-49:72, 1475-1544)
+│     │       ├─0 text "Exercise " (49:3-49:12, 1475-1484)
+│     │       ├─1 strong[1] (49:12-49:35, 1484-1507)
+│     │       │   └─0 text "heading frontmatter" (49:14-49:33, 1486-1505)
+│     │       └─2 text " that targets headings via selectors." (49:35-49:72, 1507-1544)
+│     ├─3 listItem[1] (50:1-50:73, 1545-1617)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[5] (50:3-50:73, 1547-1617)
+│     │       ├─0 text "Exercise " (50:3-50:12, 1547-1556)
+│     │       ├─1 strong[1] (50:12-50:35, 1556-1579)
+│     │       │   └─0 text "node classification" (50:14-50:33, 1558-1577)
+│     │       ├─2 text " using the " (50:35-50:46, 1579-1590)
+│     │       ├─3 inlineCode "doc-classify" (50:46-50:60, 1590-1604)
+│     │       └─4 text " rules above." (50:60-50:73, 1604-1617)
+│     ├─4 listItem[1] (51:1-51:74, 1618-1691)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[5] (51:3-51:74, 1620-1691)
+│     │       ├─0 text "Demonstrate " (51:3-51:15, 1620-1632)
+│     │       ├─1 strong[1] (51:15-51:34, 1632-1651)
+│     │       │   └─0 text "node identities" (51:17-51:32, 1634-1649)
+│     │       ├─2 text " via " (51:34-51:39, 1651-1656)
+│     │       ├─3 inlineCode "@id" (51:39-51:44, 1656-1661)
+│     │       └─4 text " markers and cross-references." (51:44-51:74, 1661-1691)
+│     ├─5 listItem[1] (52:1-53:70, 1692-1836)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[5] (52:3-53:70, 1694-1836)
+│     │       ├─0 text "Use " (52:3-52:7, 1694-1698)
+│     │       ├─1 strong[1] (52:7-52:27, 1698-1718)
+│     │       │   └─0 text "code annotations" (52:9-52:25, 1700-1716)
+│     │       ├─2 text " (info string metadata) and " (52:27-52:55, 1718-1746)
+│     │       ├─3 strong[1] (52:55-52:75, 1746-1766)
+│     │       │   └─0 text "code frontmatter" (52:57-52:73, 1748-1764)
+│     │       └─4 text "\nwithin fences to provide rich, typed metadata for executable cells." (52:75-53:70, 1766-1836)
+│     ├─6 listItem[1] (54:1-54:58, 1837-1894)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[3] (54:3-54:58, 1839-1894)
+│     │       ├─0 text "Demonstrate " (54:3-54:15, 1839-1851)
+│     │       ├─1 strong[1] (54:15-54:31, 1851-1867)
+│     │       │   └─0 text "code partial" (54:17-54:29, 1853-1865)
+│     │       └─2 text " authoring and composition." (54:31-54:58, 1867-1894)
+│     ├─7 listItem[2] (55:1-57:35, 1895-2010)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   ├─0 paragraph[3] (55:3-55:39, 1897-1933)
+│     │   │   ├─0 text "Demonstrate " (55:3-55:15, 1897-1909)
+│     │   │   ├─1 strong[1] (55:15-55:33, 1909-1927)
+│     │   │   │   └─0 text "code injection" (55:17-55:31, 1911-1925)
+│     │   │   └─2 text " from:" (55:33-55:39, 1927-1933)
+│     │   └─1 list[2] (56:3-57:35, 1936-2010)
+│     │       │ ordered: false
+│     │       │ start: null
+│     │       │ spread: false
+│     │       ├─0 listItem[1] (56:3-56:42, 1936-1975)
+│     │       │   │ spread: false
+│     │       │   │ checked: null
+│     │       │   └─0 paragraph[1] (56:5-56:42, 1938-1975)
+│     │       │       └─0 text "other cells within this document, and" (56:5-56:42, 1938-1975)
+│     │       └─1 listItem[1] (57:3-57:35, 1978-2010)
+│     │           │ spread: false
+│     │           │ checked: null
+│     │           └─0 paragraph[1] (57:5-57:35, 1980-2010)
+│     │               └─0 text "hypothetical external sources." (57:5-57:35, 1980-2010)
+│     └─8 listItem[1] (58:1-59:40, 2011-2130)
+│         │ spread: false
+│         │ checked: null
+│         └─0 paragraph[1] (58:3-59:40, 2013-2130)
+│             └─0 text "Provide realistic “test strategy / plan / suite / case / evidence” structures\nthat map nicely to MDAST node graphs." (58:3-59:40, 2013-2130)
+├─9   paragraph[1] (61:1-61:10, 2132-2141)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (61:1-61:10, 2132-2141)
+│         └─0 text "Risks" (61:3-61:8, 2134-2139)
+├─10  list[8] (63:1-74:9, 2143-2847)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (63:1-63:79, 2143-2221)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[3] (63:3-63:79, 2145-2221)
+│     │       ├─0 text "Loss of identity or metadata when serializing/deserializing with " (63:3-63:68, 2145-2210)
+│     │       ├─1 inlineCode "mdast-io" (63:68-63:78, 2210-2220)
+│     │       └─2 text "." (63:78-63:79, 2220-2221)
+│     ├─1 listItem[1] (64:1-64:75, 2222-2296)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[3] (64:3-64:75, 2224-2296)
+│     │       ├─0 text "Incorrect or incomplete application of " (64:3-64:42, 2224-2263)
+│     │       ├─1 inlineCode "doc-classify" (64:42-64:56, 2263-2277)
+│     │       └─2 text " rules to headings." (64:56-64:75, 2277-2296)
+│     ├─2 listItem[2] (65:1-67:63, 2297-2460)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   ├─0 paragraph[1] (65:3-65:49, 2299-2345)
+│     │   │   └─0 text "Plugins executing in the wrong order, causing:" (65:3-65:49, 2299-2345)
+│     │   └─1 list[2] (66:3-67:63, 2348-2460)
+│     │       │ ordered: false
+│     │       │ start: null
+│     │       │ spread: false
+│     │       ├─0 listItem[1] (66:3-66:52, 2348-2397)
+│     │       │   │ spread: false
+│     │       │   │ checked: null
+│     │       │   └─0 paragraph[1] (66:5-66:52, 2350-2397)
+│     │       │       └─0 text "schema validation to run before classification," (66:5-66:52, 2350-2397)
+│     │       └─1 listItem[1] (67:3-67:63, 2400-2460)
+│     │           │ spread: false
+│     │           │ checked: null
+│     │           └─0 paragraph[1] (67:5-67:63, 2402-2460)
+│     │               └─0 text "code injection to run before partials are registered, etc." (67:5-67:63, 2402-2460)
+│     ├─3 listItem[1] (68:1-68:73, 2461-2533)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[1] (68:3-68:73, 2463-2533)
+│     │       └─0 text "Code annotations being mis-parsed or mis-typed by the plugin pipeline." (68:3-68:73, 2463-2533)
+│     ├─4 listItem[1] (69:1-69:73, 2534-2606)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[3] (69:3-69:73, 2536-2606)
+│     │       ├─0 text "Ambiguous or duplicated " (69:3-69:27, 2536-2560)
+│     │       ├─1 inlineCode "@id" (69:27-69:32, 2560-2565)
+│     │       └─2 text " values causing node identity collisions." (69:32-69:73, 2565-2606)
+│     ├─5 listItem[1] (70:1-71:10, 2607-2690)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[1] (70:3-71:10, 2609-2690)
+│     │       └─0 text "Heading frontmatter colliding with doc frontmatter when merged into one\nschema." (70:3-71:10, 2609-2690)
+│     ├─6 listItem[1] (72:1-72:72, 2691-2762)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[1] (72:3-72:72, 2693-2762)
+│     │       └─0 text "Partial composition or code injection forming cycles or invalid DAGs." (72:3-72:72, 2693-2762)
+│     └─7 listItem[1] (73:1-74:9, 2763-2847)
+│         │ spread: false
+│         │ checked: null
+│         └─0 paragraph[3] (73:3-74:9, 2765-2847)
+│             ├─0 text "Evidence nodes not being recognized as " (73:3-73:42, 2765-2804)
+│             ├─1 inlineCode "role: evidence" (73:42-73:58, 2804-2820)
+│             └─2 text " by classification\nlogic." (73:58-74:9, 2820-2847)
+├─11  thematicBreak (76:1-76:4, 2849-2852)
+├─12  heading[1] (78:1-78:33, 2854-2886)
+│     │ depth: 2
+│     └─0 text "Plugin Orchestration Strategy" (78:4-78:33, 2857-2886)
+├─13  decorator<id> (80:1-80:34, 2888-2921)
+│       kind: "@"
+│       decorator: "id plugin-orchestration-strategy"
+│       pi: {"args":["id","plugin-orchestration-strategy"],"pos":["plugin-orchestration-strategy"],"flags":{"plugin-orchestration-strategy":true},"count":2,"posCount":1}
+├─14  paragraph[7] (82:1-83:81, 2923-3084)
+│     ├─0 text "This section explains the " (82:1-82:27, 2923-2949)
+│     ├─1 strong[1] (82:27-82:50, 2949-2972)
+│     │   └─0 text "high-level strategy" (82:29-82:48, 2951-2970)
+│     ├─2 text " for exercising the entire Spry\nplugin stack on a single Markdown document processed by " (82:50-83:57, 2972-3060)
+│     ├─3 inlineCode "remark" (83:57-83:65, 3060-3068)
+│     ├─4 text " and " (83:65-83:70, 3068-3073)
+│     ├─5 inlineCode "mdast-io" (83:70-83:80, 3073-3083)
+│     └─6 text "." (83:80-83:81, 3083-3084)
+├─15  paragraph[1] (85:1-86:6, 3086-3168)
+│     └─0 text "The following Spry remark plugins are assumed to run, in a pipeline, on this\nfile:" (85:1-86:6, 3086-3168)
+├─16  list[9] (88:1-96:51, 3170-3466)
+│     │ ordered: true
+│     │ start: 1
+│     │ spread: false
+│     ├─0 listItem[1] (88:1-88:30, 3170-3199)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[1] (88:4-88:30, 3173-3199)
+│     │       │ data: {"isHeadingLikeText":true}
+│     │       └─0 strong[1] (88:4-88:30, 3173-3199)
+│     │           └─0 text "Doc frontmatter plugin" (88:6-88:28, 3175-3197)
+│     ├─1 listItem[1] (89:1-89:34, 3200-3233)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[1] (89:4-89:34, 3203-3233)
+│     │       │ data: {"isHeadingLikeText":true}
+│     │       └─0 strong[1] (89:4-89:34, 3203-3233)
+│     │           └─0 text "Heading frontmatter plugin" (89:6-89:32, 3205-3231)
+│     ├─2 listItem[1] (90:1-90:34, 3234-3267)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[1] (90:4-90:34, 3237-3267)
+│     │       │ data: {"isHeadingLikeText":true}
+│     │       └─0 strong[1] (90:4-90:34, 3237-3267)
+│     │           └─0 text "Node classification plugin" (90:6-90:32, 3239-3265)
+│     ├─3 listItem[1] (91:1-91:30, 3268-3297)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[1] (91:4-91:30, 3271-3297)
+│     │       │ data: {"isHeadingLikeText":true}
+│     │       └─0 strong[1] (91:4-91:30, 3271-3297)
+│     │           └─0 text "Node identities plugin" (91:6-91:28, 3273-3295)
+│     ├─4 listItem[1] (92:1-92:31, 3298-3328)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[1] (92:4-92:31, 3301-3328)
+│     │       │ data: {"isHeadingLikeText":true}
+│     │       └─0 strong[1] (92:4-92:31, 3301-3328)
+│     │           └─0 text "Code annotations plugin" (92:6-92:29, 3303-3326)
+│     ├─5 listItem[1] (93:1-93:31, 3329-3359)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[1] (93:4-93:31, 3332-3359)
+│     │       │ data: {"isHeadingLikeText":true}
+│     │       └─0 strong[1] (93:4-93:31, 3332-3359)
+│     │           └─0 text "Code frontmatter plugin" (93:6-93:29, 3334-3357)
+│     ├─6 listItem[1] (94:1-94:27, 3360-3386)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[1] (94:4-94:27, 3363-3386)
+│     │       │ data: {"isHeadingLikeText":true}
+│     │       └─0 strong[1] (94:4-94:27, 3363-3386)
+│     │           └─0 text "Code partial plugin" (94:6-94:25, 3365-3384)
+│     ├─7 listItem[1] (95:1-95:29, 3387-3415)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[1] (95:4-95:29, 3390-3415)
+│     │       │ data: {"isHeadingLikeText":true}
+│     │       └─0 strong[1] (95:4-95:29, 3390-3415)
+│     │           └─0 text "Code injection plugin" (95:6-95:27, 3392-3413)
+│     └─8 listItem[1] (96:1-96:51, 3416-3466)
+│         │ spread: false
+│         │ checked: null
+│         └─0 paragraph[2] (96:4-96:51, 3419-3466)
+│             ├─0 strong[1] (96:4-96:25, 3419-3440)
+│             │   └─0 text "Doc schema plugin" (96:6-96:23, 3421-3438)
+│             └─1 text " (validation near the end)" (96:25-96:51, 3440-3466)
+├─17  paragraph[1] (98:1-100:7, 3468-3627)
+│     └─0 text "Each subsequent section includes specific test plans and cases that ensure\nbehavior from all of the above plugins is visible and verifiable in the final\nMDAST." (98:1-100:7, 3468-3627)
+├─18  paragraph[1] (102:1-102:14, 3629-3642)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (102:1-102:14, 3629-3642)
+│         └─0 text "Key Goals" (102:3-102:12, 3631-3640)
+├─19  list[3] (104:1-109:70, 3644-3998)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (104:1-105:15, 3644-3737)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[1] (104:3-105:15, 3646-3737)
+│     │       └─0 text "Confirm that the plugin ordering is correct and produces stable, predictable\nannotations." (104:3-105:15, 3646-3737)
+│     ├─1 listItem[1] (106:1-107:38, 3738-3850)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[1] (106:3-107:38, 3740-3850)
+│     │       └─0 text "Validate that every plugin leaves observable traces in the MDAST so that\nautomated tests can assert on them." (106:3-107:38, 3740-3850)
+│     └─2 listItem[1] (108:1-109:70, 3851-3998)
+│         │ spread: false
+│         │ checked: null
+│         └─0 paragraph[5] (108:3-109:70, 3853-3998)
+│             ├─0 text "Ensure that " (108:3-108:15, 3853-3865)
+│             ├─1 inlineCode "mdast-io" (108:15-108:25, 3865-3875)
+│             ├─2 text " can serialize these trees with " (108:25-108:57, 3875-3907)
+│             ├─3 strong[1] (108:57-108:69, 3907-3919)
+│             │   └─0 text "lossless" (108:59-108:67, 3909-3917)
+│             └─4 text " metadata\nround-trips (via data attributes, custom fields, or embedded JSON)." (108:69-109:70, 3919-3998)
+├─20  thematicBreak (111:1-111:4, 4000-4003)
+├─21  heading[1] (113:1-113:50, 4005-4054)
+│     │ depth: 2
+│     └─0 text "Node Classification & Doc Frontmatter Strategy" (113:4-113:50, 4008-4054)
+├─22  decorator<id> (115:1-115:28, 4056-4083)
+│       kind: "@"
+│       decorator: "id classification-strategy"
+│       pi: {"args":["id","classification-strategy"],"pos":["classification-strategy"],"flags":{"classification-strategy":true},"count":2,"posCount":1}
+├─23  paragraph[7] (117:1-119:66, 4085-4311)
+│     ├─0 text "This section validates that the " (117:1-117:33, 4085-4117)
+│     ├─1 strong[1] (117:33-117:59, 4117-4143)
+│     │   └─0 text "doc frontmatter plugin" (117:35-117:57, 4119-4141)
+│     ├─2 text " correctly initializes\ndocument-level metadata and that the " (117:59-118:38, 4143-4203)
+│     ├─3 strong[1] (118:38-118:68, 4203-4233)
+│     │   └─0 text "node classification plugin" (118:40-118:66, 4205-4231)
+│     ├─4 text " applies the\n" (118:68-119:1, 4233-4246)
+│     ├─5 inlineCode "doc-classify" (119:1-119:15, 4246-4260)
+│     └─6 text " rules from the YAML block at the top of this file." (119:15-119:66, 4260-4311)
+├─24  paragraph[1] (121:1-121:36, 4313-4348)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (121:1-121:36, 4313-4348)
+│         └─0 text "Doc Frontmatter Plugin Behavior" (121:3-121:34, 4315-4346)
+├─25  list[3] (123:1-125:62, 4350-4505)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (123:1-123:52, 4350-4401)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[3] (123:3-123:52, 4352-4401)
+│     │       ├─0 text "Reads YAML block at the very top (" (123:3-123:37, 4352-4386)
+│     │       ├─1 inlineCode "--- ... ---" (123:37-123:50, 4386-4399)
+│     │       └─2 text ")." (123:50-123:52, 4399-4401)
+│     ├─1 listItem[1] (124:1-124:42, 4402-4443)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[3] (124:3-124:42, 4404-4443)
+│     │       ├─0 text "Attaches it as " (124:3-124:18, 4404-4419)
+│     │       ├─1 inlineCode "root.data.frontmatter" (124:18-124:41, 4419-4442)
+│     │       └─2 text "." (124:41-124:42, 4442-4443)
+│     └─2 listItem[1] (125:1-125:62, 4444-4505)
+│         │ spread: false
+│         │ checked: null
+│         └─0 paragraph[3] (125:3-125:62, 4446-4505)
+│             ├─0 text "Makes " (125:3-125:9, 4446-4452)
+│             ├─1 inlineCode "doc-classify" (125:9-125:23, 4452-4466)
+│             └─2 text " rules available to subsequent plugins." (125:23-125:62, 4466-4505)
+├─26  paragraph[1] (127:1-127:40, 4507-4546)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (127:1-127:40, 4507-4546)
+│         └─0 text "Node Classification Plugin Behavior" (127:3-127:38, 4509-4544)
+├─27  list[3] (129:1-139:12, 4548-4885)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (129:1-129:46, 4548-4593)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[3] (129:3-129:46, 4550-4593)
+│     │       ├─0 text "Reads " (129:3-129:9, 4550-4556)
+│     │       ├─1 inlineCode "root.data.frontmatter.doc-classify" (129:9-129:45, 4556-4592)
+│     │       └─2 text "." (129:45-129:46, 4592-4593)
+│     ├─1 listItem[2] (130:1-137:28, 4594-4793)
+│     │   │ spread: true
+│     │   │ checked: null
+│     │   ├─0 paragraph[1] (130:3-130:43, 4596-4636)
+│     │   │   └─0 text "Applies CSS-like selectors to the MDAST:" (130:3-130:43, 4596-4636)
+│     │   └─1 list[6] (132:3-137:28, 4640-4793)
+│     │       │ ordered: false
+│     │       │ start: null
+│     │       │ spread: false
+│     │       ├─0 listItem[1] (132:3-132:27, 4640-4664)
+│     │       │   │ spread: false
+│     │       │   │ checked: null
+│     │       │   └─0 paragraph[3] (132:5-132:27, 4642-4664)
+│     │       │       ├─0 inlineCode "h1" (132:5-132:9, 4642-4646)
+│     │       │       ├─1 text " → " (132:9-132:12, 4646-4649)
+│     │       │       └─2 inlineCode "role: project" (132:12-132:27, 4649-4664)
+│     │       ├─1 listItem[1] (133:3-133:28, 4667-4692)
+│     │       │   │ spread: false
+│     │       │   │ checked: null
+│     │       │   └─0 paragraph[3] (133:5-133:28, 4669-4692)
+│     │       │       ├─0 inlineCode "h2" (133:5-133:9, 4669-4673)
+│     │       │       ├─1 text " → " (133:9-133:12, 4673-4676)
+│     │       │       └─2 inlineCode "role: strategy" (133:12-133:28, 4676-4692)
+│     │       ├─2 listItem[1] (134:3-134:24, 4695-4716)
+│     │       │   │ spread: false
+│     │       │   │ checked: null
+│     │       │   └─0 paragraph[3] (134:5-134:24, 4697-4716)
+│     │       │       ├─0 inlineCode "h3" (134:5-134:9, 4697-4701)
+│     │       │       ├─1 text " → " (134:9-134:12, 4701-4704)
+│     │       │       └─2 inlineCode "role: plan" (134:12-134:24, 4704-4716)
+│     │       ├─3 listItem[1] (135:3-135:25, 4719-4741)
+│     │       │   │ spread: false
+│     │       │   │ checked: null
+│     │       │   └─0 paragraph[3] (135:5-135:25, 4721-4741)
+│     │       │       ├─0 inlineCode "h4" (135:5-135:9, 4721-4725)
+│     │       │       ├─1 text " → " (135:9-135:12, 4725-4728)
+│     │       │       └─2 inlineCode "role: suite" (135:12-135:25, 4728-4741)
+│     │       ├─4 listItem[1] (136:3-136:24, 4744-4765)
+│     │       │   │ spread: false
+│     │       │   │ checked: null
+│     │       │   └─0 paragraph[3] (136:5-136:24, 4746-4765)
+│     │       │       ├─0 inlineCode "h5" (136:5-136:9, 4746-4750)
+│     │       │       ├─1 text " → " (136:9-136:12, 4750-4753)
+│     │       │       └─2 inlineCode "role: case" (136:12-136:24, 4753-4765)
+│     │       └─5 listItem[1] (137:3-137:28, 4768-4793)
+│     │           │ spread: false
+│     │           │ checked: null
+│     │           └─0 paragraph[3] (137:5-137:28, 4770-4793)
+│     │               ├─0 inlineCode "h6" (137:5-137:9, 4770-4774)
+│     │               ├─1 text " → " (137:9-137:12, 4774-4777)
+│     │               └─2 inlineCode "role: evidence" (137:12-137:28, 4777-4793)
+│     └─2 listItem[1] (138:1-139:12, 4794-4885)
+│         │ spread: false
+│         │ checked: null
+│         └─0 paragraph[5] (138:3-139:12, 4796-4885)
+│             ├─0 text "Writes computed roles into each heading node, e.g. " (138:3-138:54, 4796-4847)
+│             ├─1 inlineCode "node.data.role = \"suite\"" (138:54-138:80, 4847-4873)
+│             ├─2 text "\nfor " (138:80-139:7, 4873-4880)
+│             ├─3 inlineCode "h4" (139:7-139:11, 4880-4884)
+│             └─4 text "." (139:11-139:12, 4884-4885)
+├─28  heading[1] (141:1-141:42, 4887-4928)
+│     │ depth: 3
+│     └─0 text "Node Classification Verification Plan" (141:5-141:42, 4891-4928)
+├─29  decorator<id> (143:1-143:24, 4930-4953)
+│       kind: "@"
+│       decorator: "id classification-plan"
+│       pi: {"args":["id","classification-plan"],"pos":["classification-plan"],"flags":{"classification-plan":true},"count":2,"posCount":1}
+├─30  paragraph[1] (145:1-145:16, 4955-4970)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (145:1-145:16, 4955-4970)
+│         └─0 text "Cycle Goals" (145:3-145:14, 4957-4968)
+├─31  list[3] (147:1-149:74, 4972-5170)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (147:1-147:52, 4972-5023)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[3] (147:3-147:52, 4974-5023)
+│     │       ├─0 text "Ensure every heading receives the correct " (147:3-147:45, 4974-5016)
+│     │       ├─1 inlineCode "role" (147:45-147:51, 5016-5022)
+│     │       └─2 text "." (147:51-147:52, 5022-5023)
+│     ├─1 listItem[1] (148:1-148:73, 5024-5096)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[1] (148:3-148:73, 5026-5096)
+│     │       └─0 text "Confirm that nested suites/cases/evidence remain correctly classified." (148:3-148:73, 5026-5096)
+│     └─2 listItem[1] (149:1-149:74, 5097-5170)
+│         │ spread: false
+│         │ checked: null
+│         └─0 paragraph[3] (149:3-149:74, 5099-5170)
+│             ├─0 text "Verify that classification is preserved after " (149:3-149:49, 5099-5145)
+│             ├─1 inlineCode "mdast-io" (149:49-149:59, 5145-5155)
+│             └─2 text " serialization." (149:59-149:74, 5155-5170)
+├─32  heading[1] (151:1-151:42, 5172-5213)
+│     │ depth: 4
+│     └─0 text "Node Classification Visibility Suite" (151:6-151:42, 5177-5213)
+├─33  decorator<id> (153:1-153:36, 5215-5250)
+│       kind: "@"
+│       decorator: "id classification-visibility-suite"
+│       pi: {"args":["id","classification-visibility-suite"],"pos":["classification-visibility-suite"],"flags":{"classification-visibility-suite":true},"count":2,"posCount":1}
+├─34  paragraph[1] (155:1-156:8, 5252-5337)
+│     └─0 text "Ensures classification metadata is present and queryable for multiple heading\nlevels." (155:1-156:8, 5252-5337)
+├─35  paragraph[1] (158:1-158:10, 5339-5348)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (158:1-158:10, 5339-5348)
+│         └─0 text "Scope" (158:3-158:8, 5341-5346)
+├─36  list[2] (160:1-161:74, 5350-5464)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (160:1-160:41, 5350-5390)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[5] (160:3-160:41, 5352-5390)
+│     │       ├─0 text "All headings (" (160:3-160:17, 5352-5366)
+│     │       ├─1 inlineCode "h1" (160:17-160:21, 5366-5370)
+│     │       ├─2 text "–" (160:21-160:22, 5370-5371)
+│     │       ├─3 inlineCode "h6" (160:22-160:26, 5371-5375)
+│     │       └─4 text ") in this file." (160:26-160:41, 5375-5390)
+│     └─1 listItem[1] (161:1-161:74, 5391-5464)
+│         │ spread: false
+│         │ checked: null
+│         └─0 paragraph[1] (161:3-161:74, 5393-5464)
+│             └─0 text "Nested sections that emulate project/strategy/plan/suite/case/evidence." (161:3-161:74, 5393-5464)
+├─37  heading[1] (163:1-163:72, 5466-5537)
+│     │ depth: 5
+│     └─0 text "Verify headings are classified according to doc frontmatter rules" (163:7-163:72, 5472-5537)
+├─38  decorator<id> (165:1-165:21, 5539-5559)
+│       kind: "@"
+│       decorator: "id TC-CLASSIFY-0001"
+│       pi: {"args":["id","TC-CLASSIFY-0001"],"pos":["TC-CLASSIFY-0001"],"flags":{"TC-CLASSIFY-0001":true},"count":2,"posCount":1}
+├─39  code "doc-classify:\n  role: case\nrequirementID: REQ-CLASSIFY-001\nPriority: High\nTags: [mdast-io, classification, doc-frontmatter]\nScenario Type: Happy Path" (167:1-174:4, 5561-5726)
+│       lang: "yaml"
+│       meta: "HFM"
+│       data: {"codeFM":{"lang":"yaml","langSpec":{"id":"yaml","extensions":[".yaml",".yml"],"comment":{"line":["#"],"block":[]}},"meta":"HFM","pi":{"args":["yaml","HFM"],"pos":["HFM"],"flags":{"HFM":true},"count":2,"posCount":1},"cmdLang":"yaml","cli":"yaml HFM"}}
+├─40  paragraph[1] (176:1-176:16, 5728-5743)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (176:1-176:16, 5728-5743)
+│         └─0 text "Description" (176:3-176:14, 5730-5741)
+├─41  paragraph[7] (178:1-179:60, 5745-5883)
+│     ├─0 text "Verify that the node classification plugin uses " (178:1-178:49, 5745-5793)
+│     ├─1 inlineCode "doc-classify" (178:49-178:63, 5793-5807)
+│     ├─2 text " rules to enrich\nheading nodes with a " (178:63-179:22, 5807-5845)
+│     ├─3 inlineCode "role" (179:22-179:28, 5845-5851)
+│     ├─4 text " field in their " (179:28-179:44, 5851-5867)
+│     ├─5 inlineCode "data" (179:44-179:50, 5867-5873)
+│     └─6 text " property." (179:50-179:60, 5873-5883)
+├─42  paragraph[1] (181:1-181:18, 5885-5902)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (181:1-181:18, 5885-5902)
+│         └─0 text "Preconditions" (181:3-181:16, 5887-5900)
+├─43  list[3] (183:1-185:62, 5904-6087)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (183:1-183:77, 5904-5980)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[1] (183:7-183:77, 5910-5980)
+│     │       └─0 text "Doc frontmatter plugin is enabled and runs before node classification." (183:7-183:77, 5910-5980)
+│     ├─1 listItem[1] (184:1-184:45, 5981-6025)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[1] (184:7-184:45, 5987-6025)
+│     │       └─0 text "Node classification plugin is enabled." (184:7-184:45, 5987-6025)
+│     └─2 listItem[1] (185:1-185:62, 6026-6087)
+│         │ spread: false
+│         │ checked: true
+│         └─0 paragraph[3] (185:7-185:62, 6032-6087)
+│             ├─0 text "MDAST tree is available to assertions (via " (185:7-185:50, 6032-6075)
+│             ├─1 inlineCode "mdast-io" (185:50-185:60, 6075-6085)
+│             └─2 text ")." (185:60-185:62, 6085-6087)
+├─44  paragraph[1] (187:1-187:10, 6089-6098)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (187:1-187:10, 6089-6098)
+│         └─0 text "Steps" (187:3-187:8, 6091-6096)
+├─45  list[4] (189:1-193:36, 6100-6371)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (189:1-189:73, 6100-6172)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[1] (189:7-189:73, 6106-6172)
+│     │       └─0 text "Process this Markdown file through the configured remark pipeline." (189:7-189:73, 6106-6172)
+│     ├─1 listItem[1] (190:1-190:46, 6173-6218)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[3] (190:7-190:46, 6179-6218)
+│     │       ├─0 text "Locate all heading nodes (" (190:7-190:33, 6179-6205)
+│     │       ├─1 inlineCode "depth" (190:33-190:40, 6205-6212)
+│     │       └─2 text " 1–6)." (190:40-190:46, 6212-6218)
+│     ├─2 listItem[1] (191:1-191:42, 6219-6260)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[3] (191:7-191:42, 6225-6260)
+│     │       ├─0 text "Check their " (191:7-191:19, 6225-6237)
+│     │       ├─1 inlineCode "data.role" (191:19-191:30, 6237-6248)
+│     │       └─2 text " properties." (191:30-191:42, 6248-6260)
+│     └─3 listItem[1] (192:1-193:36, 6261-6371)
+│         │ spread: false
+│         │ checked: true
+│         └─0 paragraph[15] (192:7-193:36, 6267-6371)
+│             ├─0  text "Correlate " (192:7-192:17, 6267-6277)
+│             ├─1  inlineCode "depth" (192:17-192:24, 6277-6284)
+│             ├─2  text " with expected role (" (192:24-192:45, 6284-6305)
+│             ├─3  inlineCode "project" (192:45-192:54, 6305-6314)
+│             ├─4  text ", " (192:54-192:56, 6314-6316)
+│             ├─5  inlineCode "strategy" (192:56-192:66, 6316-6326)
+│             ├─6  text ", " (192:66-192:68, 6326-6328)
+│             ├─7  inlineCode "plan" (192:68-192:74, 6328-6334)
+│             ├─8  text ",\n" (192:74-193:1, 6334-6336)
+│             ├─9  inlineCode "suite" (193:7-193:14, 6342-6349)
+│             ├─10 text ", " (193:14-193:16, 6349-6351)
+│             ├─11 inlineCode "case" (193:16-193:22, 6351-6357)
+│             ├─12 text ", " (193:22-193:24, 6357-6359)
+│             ├─13 inlineCode "evidence" (193:24-193:34, 6359-6369)
+│             └─14 text ")." (193:34-193:36, 6369-6371)
+├─46  paragraph[1] (195:1-195:21, 6373-6393)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (195:1-195:21, 6373-6393)
+│         └─0 text "Expected Results" (195:3-195:19, 6375-6391)
+├─47  list[4] (197:1-200:73, 6395-6629)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (197:1-197:45, 6395-6439)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[3] (197:7-197:45, 6401-6439)
+│     │       ├─0 text "Every heading has a " (197:7-197:27, 6401-6421)
+│     │       ├─1 inlineCode "data.role" (197:27-197:38, 6421-6432)
+│     │       └─2 text " value." (197:38-197:45, 6432-6439)
+│     ├─1 listItem[1] (198:1-198:76, 6440-6515)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[12] (198:3-198:76, 6442-6515)
+│     │       ├─0  inlineCode "h1" (198:7-198:11, 6446-6450)
+│     │       ├─1  text " is tagged as " (198:11-198:25, 6450-6464)
+│     │       ├─2  inlineCode "project" (198:25-198:34, 6464-6473)
+│     │       ├─3  text ", " (198:34-198:36, 6473-6475)
+│     │       ├─4  inlineCode "h2" (198:36-198:40, 6475-6479)
+│     │       ├─5  text " as " (198:40-198:44, 6479-6483)
+│     │       ├─6  inlineCode "strategy" (198:44-198:54, 6483-6493)
+│     │       ├─7  text ", " (198:54-198:56, 6493-6495)
+│     │       ├─8  inlineCode "h3" (198:56-198:60, 6495-6499)
+│     │       ├─9  text " as " (198:60-198:64, 6499-6503)
+│     │       ├─10 inlineCode "plan" (198:64-198:70, 6503-6509)
+│     │       └─11 text ", etc." (198:70-198:76, 6509-6515)
+│     ├─2 listItem[1] (199:1-199:41, 6516-6556)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[1] (199:7-199:41, 6522-6556)
+│     │       └─0 text "No headings are left unclassified." (199:7-199:41, 6522-6556)
+│     └─3 listItem[1] (200:1-200:73, 6557-6629)
+│         │ spread: false
+│         │ checked: true
+│         └─0 paragraph[3] (200:7-200:73, 6563-6629)
+│             ├─0 text "Classification metadata is serialized and preserved by " (200:7-200:62, 6563-6618)
+│             ├─1 inlineCode "mdast-io" (200:62-200:72, 6618-6628)
+│             └─2 text "." (200:72-200:73, 6628-6629)
+├─48  heading[1] (202:1-202:16, 6631-6646)
+│     │ depth: 6
+│     └─0 text "Evidence" (202:8-202:16, 6638-6646)
+├─49  decorator<id> (204:1-204:21, 6648-6668)
+│       kind: "@"
+│       decorator: "id TC-CLASSIFY-0001"
+│       pi: {"args":["id","TC-CLASSIFY-0001"],"pos":["TC-CLASSIFY-0001"],"flags":{"TC-CLASSIFY-0001":true},"count":2,"posCount":1}
+├─50  code "doc-classify:\n  role: evidence\ncycle: 1.0\nassignee: synthetic-bot\nstatus: passed" (206:1-212:4, 6670-6766)
+│       lang: "yaml"
+│       meta: "HFM"
+│       data: {"codeFM":{"lang":"yaml","langSpec":{"id":"yaml","extensions":[".yaml",".yml"],"comment":{"line":["#"],"block":[]}},"meta":"HFM","pi":{"args":["yaml","HFM"],"pos":["HFM"],"flags":{"HFM":true},"count":2,"posCount":1},"cmdLang":"yaml","cli":"yaml HFM"}}
+├─51  paragraph[1] (214:1-214:15, 6768-6782)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (214:1-214:15, 6768-6782)
+│         └─0 text "Attachment" (214:3-214:13, 6770-6780)
+├─52  list[3] (216:1-218:56, 6784-6970)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (216:1-216:67, 6784-6850)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[1] (216:3-216:67, 6786-6850)
+│     │       └─0 link[1] (216:3-216:67, 6786-6850)
+│     │           │ title: null
+│     │           │ url: "./evidence/TC-CLASSIFY-0001/1.0/result.auto.json"
+│     │           └─0 text "Results JSON" (216:4-216:16, 6787-6799)
+│     ├─1 listItem[1] (217:1-217:64, 6851-6914)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[1] (217:3-217:64, 6853-6914)
+│     │       └─0 link[1] (217:3-217:64, 6853-6914)
+│     │           │ title: null
+│     │           │ url: "./evidence/TC-CLASSIFY-0001/1.0/mdast.auto.json"
+│     │           └─0 text "MDAST dump" (217:4-217:14, 6854-6864)
+│     └─2 listItem[1] (218:1-218:56, 6915-6970)
+│         │ spread: false
+│         │ checked: null
+│         └─0 paragraph[1] (218:3-218:56, 6917-6970)
+│             └─0 link[1] (218:3-218:56, 6917-6970)
+│                 │ title: null
+│                 │ url: "./evidence/TC-CLASSIFY-0001/1.0/run.auto.md"
+│                 └─0 text "Run MD" (218:4-218:10, 6918-6924)
+├─53  thematicBreak (220:1-220:4, 6972-6975)
+├─54  heading[1] (222:1-222:50, 6977-7026)
+│     │ depth: 2
+│     └─0 text "Node Identities & Heading Frontmatter Strategy" (222:4-222:50, 6980-7026)
+├─55  decorator<id> (224:1-224:24, 7028-7051)
+│       kind: "@"
+│       decorator: "id identities-strategy"
+│       pi: {"args":["id","identities-strategy"],"pos":["identities-strategy"],"flags":{"identities-strategy":true},"count":2,"posCount":1}
+├─56  paragraph[5] (226:1-227:28, 7053-7154)
+│     ├─0 text "This section validates that " (226:1-226:29, 7053-7081)
+│     ├─1 strong[1] (226:29-226:48, 7081-7100)
+│     │   └─0 text "node identities" (226:31-226:46, 7083-7098)
+│     ├─2 text " and " (226:48-226:53, 7100-7105)
+│     ├─3 strong[1] (226:53-227:9, 7105-7135)
+│     │   └─0 text "heading frontmatter\nplugin" (226:55-227:7, 7107-7133)
+│     └─4 text " cooperate cleanly:" (227:9-227:28, 7135-7154)
+├─57  list[2] (229:1-232:64, 7156-7418)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (229:1-230:48, 7156-7278)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[2] (229:3-230:48, 7158-7278)
+│     │       ├─0 inlineCode "@id" (229:3-229:8, 7158-7163)
+│     │       └─1 text " markers in paragraphs directly under headings are used by the node\nidentities plugin to set stable internal IDs." (229:8-230:48, 7163-7278)
+│     └─1 listItem[1] (231:1-232:64, 7279-7418)
+│         │ spread: false
+│         │ checked: null
+│         └─0 paragraph[1] (231:3-232:64, 7281-7418)
+│             └─0 text "Heading frontmatter (YAML blocks immediately following headings) provides\nper-section metadata that the doc schema plugin can validate." (231:3-232:64, 7281-7418)
+├─58  heading[1] (234:1-234:45, 7420-7464)
+│     │ depth: 3
+│     └─0 text "Node Identity & Heading Frontmatter Plan" (234:5-234:45, 7424-7464)
+├─59  paragraph[7] (236:1-238:46, 7466-7672)
+│     ├─0 text "The following " (236:1-236:15, 7466-7480)
+│     ├─1 inlineCode "YAML" (236:15-236:21, 7480-7486)
+│     ├─2 text " should get \"attached\" to the mdast \"Node Identity & Heading\nFrontmatter Plan\" heading because it's " (236:21-237:40, 7486-7586)
+│     ├─3 inlineCode "yaml" (237:40-237:46, 7586-7592)
+│     ├─4 text " marked as " (237:46-237:57, 7592-7603)
+│     ├─5 inlineCode "HFM" (237:57-237:62, 7603-7608)
+│     └─6 text " and be classified\nas a \"requirement\" with tags \"one\" and \"two\"." (237:62-238:46, 7608-7672)
+├─60  decorator<id> (240:1-240:20, 7674-7693)
+│       kind: "@"
+│       decorator: "id identities-plan"
+│       pi: {"args":["id","identities-plan"],"pos":["identities-plan"],"flags":{"identities-plan":true},"count":2,"posCount":1}
+├─61  code "doc-classify:\n  role: requirement\ntags: [\"one\", \"two\"]" (242:1-246:4, 7695-7765)
+│       lang: "yaml"
+│       meta: "HFM"
+│       data: {"codeFM":{"lang":"yaml","langSpec":{"id":"yaml","extensions":[".yaml",".yml"],"comment":{"line":["#"],"block":[]}},"meta":"HFM","pi":{"args":["yaml","HFM"],"pos":["HFM"],"flags":{"HFM":true},"count":2,"posCount":1},"cmdLang":"yaml","cli":"yaml HFM"}}
+├─62  paragraph[1] (248:1-248:16, 7767-7782)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (248:1-248:16, 7767-7782)
+│         └─0 text "Cycle Goals" (248:3-248:14, 7769-7780)
+├─63  list[3] (250:1-254:77, 7784-8053)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (250:1-251:25, 7784-7882)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[7] (250:3-251:25, 7786-7882)
+│     │       ├─0 text "Map every " (250:3-250:13, 7786-7796)
+│     │       ├─1 inlineCode "@id" (250:13-250:18, 7796-7801)
+│     │       ├─2 text " marker (e.g. " (250:18-250:32, 7801-7815)
+│     │       ├─3 inlineCode "@id mdast-io-project" (250:32-250:54, 7815-7837)
+│     │       ├─4 text ") to a corresponding\n" (250:54-251:1, 7837-7858)
+│     │       ├─5 inlineCode "node.data.headFM.id" (251:3-251:24, 7860-7881)
+│     │       └─6 text "." (251:24-251:25, 7881-7882)
+│     ├─1 listItem[1] (252:1-253:16, 7883-7976)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[1] (252:3-253:16, 7885-7976)
+│     │       └─0 text "Ensure that heading frontmatter blocks are attached to headings rather than\nbody content." (252:3-253:16, 7885-7976)
+│     └─2 listItem[1] (254:1-254:77, 7977-8053)
+│         │ spread: false
+│         │ checked: null
+│         └─0 paragraph[1] (254:3-254:77, 7979-8053)
+│             └─0 text "Validate that node identities are unique and consistent across traversals." (254:3-254:77, 7979-8053)
+├─64  heading[1] (256:1-256:25, 8055-8079)
+│     │ depth: 4
+│     └─0 text "Node Identity Suite" (256:6-256:25, 8060-8079)
+├─65  decorator<id> (258:1-258:21, 8081-8101)
+│       kind: "@"
+│       decorator: "id identities-suite"
+│       pi: {"args":["id","identities-suite"],"pos":["identities-suite"],"flags":{"identities-suite":true},"count":2,"posCount":1}
+├─66  heading[1] (260:1-260:55, 8103-8157)
+│     │ depth: 5
+│     └─0 text "Verify @id markers bind to nearest semantic node" (260:7-260:55, 8109-8157)
+├─67  decorator<id> (262:1-262:15, 8159-8173)
+│       kind: "@"
+│       decorator: "id TC-ID-0001"
+│       pi: {"args":["id","TC-ID-0001"],"pos":["TC-ID-0001"],"flags":{"TC-ID-0001":true},"count":2,"posCount":1}
+├─68  code "doc-classify:\n  role: case\nrequirementID: REQ-ID-001\nPriority: High\nTags: [node-identities, heading-frontmatter]\nScenario Type: Happy Path" (264:1-271:4, 8175-8329)
+│       lang: "yaml"
+│       meta: "HFM"
+│       data: {"codeFM":{"lang":"yaml","langSpec":{"id":"yaml","extensions":[".yaml",".yml"],"comment":{"line":["#"],"block":[]}},"meta":"HFM","pi":{"args":["yaml","HFM"],"pos":["HFM"],"flags":{"HFM":true},"count":2,"posCount":1},"cmdLang":"yaml","cli":"yaml HFM"}}
+├─69  paragraph[1] (273:1-273:16, 8331-8346)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (273:1-273:16, 8331-8346)
+│         └─0 text "Description" (273:3-273:14, 8333-8344)
+├─70  paragraph[3] (275:1-277:13, 8348-8516)
+│     ├─0 text "Ensure that the node identities plugin recognizes " (275:1-275:51, 8348-8398)
+│     ├─1 inlineCode "@id" (275:51-275:56, 8398-8403)
+│     └─2 text " markers and assigns\nstable identifiers to the nearest enclosing logical node (heading section, code\ncell, etc.)." (275:56-277:13, 8403-8516)
+├─71  paragraph[1] (279:1-279:18, 8518-8535)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (279:1-279:18, 8518-8535)
+│         └─0 text "Preconditions" (279:3-279:16, 8520-8533)
+├─72  list[2] (281:1-282:65, 8537-8642)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (281:1-281:41, 8537-8577)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[1] (281:7-281:41, 8543-8577)
+│     │       └─0 text "Node identities plugin is enabled." (281:7-281:41, 8543-8577)
+│     └─1 listItem[1] (282:1-282:65, 8578-8642)
+│         │ spread: false
+│         │ checked: true
+│         └─0 paragraph[2] (282:3-282:65, 8580-8642)
+│             ├─0 inlineCode "@id" (282:7-282:12, 8584-8589)
+│             └─1 text " markers appear on their own lines within paragraphs." (282:12-282:65, 8589-8642)
+├─73  paragraph[1] (284:1-284:10, 8644-8653)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (284:1-284:10, 8644-8653)
+│         └─0 text "Steps" (284:3-284:8, 8646-8651)
+├─74  list[3] (286:1-290:20, 8655-8927)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (286:1-287:29, 8655-8759)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[3] (286:7-287:29, 8661-8759)
+│     │       ├─0 text "Process this file and traverse all nodes that have an " (286:7-286:61, 8661-8715)
+│     │       ├─1 inlineCode "@id" (286:61-286:66, 8715-8720)
+│     │       └─2 text " marker in\ntheir textual content." (286:66-287:29, 8720-8759)
+│     ├─1 listItem[1] (288:1-288:74, 8760-8833)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[3] (288:7-288:74, 8766-8833)
+│     │       ├─0 text "Confirm that associated nodes have " (288:7-288:42, 8766-8801)
+│     │       ├─1 inlineCode "data.id" (288:42-288:51, 8801-8810)
+│     │       └─2 text " reflecting that value." (288:51-288:74, 8810-8833)
+│     └─2 listItem[1] (289:1-290:20, 8834-8927)
+│         │ spread: false
+│         │ checked: true
+│         └─0 paragraph[3] (289:7-290:20, 8840-8927)
+│             ├─0 text "Ensure that multiple references to the same " (289:7-289:51, 8840-8884)
+│             ├─1 inlineCode "@id" (289:51-289:56, 8884-8889)
+│             └─2 text " point to the same\nlogical node." (289:56-290:20, 8889-8927)
+├─75  paragraph[1] (292:1-292:21, 8929-8949)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (292:1-292:21, 8929-8949)
+│         └─0 text "Expected Results" (292:3-292:19, 8931-8947)
+├─76  list[3] (294:1-297:34, 8951-9185)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (294:1-294:71, 8951-9021)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[3] (294:7-294:71, 8957-9021)
+│     │       ├─0 text "Each unique " (294:7-294:19, 8957-8969)
+│     │       ├─1 inlineCode "@id" (294:19-294:24, 8969-8974)
+│     │       └─2 text " value corresponds to exactly one primary node." (294:24-294:71, 8974-9021)
+│     ├─1 listItem[1] (295:1-295:71, 9022-9092)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[3] (295:7-295:71, 9028-9092)
+│     │       ├─0 text "Duplicate " (295:7-295:17, 9028-9038)
+│     │       ├─1 inlineCode "@id" (295:17-295:22, 9038-9043)
+│     │       └─2 text " usage is detectable and can be flagged by tests." (295:22-295:71, 9043-9092)
+│     └─2 listItem[1] (296:1-297:34, 9093-9185)
+│         │ spread: false
+│         │ checked: true
+│         └─0 paragraph[3] (296:7-297:34, 9099-9185)
+│             ├─0 text "Heading frontmatter for such nodes is accessible via\n" (296:7-297:1, 9099-9152)
+│             ├─1 inlineCode "heading.data.frontmatter" (297:7-297:33, 9158-9184)
+│             └─2 text "." (297:33-297:34, 9184-9185)
+├─77  heading[1] (299:1-299:16, 9187-9202)
+│     │ depth: 6
+│     └─0 text "Evidence" (299:8-299:16, 9194-9202)
+├─78  decorator<id> (301:1-301:15, 9204-9218)
+│       kind: "@"
+│       decorator: "id TC-ID-0001"
+│       pi: {"args":["id","TC-ID-0001"],"pos":["TC-ID-0001"],"flags":{"TC-ID-0001":true},"count":2,"posCount":1}
+├─79  code "doc-classify:\n  role: evidence\ncycle: 1.0\nassignee: synthetic-bot\nstatus: passed" (303:1-309:4, 9220-9316)
+│       lang: "yaml"
+│       meta: "HFM"
+│       data: {"codeFM":{"lang":"yaml","langSpec":{"id":"yaml","extensions":[".yaml",".yml"],"comment":{"line":["#"],"block":[]}},"meta":"HFM","pi":{"args":["yaml","HFM"],"pos":["HFM"],"flags":{"HFM":true},"count":2,"posCount":1},"cmdLang":"yaml","cli":"yaml HFM"}}
+├─80  paragraph[1] (311:1-311:15, 9318-9332)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (311:1-311:15, 9318-9332)
+│         └─0 text "Attachment" (311:3-311:13, 9320-9330)
+├─81  list[1] (313:1-313:66, 9334-9399)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     └─0 listItem[1] (313:1-313:66, 9334-9399)
+│         │ spread: false
+│         │ checked: null
+│         └─0 paragraph[1] (313:3-313:66, 9336-9399)
+│             └─0 link[1] (313:3-313:66, 9336-9399)
+│                 │ title: null
+│                 │ url: "./evidence/TC-ID-0001/1.0/mdast-ids.auto.json"
+│                 └─0 text "MDAST IDs dump" (313:4-313:18, 9337-9351)
+├─82  thematicBreak (315:1-315:4, 9401-9404)
+├─83  heading[1] (317:1-317:48, 9406-9453)
+│     │ depth: 2
+│     └─0 text "Code Annotations & Code Frontmatter Strategy" (317:4-317:48, 9409-9453)
+├─84  decorator<id> (319:1-319:27, 9455-9481)
+│       kind: "@"
+│       decorator: "id code-metadata-strategy"
+│       pi: {"args":["id","code-metadata-strategy"],"pos":["code-metadata-strategy"],"flags":{"code-metadata-strategy":true},"count":2,"posCount":1}
+├─85  paragraph[9] (321:1-323:15, 9483-9652)
+│     ├─0 text "This section demonstrates how " (321:1-321:31, 9483-9513)
+│     ├─1 strong[1] (321:31-321:51, 9513-9533)
+│     │   └─0 text "code annotations" (321:33-321:49, 9515-9531)
+│     ├─2 text " and " (321:51-321:56, 9533-9538)
+│     ├─3 strong[1] (321:56-321:76, 9538-9558)
+│     │   └─0 text "code frontmatter" (321:58-321:74, 9540-9556)
+│     ├─4 text "\naugment fenced code blocks with " (321:76-322:33, 9558-9591)
+│     ├─5 strong[1] (322:33-322:51, 9591-9609)
+│     │   └─0 text "typed metadata" (322:35-322:49, 9593-9607)
+│     ├─6 text " and how " (322:51-322:60, 9609-9618)
+│     ├─7 inlineCode "mdast-io" (322:60-322:70, 9618-9628)
+│     └─8 text " persists\nthat metadata." (322:70-323:15, 9628-9652)
+├─86  paragraph[3] (325:1-325:33, 9654-9686)
+│     ├─0 text "The " (325:1-325:5, 9654-9658)
+│     ├─1 strong[1] (325:5-325:32, 9658-9685)
+│     │   └─0 text "code annotations plugin" (325:7-325:30, 9660-9683)
+│     └─2 text ":" (325:32-325:33, 9685-9686)
+├─87  list[3] (327:1-333:43, 9688-9951)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (327:1-327:53, 9688-9740)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[3] (327:3-327:53, 9690-9740)
+│     │       ├─0 text "Parses the info string (e.g. " (327:3-327:32, 9690-9719)
+│     │       ├─1 inlineCode "ts HFM or" (327:32-327:43, 9719-9730)
+│     │       └─2 text "yaml HFM)." (327:43-327:53, 9730-9740)
+│     ├─1 listItem[2] (328:1-332:56, 9741-9908)
+│     │   │ spread: true
+│     │   │ checked: null
+│     │   ├─0 paragraph[1] (328:3-328:12, 9743-9752)
+│     │   │   └─0 text "Extracts:" (328:3-328:12, 9743-9752)
+│     │   └─1 list[3] (330:3-332:56, 9756-9908)
+│     │       │ ordered: false
+│     │       │ start: null
+│     │       │ spread: false
+│     │       ├─0 listItem[1] (330:3-330:43, 9756-9796)
+│     │       │   │ spread: false
+│     │       │   │ checked: null
+│     │       │   └─0 paragraph[7] (330:5-330:43, 9758-9796)
+│     │       │       ├─0 text "language (" (330:5-330:15, 9758-9768)
+│     │       │       ├─1 inlineCode "ts" (330:15-330:19, 9768-9772)
+│     │       │       ├─2 text ", " (330:19-330:21, 9772-9774)
+│     │       │       ├─3 inlineCode "yaml" (330:21-330:27, 9774-9780)
+│     │       │       ├─4 text ", " (330:27-330:29, 9780-9782)
+│     │       │       ├─5 inlineCode "bash" (330:29-330:35, 9782-9788)
+│     │       │       └─6 text ", etc.)," (330:35-330:43, 9788-9796)
+│     │       ├─1 listItem[1] (331:3-331:56, 9799-9852)
+│     │       │   │ spread: false
+│     │       │   │ checked: null
+│     │       │   └─0 paragraph[7] (331:5-331:56, 9801-9852)
+│     │       │       ├─0 text "annotation tags (" (331:5-331:22, 9801-9818)
+│     │       │       ├─1 inlineCode "HFM" (331:22-331:27, 9818-9823)
+│     │       │       ├─2 text ", " (331:27-331:29, 9823-9825)
+│     │       │       ├─3 inlineCode "partial" (331:29-331:38, 9825-9834)
+│     │       │       ├─4 text ", " (331:38-331:40, 9834-9836)
+│     │       │       ├─5 inlineCode "inject" (331:40-331:48, 9836-9844)
+│     │       │       └─6 text ", etc.)," (331:48-331:56, 9844-9852)
+│     │       └─2 listItem[1] (332:3-332:56, 9855-9908)
+│     │           │ spread: false
+│     │           │ checked: null
+│     │           └─0 paragraph[1] (332:5-332:56, 9857-9908)
+│     │               └─0 text "optional key=value pairs for more structured hints." (332:5-332:56, 9857-9908)
+│     └─2 listItem[1] (333:1-333:43, 9909-9951)
+│         │ spread: false
+│         │ checked: null
+│         └─0 paragraph[3] (333:3-333:43, 9911-9951)
+│             ├─0 text "Stores these as " (333:3-333:19, 9911-9927)
+│             ├─1 inlineCode "node.data.annotations" (333:19-333:42, 9927-9950)
+│             └─2 text "." (333:42-333:43, 9950-9951)
+├─88  paragraph[3] (335:1-335:33, 9953-9985)
+│     ├─0 text "The " (335:1-335:5, 9953-9957)
+│     ├─1 strong[1] (335:5-335:32, 9957-9984)
+│     │   └─0 text "code frontmatter plugin" (335:7-335:30, 9959-9982)
+│     └─2 text ":" (335:32-335:33, 9984-9985)
+├─89  list[3] (337:1-339:55, 9987-10156)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (337:1-337:56, 9987-10042)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[3] (337:3-337:56, 9989-10042)
+│     │       ├─0 text "Reads a leading YAML block " (337:3-337:30, 9989-10016)
+│     │       ├─1 strong[1] (337:30-337:40, 10016-10026)
+│     │       │   └─0 text "inside" (337:32-337:38, 10018-10024)
+│     │       └─2 text " the code fence." (337:40-337:56, 10026-10042)
+│     ├─1 listItem[1] (338:1-338:59, 10043-10101)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[1] (338:3-338:59, 10045-10101)
+│     │       └─0 text "Treats that YAML as metadata specific to this code cell." (338:3-338:59, 10045-10101)
+│     └─2 listItem[1] (339:1-339:55, 10102-10156)
+│         │ spread: false
+│         │ checked: null
+│         └─0 paragraph[3] (339:3-339:55, 10104-10156)
+│             ├─0 text "Attaches parsed metadata to " (339:3-339:31, 10104-10132)
+│             ├─1 inlineCode "node.data.frontmatter" (339:31-339:54, 10132-10155)
+│             └─2 text "." (339:54-339:55, 10155-10156)
+├─90  heading[1] (341:1-341:36, 10158-10193)
+│     │ depth: 3
+│     └─0 text "Code Metadata Verification Plan" (341:5-341:36, 10162-10193)
+├─91  decorator<id> (343:1-343:23, 10195-10217)
+│       kind: "@"
+│       decorator: "id code-metadata-plan"
+│       pi: {"args":["id","code-metadata-plan"],"pos":["code-metadata-plan"],"flags":{"code-metadata-plan":true},"count":2,"posCount":1}
+├─92  heading[1] (345:1-345:25, 10219-10243)
+│     │ depth: 4
+│     └─0 text "Code Metadata Suite" (345:6-345:25, 10224-10243)
+├─93  decorator<id> (347:1-347:24, 10245-10268)
+│       kind: "@"
+│       decorator: "id code-metadata-suite"
+│       pi: {"args":["id","code-metadata-suite"],"pos":["code-metadata-suite"],"flags":{"code-metadata-suite":true},"count":2,"posCount":1}
+├─94  heading[1] (349:1-349:69, 10270-10338)
+│     │ depth: 5
+│     └─0 text "Verify code annotations and code frontmatter are both attached" (349:7-349:69, 10276-10338)
+├─95  decorator<id> (351:1-351:21, 10340-10360)
+│       kind: "@"
+│       decorator: "id TC-CODEMETA-0001"
+│       pi: {"args":["id","TC-CODEMETA-0001"],"pos":["TC-CODEMETA-0001"],"flags":{"TC-CODEMETA-0001":true},"count":2,"posCount":1}
+├─96  code "doc-classify:\n  role: case\nrequirementID: REQ-CODEMETA-001\nPriority: High\nTags: [code-annotations, code-frontmatter, mdast-io]\nScenario Type: Happy Path" (353:1-360:4, 10362-10530)
+│       lang: "yaml"
+│       meta: "HFM"
+│       data: {"codeFM":{"lang":"yaml","langSpec":{"id":"yaml","extensions":[".yaml",".yml"],"comment":{"line":["#"],"block":[]}},"meta":"HFM","pi":{"args":["yaml","HFM"],"pos":["HFM"],"flags":{"HFM":true},"count":2,"posCount":1},"cmdLang":"yaml","cli":"yaml HFM"}}
+├─97  paragraph[1] (362:1-362:16, 10532-10547)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (362:1-362:16, 10532-10547)
+│         └─0 text "Description" (362:3-362:14, 10534-10545)
+├─98  paragraph[1] (364:1-365:75, 10549-10699)
+│     └─0 text "Validate that both code annotations (from info string) and code frontmatter\n(from in-fence YAML) are attached to a single code node without conflicts." (364:1-365:75, 10549-10699)
+├─99  paragraph[1] (367:1-367:32, 10701-10732)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (367:1-367:32, 10701-10732)
+│         └─0 text "Synthetic Example Code Cell" (367:3-367:30, 10703-10730)
+├─100 code "---\ncell:\n  id: sample-code-meta\n  purpose: \"Demonstrate combined annotations and frontmatter\"\n  artifacts:\n    - \"compiled-js\"\n    - \"execution-log\"\n---\n/**\n * This code cell is synthetic and will never run in production.\n * It exists purely to test Spry's code metadata handling.\n */\nexport function sampleCodeMeta() {\n  console.log(\"hello from sampleCodeMeta\");\n}" (369:1-385:4, 10734-11152)
+│       lang: "ts"
+│       meta: "ts-example-01 partial id=sample-code-meta"
+│       data: {"codeFM":{"lang":"ts","langSpec":{"id":"typescript","aliases":["ts","javascript","js","tsx","jsx"],"extensions":[".ts",".tsx",".js",".jsx",".mjs",".cjs",".jsonc",".json5"],"shebangs":["node","deno"],"mime":"text/typescript","comment":{"line":["//"],"block":[{"open":"/*","close":"*/","nested":false}]}},"meta":"ts-example-01 partial id=sample-code-meta","pi":{"args":["ts","ts-example-01","partial","id=sample-code-meta"],"pos":["ts-example-01","partial","id"],"flags":{"ts-example-01":true,"partial":true,"id":"sample-code-meta"},"count":4,"posCount":3},"cmdLang":"ts","cli":"ts ts-example-01 partial id=sample-code-meta"}}
+├─101 paragraph[1] (387:1-387:18, 11154-11171)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (387:1-387:18, 11154-11171)
+│         └─0 text "Preconditions" (387:3-387:16, 11156-11169)
+├─102 list[3] (389:1-391:80, 11173-11336)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (389:1-389:42, 11173-11214)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[1] (389:7-389:42, 11179-11214)
+│     │       └─0 text "Code annotations plugin is enabled." (389:7-389:42, 11179-11214)
+│     ├─1 listItem[1] (390:1-390:42, 11215-11256)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[1] (390:7-390:42, 11221-11256)
+│     │       └─0 text "Code frontmatter plugin is enabled." (390:7-390:42, 11221-11256)
+│     └─2 listItem[1] (391:1-391:80, 11257-11336)
+│         │ spread: false
+│         │ checked: true
+│         └─0 paragraph[1] (391:7-391:80, 11263-11336)
+│             └─0 text "Code partial plugin is enabled but not yet applied to this cell in tests." (391:7-391:80, 11263-11336)
+├─103 paragraph[1] (393:1-393:10, 11338-11347)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (393:1-393:10, 11338-11347)
+│         └─0 text "Steps" (393:3-393:8, 11340-11345)
+├─104 list[4] (395:1-402:73, 11349-11685)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (395:1-395:53, 11349-11401)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[1] (395:7-395:53, 11355-11401)
+│     │       └─0 text "Process this file through the plugin pipeline." (395:7-395:53, 11355-11401)
+│     ├─1 listItem[1] (396:1-396:74, 11402-11475)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[3] (396:7-396:74, 11408-11475)
+│     │       ├─0 text "Locate the " (396:7-396:18, 11408-11419)
+│     │       ├─1 inlineCode "sample-code-meta" (396:18-396:36, 11419-11437)
+│     │       └─2 text " node using node identities or search." (396:36-396:74, 11437-11475)
+│     ├─2 listItem[2] (397:1-401:30, 11476-11612)
+│     │   │ spread: true
+│     │   │ checked: true
+│     │   ├─0 paragraph[3] (397:7-397:52, 11482-11527)
+│     │   │   ├─0 text "Assert that " (397:7-397:19, 11482-11494)
+│     │   │   ├─1 inlineCode "node.data.annotations" (397:19-397:42, 11494-11517)
+│     │   │   └─2 text " includes:" (397:42-397:52, 11517-11527)
+│     │   └─1 list[3] (399:3-401:30, 11531-11612)
+│     │       │ ordered: false
+│     │       │ start: null
+│     │       │ spread: false
+│     │       ├─0 listItem[1] (399:3-399:22, 11531-11550)
+│     │       │   │ spread: false
+│     │       │   │ checked: null
+│     │       │   └─0 paragraph[2] (399:5-399:22, 11533-11550)
+│     │       │       ├─0 inlineCode "language: \"ts\"" (399:5-399:21, 11533-11549)
+│     │       │       └─1 text "," (399:21-399:22, 11549-11550)
+│     │       ├─1 listItem[1] (400:3-400:32, 11553-11582)
+│     │       │   │ spread: false
+│     │       │   │ checked: null
+│     │       │   └─0 paragraph[2] (400:5-400:32, 11555-11582)
+│     │       │       ├─0 inlineCode "tags: [\"HFM\", \"partial\"]" (400:5-400:31, 11555-11581)
+│     │       │       └─1 text "," (400:31-400:32, 11581-11582)
+│     │       └─2 listItem[1] (401:3-401:30, 11585-11612)
+│     │           │ spread: false
+│     │           │ checked: null
+│     │           └─0 paragraph[2] (401:5-401:30, 11587-11612)
+│     │               ├─0 inlineCode "id: \"sample-code-meta\"" (401:5-401:29, 11587-11611)
+│     │               └─1 text "." (401:29-401:30, 11611-11612)
+│     └─3 listItem[1] (402:1-402:73, 11613-11685)
+│         │ spread: false
+│         │ checked: true
+│         └─0 paragraph[3] (402:7-402:73, 11619-11685)
+│             ├─0 text "Assert that " (402:7-402:19, 11619-11631)
+│             ├─1 inlineCode "node.data.frontmatter.cell.id == \"sample-code-meta\"" (402:19-402:72, 11631-11684)
+│             └─2 text "." (402:72-402:73, 11684-11685)
+├─105 paragraph[1] (404:1-404:21, 11687-11707)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (404:1-404:21, 11687-11707)
+│         └─0 text "Expected Results" (404:3-404:19, 11689-11705)
+├─106 list[3] (406:1-408:62, 11709-11893)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (406:1-406:69, 11709-11777)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[1] (406:7-406:69, 11715-11777)
+│     │       └─0 text "Both annotation metadata and frontmatter metadata are present." (406:7-406:69, 11715-11777)
+│     ├─1 listItem[1] (407:1-407:54, 11778-11831)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[1] (407:7-407:54, 11784-11831)
+│     │       └─0 text "No data is overwritten or lost between plugins." (407:7-407:54, 11784-11831)
+│     └─2 listItem[1] (408:1-408:62, 11832-11893)
+│         │ spread: false
+│         │ checked: true
+│         └─0 paragraph[2] (408:3-408:62, 11834-11893)
+│             ├─0 inlineCode "mdast-io" (408:7-408:17, 11838-11848)
+│             └─1 text " preserves these fields across serialization." (408:17-408:62, 11848-11893)
+├─107 heading[1] (410:1-410:16, 11895-11910)
+│     │ depth: 6
+│     └─0 text "Evidence" (410:8-410:16, 11902-11910)
+├─108 decorator<id> (412:1-412:21, 11912-11932)
+│       kind: "@"
+│       decorator: "id TC-CODEMETA-0001"
+│       pi: {"args":["id","TC-CODEMETA-0001"],"pos":["TC-CODEMETA-0001"],"flags":{"TC-CODEMETA-0001":true},"count":2,"posCount":1}
+├─109 code "doc-classify:\n  role: special-evidence\ncycle: 1.0\nassignee: synthetic-bot\nstatus: passed" (414:1-420:4, 11934-12038)
+│       lang: "yaml"
+│       meta: "HFM"
+│       data: {"codeFM":{"lang":"yaml","langSpec":{"id":"yaml","extensions":[".yaml",".yml"],"comment":{"line":["#"],"block":[]}},"meta":"HFM","pi":{"args":["yaml","HFM"],"pos":["HFM"],"flags":{"HFM":true},"count":2,"posCount":1},"cmdLang":"yaml","cli":"yaml HFM"}}
+├─110 thematicBreak (422:1-422:4, 12040-12043)
+├─111 heading[1] (424:1-424:43, 12045-12087)
+│     │ depth: 2
+│     └─0 text "Code Partials & Code Injection Strategy" (424:4-424:43, 12048-12087)
+├─112 decorator<id> (426:1-426:37, 12089-12125)
+│       kind: "@"
+│       decorator: "id code-partials-injection-strategy"
+│       pi: {"args":["id","code-partials-injection-strategy"],"pos":["code-partials-injection-strategy"],"flags":{"code-partials-injection-strategy":true},"count":2,"posCount":1}
+├─113 paragraph[5] (428:1-429:24, 12127-12223)
+│     ├─0 text "This section focuses on how " (428:1-428:29, 12127-12155)
+│     ├─1 strong[1] (428:29-428:52, 12155-12178)
+│     │   └─0 text "code partial plugin" (428:31-428:50, 12157-12176)
+│     ├─2 text " and " (428:52-428:57, 12178-12183)
+│     ├─3 strong[1] (428:57-429:9, 12183-12208)
+│     │   └─0 text "code injection\nplugin" (428:59-429:7, 12185-12206)
+│     └─4 text " work together:" (429:9-429:24, 12208-12223)
+├─114 list[2] (431:1-441:64, 12225-12594)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: true
+│     ├─0 listItem[2] (431:1-435:60, 12225-12408)
+│     │   │ spread: true
+│     │   │ checked: null
+│     │   ├─0 paragraph[3] (431:3-431:31, 12227-12255)
+│     │   │   ├─0 text "The " (431:3-431:7, 12227-12231)
+│     │   │   ├─1 strong[1] (431:7-431:30, 12231-12254)
+│     │   │   │   └─0 text "code partial plugin" (431:9-431:28, 12233-12252)
+│     │   │   └─2 text ":" (431:30-431:31, 12254-12255)
+│     │   └─1 list[2] (433:3-435:60, 12259-12408)
+│     │       │ ordered: false
+│     │       │ start: null
+│     │       │ spread: false
+│     │       ├─0 listItem[1] (433:3-434:17, 12259-12348)
+│     │       │   │ spread: false
+│     │       │   │ checked: null
+│     │       │   └─0 paragraph[1] (433:5-434:17, 12261-12348)
+│     │       │       └─0 text "Treats some code cells as reusable “partials” based on annotations and\nfrontmatter." (433:5-434:17, 12261-12348)
+│     │       └─1 listItem[1] (435:3-435:60, 12351-12408)
+│     │           │ spread: false
+│     │           │ checked: null
+│     │           └─0 paragraph[5] (435:5-435:60, 12353-12408)
+│     │               ├─0 text "Registers them in an index keyed by " (435:5-435:41, 12353-12389)
+│     │               ├─1 inlineCode "cell.id" (435:41-435:50, 12389-12398)
+│     │               ├─2 text " or " (435:50-435:54, 12398-12402)
+│     │               ├─3 inlineCode "@id" (435:54-435:59, 12402-12407)
+│     │               └─4 text "." (435:59-435:60, 12407-12408)
+│     └─1 listItem[2] (437:1-441:64, 12410-12594)
+│         │ spread: true
+│         │ checked: null
+│         ├─0 paragraph[3] (437:3-437:33, 12412-12442)
+│         │   ├─0 text "The " (437:3-437:7, 12412-12416)
+│         │   ├─1 strong[1] (437:7-437:32, 12416-12441)
+│         │   │   └─0 text "code injection plugin" (437:9-437:30, 12418-12439)
+│         │   └─2 text ":" (437:32-437:33, 12441-12442)
+│         └─1 list[2] (439:3-441:64, 12446-12594)
+│             │ ordered: false
+│             │ start: null
+│             │ spread: false
+│             ├─0 listItem[1] (439:3-440:13, 12446-12530)
+│             │   │ spread: false
+│             │   │ checked: null
+│             │   └─0 paragraph[1] (439:5-440:13, 12448-12530)
+│             │       └─0 text "Resolves injection directives referring to those partials or external\nsources." (439:5-440:13, 12448-12530)
+│             └─1 listItem[1] (441:3-441:64, 12533-12594)
+│                 │ spread: false
+│                 │ checked: null
+│                 └─0 paragraph[1] (441:5-441:64, 12535-12594)
+│                     └─0 text "Materializes composite code cells or synthetic MDAST nodes." (441:5-441:64, 12535-12594)
+├─115 heading[1] (443:1-443:29, 12596-12624)
+│     │ depth: 3
+│     └─0 text "Partial & Injection Plan" (443:5-443:29, 12600-12624)
+├─116 decorator<id> (445:1-445:33, 12626-12658)
+│       kind: "@"
+│       decorator: "id code-partials-injection-plan"
+│       pi: {"args":["id","code-partials-injection-plan"],"pos":["code-partials-injection-plan"],"flags":{"code-partials-injection-plan":true},"count":2,"posCount":1}
+├─117 heading[1] (447:1-447:27, 12660-12686)
+│     │ depth: 4
+│     └─0 text "Partial Library Suite" (447:6-447:27, 12665-12686)
+├─118 decorator<id> (449:1-449:24, 12688-12711)
+│       kind: "@"
+│       decorator: "id code-partials-suite"
+│       pi: {"args":["id","code-partials-suite"],"pos":["code-partials-suite"],"flags":{"code-partials-suite":true},"count":2,"posCount":1}
+├─119 paragraph[1] (451:1-452:6, 12713-12797)
+│     └─0 text "This suite builds a small library of partials that can be injected in multiple\nways." (451:1-452:6, 12713-12797)
+├─120 heading[1] (454:1-454:43, 12799-12841)
+│     │ depth: 5
+│     └─0 text "Define a reusable TypeScript partial" (454:7-454:43, 12805-12841)
+├─121 decorator<id> (456:1-456:20, 12843-12862)
+│       kind: "@"
+│       decorator: "id TC-PARTIAL-0001"
+│       pi: {"args":["id","TC-PARTIAL-0001"],"pos":["TC-PARTIAL-0001"],"flags":{"TC-PARTIAL-0001":true},"count":2,"posCount":1}
+├─122 code "// TODO: be sure this works\n// this is a TypeScript comment which will be read stored as a partial so that\n// it can be \"included\" in another cell or markdown body using ::PARTIAL[TC-PARTIAL-0001] later" (458:1-462:4, 12864-13100)
+│       lang: "ts"
+│       meta: "PARTIAL TC-PARTIAL-0001"
+│       data: {"codeFM":{"lang":"ts","langSpec":{"id":"typescript","aliases":["ts","javascript","js","tsx","jsx"],"extensions":[".ts",".tsx",".js",".jsx",".mjs",".cjs",".jsonc",".json5"],"shebangs":["node","deno"],"mime":"text/typescript","comment":{"line":["//"],"block":[{"open":"/*","close":"*/","nested":false}]}},"meta":"PARTIAL TC-PARTIAL-0001","pi":{"args":["ts","PARTIAL","TC-PARTIAL-0001"],"pos":["PARTIAL","TC-PARTIAL-0001"],"flags":{"PARTIAL":true,"TC-PARTIAL-0001":true},"count":3,"posCount":2},"cmdLang":"ts","cli":"ts PARTIAL TC-PARTIAL-0001"}}
+├─123 heading[1] (464:1-464:65, 13102-13166)
+│     │ depth: 5
+│     └─0 text "Define a reusable Markdown partial for use with directives" (464:7-464:65, 13108-13166)
+├─124 code "This markdown was inserted from the PARTIAL named TC-PARTIAL-0001" (466:1-468:4, 13168-13267)
+│       lang: "md"
+│       meta: "PARTIAL TC-PARTIAL-0001"
+│       data: {"codeFM":{"lang":"md","meta":"PARTIAL TC-PARTIAL-0001","pi":{"args":["md","PARTIAL","TC-PARTIAL-0001"],"pos":["PARTIAL","TC-PARTIAL-0001"],"flags":{"PARTIAL":true,"TC-PARTIAL-0001":true},"count":3,"posCount":2},"cmdLang":"md","cli":"md PARTIAL TC-PARTIAL-0001"}}
+├─125 heading[1] (470:1-470:57, 13269-13325)
+│     │ depth: 5
+│     └─0 text "Inject the partial into another cell by logical ID" (470:7-470:57, 13275-13325)
+├─126 decorator<id> (472:1-472:19, 13327-13345)
+│       kind: "@"
+│       decorator: "id TC-INJECT-0001"
+│       pi: {"args":["id","TC-INJECT-0001"],"pos":["TC-INJECT-0001"],"flags":{"TC-INJECT-0001":true},"count":2,"posCount":1}
+├─127 code "This is a code block whose content will be replaced with the imported CSV." (474:1-476:4, 13347-13470)
+│       lang: "csv"
+│       meta: "--import ./sundry/group1-patients.csv"
+│       data: {"codeFM":{"lang":"csv","meta":"--import ./sundry/group1-patients.csv","pi":{"args":["csv","--import","./sundry/group1-patients.csv"],"pos":["import"],"flags":{"import":"./sundry/group1-patients.csv"},"count":3,"posCount":1},"cmdLang":"csv","cli":"csv --import ./sundry/group1-patients.csv"}}
+├─128 paragraph[1] (478:1-478:16, 13472-13487)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (478:1-478:16, 13472-13487)
+│         └─0 text "Description" (478:3-478:14, 13474-13485)
+├─129 paragraph[4] (480:1-481:56, 13489-13621)
+│     ├─0 inlineCode "TC-PARTIAL-0001" (480:1-480:18, 13489-13506)
+│     ├─1 text " defines a partial; " (480:18-480:38, 13506-13526)
+│     ├─2 inlineCode "TC-INJECT-0001" (480:38-480:54, 13526-13542)
+│     └─3 text " describes an injection\nthat should resolve to that partial in the MDAST graph." (480:54-481:56, 13542-13621)
+├─130 paragraph[1] (483:1-483:18, 13623-13640)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (483:1-483:18, 13623-13640)
+│         └─0 text "Preconditions" (483:3-483:16, 13625-13638)
+├─131 list[2] (485:1-486:67, 13642-13769)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (485:1-485:61, 13642-13702)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[1] (485:7-485:61, 13648-13702)
+│     │       └─0 text "Code partial plugin runs before code injection plugin." (485:7-485:61, 13648-13702)
+│     └─1 listItem[1] (486:1-486:67, 13703-13769)
+│         │ spread: false
+│         │ checked: true
+│         └─0 paragraph[1] (486:7-486:67, 13709-13769)
+│             └─0 text "Node identities plugin has attached IDs to these code cells." (486:7-486:67, 13709-13769)
+├─132 paragraph[1] (488:1-488:10, 13771-13780)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (488:1-488:10, 13771-13780)
+│         └─0 text "Steps" (488:3-488:8, 13773-13778)
+├─133 list[4] (490:1-497:54, 13782-14176)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (490:1-490:52, 13782-13833)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[1] (490:7-490:52, 13788-13833)
+│     │       └─0 text "Process the file through the plugin pipeline." (490:7-490:52, 13788-13833)
+│     ├─1 listItem[1] (491:1-491:78, 13834-13911)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[3] (491:7-491:78, 13840-13911)
+│     │       ├─0 text "Using the code partial plugin’s index, confirm that " (491:7-491:59, 13840-13892)
+│     │       ├─1 inlineCode "helper-fn" (491:59-491:70, 13892-13903)
+│     │       └─2 text " exists." (491:70-491:78, 13903-13911)
+│     ├─2 listItem[1] (492:1-492:53, 13912-13964)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[3] (492:7-492:53, 13918-13964)
+│     │       ├─0 text "Inspect the injected cell (" (492:7-492:34, 13918-13945)
+│     │       ├─1 inlineCode "inject-usage-01" (492:34-492:51, 13945-13962)
+│     │       └─2 text ")." (492:51-492:53, 13962-13964)
+│     └─3 listItem[2] (493:1-497:54, 13965-14176)
+│         │ spread: true
+│         │ checked: true
+│         ├─0 paragraph[3] (493:7-494:35, 13971-14079)
+│         │   ├─0 text "Confirm it has " (493:7-493:22, 13971-13986)
+│         │   ├─1 inlineCode "data.injection.sourceId == \"helper-fn\"" (493:22-493:62, 13986-14026)
+│         │   └─2 text " and that the code\ninjection plugin has either:" (493:62-494:35, 14026-14079)
+│         └─1 list[2] (496:3-497:54, 14083-14176)
+│             │ ordered: false
+│             │ start: null
+│             │ spread: false
+│             ├─0 listItem[1] (496:3-496:42, 14083-14122)
+│             │   │ spread: false
+│             │   │ checked: null
+│             │   └─0 paragraph[1] (496:5-496:42, 14085-14122)
+│             │       └─0 text "materialized a composed code node, or" (496:5-496:42, 14085-14122)
+│             └─1 listItem[1] (497:3-497:54, 14125-14176)
+│                 │ spread: false
+│                 │ checked: null
+│                 └─0 paragraph[1] (497:5-497:54, 14127-14176)
+│                     └─0 text "prepared enough metadata for runtime composition." (497:5-497:54, 14127-14176)
+├─134 paragraph[1] (499:1-499:21, 14178-14198)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (499:1-499:21, 14178-14198)
+│         └─0 text "Expected Results" (499:3-499:19, 14180-14196)
+├─135 list[3] (501:1-503:58, 14200-14345)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (501:1-501:39, 14200-14238)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[1] (501:7-501:39, 14206-14238)
+│     │       └─0 text "Partials are discoverable by ID." (501:7-501:39, 14206-14238)
+│     ├─1 listItem[1] (502:1-502:49, 14239-14287)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[1] (502:7-502:49, 14245-14287)
+│     │       └─0 text "Injection references resolve successfully." (502:7-502:49, 14245-14287)
+│     └─2 listItem[1] (503:1-503:58, 14288-14345)
+│         │ spread: false
+│         │ checked: true
+│         └─0 paragraph[1] (503:7-503:58, 14294-14345)
+│             └─0 text "Cycles or missing partials are detectable in tests." (503:7-503:58, 14294-14345)
+├─136 heading[1] (505:1-505:16, 14347-14362)
+│     │ depth: 6
+│     └─0 text "Evidence" (505:8-505:16, 14354-14362)
+├─137 decorator<id> (507:1-507:28, 14364-14391)
+│       kind: "@"
+│       decorator: "id TC-INJECT-0001-EVIDENCE"
+│       pi: {"args":["id","TC-INJECT-0001-EVIDENCE"],"pos":["TC-INJECT-0001-EVIDENCE"],"flags":{"TC-INJECT-0001-EVIDENCE":true},"count":2,"posCount":1}
+├─138 code "doc-classify:\n  role: evidence\ncycle: 1.0\nassignee: synthetic-bot\nstatus: passed" (509:1-515:4, 14393-14489)
+│       lang: "yaml"
+│       meta: "HFM"
+│       data: {"codeFM":{"lang":"yaml","langSpec":{"id":"yaml","extensions":[".yaml",".yml"],"comment":{"line":["#"],"block":[]}},"meta":"HFM","pi":{"args":["yaml","HFM"],"pos":["HFM"],"flags":{"HFM":true},"count":2,"posCount":1},"cmdLang":"yaml","cli":"yaml HFM"}}
+├─139 thematicBreak (517:1-517:4, 14491-14494)
+├─140 heading[1] (519:1-519:23, 14496-14518)
+│     │ depth: 2
+│     └─0 text "Doc Schema Strategy" (519:4-519:23, 14499-14518)
+├─141 decorator<id> (521:1-521:24, 14520-14543)
+│       kind: "@"
+│       decorator: "id doc-schema-strategy"
+│       pi: {"args":["id","doc-schema-strategy"],"pos":["doc-schema-strategy"],"flags":{"doc-schema-strategy":true},"count":2,"posCount":1}
+├─142 paragraph[3] (523:1-525:26, 14545-14722)
+│     ├─0 text "The " (523:1-523:5, 14545-14549)
+│     ├─1 strong[1] (523:5-523:26, 14549-14570)
+│     │   └─0 text "doc schema plugin" (523:7-523:24, 14551-14568)
+│     └─2 text " validates that the aggregated frontmatter (document,\nheading, and code-level) conforms to schemas defined in configuration or\nembedded inside the file." (523:26-525:26, 14570-14722)
+├─143 paragraph[1] (527:1-527:22, 14724-14745)
+│     └─0 text "This fixture ensures:" (527:1-527:22, 14724-14745)
+├─144 list[2] (529:1-530:81, 14747-14888)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (529:1-529:61, 14747-14807)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[1] (529:3-529:61, 14749-14807)
+│     │       └─0 text "Multiple schemas are present (for project, suites, cases)." (529:3-529:61, 14749-14807)
+│     └─1 listItem[1] (530:1-530:81, 14808-14888)
+│         │ spread: false
+│         │ checked: null
+│         └─0 paragraph[1] (530:3-530:81, 14810-14888)
+│             └─0 text "Validation failures appear as structured errors that tests can assert against." (530:3-530:81, 14810-14888)
+├─145 heading[1] (532:1-532:31, 14890-14920)
+│     │ depth: 3
+│     └─0 text "Doc Schema Validation Plan" (532:5-532:31, 14894-14920)
+├─146 decorator<id> (534:1-534:20, 14922-14941)
+│       kind: "@"
+│       decorator: "id doc-schema-plan"
+│       pi: {"args":["id","doc-schema-plan"],"pos":["doc-schema-plan"],"flags":{"doc-schema-plan":true},"count":2,"posCount":1}
+├─147 heading[1] (536:1-536:29, 14943-14971)
+│     │ depth: 4
+│     └─0 text "Schema Compliance Suite" (536:6-536:29, 14948-14971)
+├─148 decorator<id> (538:1-538:17, 14973-14989)
+│       kind: "@"
+│       decorator: "id schema-suite"
+│       pi: {"args":["id","schema-suite"],"pos":["schema-suite"],"flags":{"schema-suite":true},"count":2,"posCount":1}
+├─149 heading[1] (540:1-540:36, 14991-15026)
+│     │ depth: 5
+│     └─0 text "Validate project-level schema" (540:7-540:36, 14997-15026)
+├─150 decorator<id> (542:1-542:19, 15028-15046)
+│       kind: "@"
+│       decorator: "id TC-SCHEMA-0001"
+│       pi: {"args":["id","TC-SCHEMA-0001"],"pos":["TC-SCHEMA-0001"],"flags":{"TC-SCHEMA-0001":true},"count":2,"posCount":1}
+├─151 code "doc-classify:\n  role: case\nrequirementID: REQ-SCHEMA-001\nPriority: High\nTags: [doc-schema, frontmatter]\nScenario Type: Happy Path\nschema:\n  type: object\n  required: [doc-classify]" (544:1-554:4, 15048-15243)
+│       lang: "yaml"
+│       meta: "HFM"
+│       data: {"codeFM":{"lang":"yaml","langSpec":{"id":"yaml","extensions":[".yaml",".yml"],"comment":{"line":["#"],"block":[]}},"meta":"HFM","pi":{"args":["yaml","HFM"],"pos":["HFM"],"flags":{"HFM":true},"count":2,"posCount":1},"cmdLang":"yaml","cli":"yaml HFM"}}
+├─152 paragraph[1] (556:1-556:16, 15245-15260)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (556:1-556:16, 15245-15260)
+│         └─0 text "Description" (556:3-556:14, 15247-15258)
+├─153 paragraph[3] (558:1-559:47, 15262-15381)
+│     ├─0 text "Ensure that the document’s root frontmatter satisfies the minimal schema\nrequirements for " (558:1-559:18, 15262-15352)
+│     ├─1 inlineCode "mdast-io" (559:18-559:28, 15352-15362)
+│     └─2 text " integration tests." (559:28-559:47, 15362-15381)
+├─154 paragraph[1] (561:1-561:18, 15383-15400)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (561:1-561:18, 15383-15400)
+│         └─0 text "Preconditions" (561:3-561:16, 15385-15398)
+├─155 list[2] (563:1-564:55, 15402-15492)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (563:1-563:36, 15402-15437)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[1] (563:7-563:36, 15408-15437)
+│     │       └─0 text "Doc schema plugin is enabled." (563:7-563:36, 15408-15437)
+│     └─1 listItem[1] (564:1-564:55, 15438-15492)
+│         │ spread: false
+│         │ checked: true
+│         └─0 paragraph[3] (564:7-564:55, 15444-15492)
+│             ├─0 text "Schemas are configured to apply to " (564:7-564:42, 15444-15479)
+│             ├─1 inlineCode "root" (564:42-564:48, 15479-15485)
+│             └─2 text " nodes." (564:48-564:55, 15485-15492)
+├─156 paragraph[1] (566:1-566:10, 15494-15503)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (566:1-566:10, 15494-15503)
+│         └─0 text "Steps" (566:3-566:8, 15496-15501)
+├─157 list[3] (568:1-570:37, 15505-15635)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (568:1-568:33, 15505-15537)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[1] (568:7-568:33, 15511-15537)
+│     │       └─0 text "Process the Markdown file." (568:7-568:33, 15511-15537)
+│     ├─1 listItem[1] (569:1-569:61, 15538-15598)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[3] (569:7-569:61, 15544-15598)
+│     │       ├─0 text "Run schema validation against " (569:7-569:37, 15544-15574)
+│     │       ├─1 inlineCode "root.data.frontmatter" (569:37-569:60, 15574-15597)
+│     │       └─2 text "." (569:60-569:61, 15597-15598)
+│     └─2 listItem[1] (570:1-570:37, 15599-15635)
+│         │ spread: false
+│         │ checked: true
+│         └─0 paragraph[1] (570:7-570:37, 15605-15635)
+│             └─0 text "Capture any validation errors." (570:7-570:37, 15605-15635)
+├─158 paragraph[1] (572:1-572:21, 15637-15657)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (572:1-572:21, 15637-15657)
+│         └─0 text "Expected Results" (572:3-572:19, 15639-15655)
+├─159 list[2] (574:1-575:78, 15659-15803)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (574:1-574:67, 15659-15725)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[3] (574:7-574:67, 15665-15725)
+│     │       ├─0 text "Validation passes for required fields (e.g. " (574:7-574:51, 15665-15709)
+│     │       ├─1 inlineCode "doc-classify" (574:51-574:65, 15709-15723)
+│     │       └─2 text ")." (574:65-574:67, 15723-15725)
+│     └─1 listItem[1] (575:1-575:78, 15726-15803)
+│         │ spread: false
+│         │ checked: true
+│         └─0 paragraph[3] (575:7-575:78, 15732-15803)
+│             ├─0 text "Validation results are made available via " (575:7-575:49, 15732-15774)
+│             ├─1 inlineCode "root.data.schemaValidation" (575:49-575:77, 15774-15802)
+│             └─2 text "." (575:77-575:78, 15802-15803)
+├─160 heading[1] (577:1-577:16, 15805-15820)
+│     │ depth: 6
+│     └─0 text "Evidence" (577:8-577:16, 15812-15820)
+├─161 decorator<id> (579:1-579:19, 15822-15840)
+│       kind: "@"
+│       decorator: "id TC-SCHEMA-0001"
+│       pi: {"args":["id","TC-SCHEMA-0001"],"pos":["TC-SCHEMA-0001"],"flags":{"TC-SCHEMA-0001":true},"count":2,"posCount":1}
+├─162 code "doc-classify:\n  role: evidence\ncycle: 1.0\nassignee: synthetic-bot\nstatus: passed" (581:1-587:4, 15842-15938)
+│       lang: "yaml"
+│       meta: "HFM"
+│       data: {"codeFM":{"lang":"yaml","langSpec":{"id":"yaml","extensions":[".yaml",".yml"],"comment":{"line":["#"],"block":[]}},"meta":"HFM","pi":{"args":["yaml","HFM"],"pos":["HFM"],"flags":{"HFM":true},"count":2,"posCount":1},"cmdLang":"yaml","cli":"yaml HFM"}}
+├─163 thematicBreak (589:1-589:4, 15940-15943)
+├─164 heading[1] (591:1-591:32, 15945-15976)
+│     │ depth: 2
+│     └─0 text "mdast-io Round-Trip Strategy" (591:4-591:32, 15948-15976)
+├─165 decorator<id> (593:1-593:32, 15978-16009)
+│       kind: "@"
+│       decorator: "id mdast-io-roundtrip-strategy"
+│       pi: {"args":["id","mdast-io-roundtrip-strategy"],"pos":["mdast-io-roundtrip-strategy"],"flags":{"mdast-io-roundtrip-strategy":true},"count":2,"posCount":1}
+├─166 paragraph[3] (595:1-596:56, 16011-16147)
+│     ├─0 text "This logico-technical section describes how " (595:1-595:45, 16011-16055)
+│     ├─1 inlineCode "mdast-io" (595:45-595:55, 16055-16065)
+│     └─2 text " is expected to handle the\nrichly annotated MDAST tree derived from this Markdown:" (595:55-596:56, 16065-16147)
+├─167 list[5] (598:1-610:49, 16149-16568)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (598:1-598:72, 16149-16220)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[3] (598:3-598:72, 16151-16220)
+│     │       ├─0 text "Read the document from disk or another source (" (598:3-598:50, 16151-16198)
+│     │       ├─1 inlineCode "mdast-io" (598:50-598:60, 16198-16208)
+│     │       └─2 text " read path)." (598:60-598:72, 16208-16220)
+│     ├─1 listItem[1] (599:1-599:53, 16221-16273)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[1] (599:3-599:53, 16223-16273)
+│     │       └─0 text "Process through the remark + Spry plugin pipeline." (599:3-599:53, 16223-16273)
+│     ├─2 listItem[1] (600:1-600:71, 16274-16344)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[1] (600:3-600:71, 16276-16344)
+│     │       └─0 text "Serialize the resulting tree to JSON or another intermediate format." (600:3-600:71, 16276-16344)
+│     ├─3 listItem[1] (601:1-601:39, 16345-16383)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[1] (601:3-601:39, 16347-16383)
+│     │       └─0 text "Rehydrate it back into a MDAST tree." (601:3-601:39, 16347-16383)
+│     └─4 listItem[2] (602:1-610:49, 16384-16568)
+│         │ spread: true
+│         │ checked: null
+│         ├─0 paragraph[1] (602:3-602:16, 16386-16399)
+│         │   └─0 text "Confirm that:" (602:3-602:16, 16386-16399)
+│         └─1 list[7] (604:3-610:49, 16403-16568)
+│             │ ordered: false
+│             │ start: null
+│             │ spread: false
+│             ├─0 listItem[1] (604:3-604:21, 16403-16421)
+│             │   │ spread: false
+│             │   │ checked: null
+│             │   └─0 paragraph[1] (604:5-604:21, 16405-16421)
+│             │       └─0 text "node identities," (604:5-604:21, 16405-16421)
+│             ├─1 listItem[1] (605:3-605:26, 16424-16447)
+│             │   │ spread: false
+│             │   │ checked: null
+│             │   └─0 paragraph[1] (605:5-605:26, 16426-16447)
+│             │       └─0 text "classification roles," (605:5-605:26, 16426-16447)
+│             ├─2 listItem[1] (606:3-606:17, 16450-16464)
+│             │   │ spread: false
+│             │   │ checked: null
+│             │   └─0 paragraph[1] (606:5-606:17, 16452-16464)
+│             │       └─0 text "annotations," (606:5-606:17, 16452-16464)
+│             ├─3 listItem[1] (607:3-607:17, 16467-16481)
+│             │   │ spread: false
+│             │   │ checked: null
+│             │   └─0 paragraph[1] (607:5-607:17, 16469-16481)
+│             │       └─0 text "frontmatter," (607:5-607:17, 16469-16481)
+│             ├─4 listItem[1] (608:3-608:14, 16484-16495)
+│             │   │ spread: false
+│             │   │ checked: null
+│             │   └─0 paragraph[1] (608:5-608:14, 16486-16495)
+│             │       └─0 text "partials," (608:5-608:14, 16486-16495)
+│             ├─5 listItem[1] (609:3-609:24, 16498-16519)
+│             │   │ spread: false
+│             │   │ checked: null
+│             │   └─0 paragraph[1] (609:5-609:24, 16500-16519)
+│             │       └─0 text "injection metadata," (609:5-609:24, 16500-16519)
+│             └─6 listItem[1] (610:3-610:49, 16522-16568)
+│                 │ spread: false
+│                 │ checked: null
+│                 └─0 paragraph[1] (610:5-610:49, 16524-16568)
+│                     └─0 text "schema validation results are all preserved." (610:5-610:49, 16524-16568)
+├─168 heading[1] (612:1-612:29, 16570-16598)
+│     │ depth: 3
+│     └─0 text "mdast-io Round-Trip Plan" (612:5-612:29, 16574-16598)
+├─169 decorator<id> (614:1-614:28, 16600-16627)
+│       kind: "@"
+│       decorator: "id mdast-io-roundtrip-plan"
+│       pi: {"args":["id","mdast-io-roundtrip-plan"],"pos":["mdast-io-roundtrip-plan"],"flags":{"mdast-io-roundtrip-plan":true},"count":2,"posCount":1}
+├─170 heading[1] (616:1-616:32, 16629-16660)
+│     │ depth: 4
+│     └─0 text "Round-Trip Integrity Suite" (616:6-616:32, 16634-16660)
+├─171 decorator<id> (618:1-618:20, 16662-16681)
+│       kind: "@"
+│       decorator: "id roundtrip-suite"
+│       pi: {"args":["id","roundtrip-suite"],"pos":["roundtrip-suite"],"flags":{"roundtrip-suite":true},"count":2,"posCount":1}
+├─172 heading[1] (620:1-620:66, 16683-16748)
+│     │ depth: 5
+│     └─0 text "Verify mdast-io preserves plugin metadata across round-trip" (620:7-620:66, 16689-16748)
+├─173 decorator<id> (622:1-622:20, 16750-16769)
+│       kind: "@"
+│       decorator: "id TC-RNDTRIP-0001"
+│       pi: {"args":["id","TC-RNDTRIP-0001"],"pos":["TC-RNDTRIP-0001"],"flags":{"TC-RNDTRIP-0001":true},"count":2,"posCount":1}
+├─174 code "doc-classify:\n  role: case\nrequirementID: REQ-RNDTRIP-001\nPriority: High\nTags: [mdast-io, roundtrip, metadata]\nScenario Type: Happy Path" (624:1-631:4, 16771-16923)
+│       lang: "yaml"
+│       meta: "HFM"
+│       data: {"codeFM":{"lang":"yaml","langSpec":{"id":"yaml","extensions":[".yaml",".yml"],"comment":{"line":["#"],"block":[]}},"meta":"HFM","pi":{"args":["yaml","HFM"],"pos":["HFM"],"flags":{"HFM":true},"count":2,"posCount":1},"cmdLang":"yaml","cli":"yaml HFM"}}
+├─175 paragraph[1] (633:1-633:16, 16925-16940)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (633:1-633:16, 16925-16940)
+│         └─0 text "Description" (633:3-633:14, 16927-16938)
+├─176 paragraph[3] (635:1-636:66, 16942-17087)
+│     ├─0 text "Ensure that " (635:1-635:13, 16942-16954)
+│     ├─1 inlineCode "mdast-io" (635:13-635:23, 16954-16964)
+│     └─2 text " can read and write the annotated MDAST tree derived from\nthis file without dropping or mutating plugin-generated metadata." (635:23-636:66, 16964-17087)
+├─177 paragraph[1] (638:1-638:18, 17089-17106)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (638:1-638:18, 17089-17106)
+│         └─0 text "Preconditions" (638:3-638:16, 17091-17104)
+├─178 list[2] (640:1-641:68, 17108-17211)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (640:1-640:36, 17108-17143)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[1] (640:7-640:36, 17114-17143)
+│     │       └─0 text "All Spry plugins are enabled." (640:7-640:36, 17114-17143)
+│     └─1 listItem[1] (641:1-641:68, 17144-17211)
+│         │ spread: false
+│         │ checked: true
+│         └─0 paragraph[2] (641:3-641:68, 17146-17211)
+│             ├─0 inlineCode "mdast-io" (641:7-641:17, 17150-17160)
+│             └─1 text " is configured as the I/O boundary for MDAST trees." (641:17-641:68, 17160-17211)
+├─179 paragraph[1] (643:1-643:10, 17213-17222)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (643:1-643:10, 17213-17222)
+│         └─0 text "Steps" (643:3-643:8, 17215-17220)
+├─180 list[4] (645:1-648:56, 17224-17466)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (645:1-645:71, 17224-17294)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[1] (645:7-645:71, 17230-17294)
+│     │       └─0 text "Parse this Markdown into a MDAST tree via remark + Spry plugins." (645:7-645:71, 17230-17294)
+│     ├─1 listItem[1] (646:1-646:67, 17295-17361)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[3] (646:7-646:67, 17301-17361)
+│     │       ├─0 text "Serialize the tree with " (646:7-646:31, 17301-17325)
+│     │       ├─1 inlineCode "mdast-io" (646:31-646:41, 17325-17335)
+│     │       └─2 text " to a JSON representation." (646:41-646:67, 17335-17361)
+│     ├─2 listItem[1] (647:1-647:49, 17362-17410)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[1] (647:7-647:49, 17368-17410)
+│     │       └─0 text "Rehydrate the JSON back into a MDAST tree." (647:7-647:49, 17368-17410)
+│     └─3 listItem[1] (648:1-648:56, 17411-17466)
+│         │ spread: false
+│         │ checked: true
+│         └─0 paragraph[1] (648:7-648:56, 17417-17466)
+│             └─0 text "Compare both trees structurally and semantically." (648:7-648:56, 17417-17466)
+├─181 paragraph[1] (650:1-650:21, 17468-17488)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (650:1-650:21, 17468-17488)
+│         └─0 text "Expected Results" (650:3-650:19, 17470-17486)
+├─182 list[3] (652:1-654:63, 17490-17690)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (652:1-652:78, 17490-17567)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[1] (652:7-652:78, 17496-17567)
+│     │       └─0 text "Node counts and structure are identical (modulo allowed normalization)." (652:7-652:78, 17496-17567)
+│     ├─1 listItem[1] (653:1-653:60, 17568-17627)
+│     │   │ spread: false
+│     │   │ checked: true
+│     │   └─0 paragraph[3] (653:7-653:60, 17574-17627)
+│     │       ├─0 text "All " (653:7-653:11, 17574-17578)
+│     │       ├─1 inlineCode "data.*" (653:11-653:19, 17578-17586)
+│     │       └─2 text " fields created by plugins are preserved." (653:19-653:60, 17586-17627)
+│     └─2 listItem[1] (654:1-654:63, 17628-17690)
+│         │ spread: false
+│         │ checked: true
+│         └─0 paragraph[1] (654:7-654:63, 17634-17690)
+│             └─0 text "No classification, identity, or schema metadata is lost." (654:7-654:63, 17634-17690)
+├─183 heading[1] (656:1-656:16, 17692-17707)
+│     │ depth: 6
+│     └─0 text "Evidence" (656:8-656:16, 17699-17707)
+├─184 decorator<id> (658:1-658:20, 17709-17728)
+│       kind: "@"
+│       decorator: "id TC-RNDTRIP-0001"
+│       pi: {"args":["id","TC-RNDTRIP-0001"],"pos":["TC-RNDTRIP-0001"],"flags":{"TC-RNDTRIP-0001":true},"count":2,"posCount":1}
+├─185 code "doc-classify:\n  role: evidence\ncycle: 1.0\nassignee: synthetic-bot\nstatus: passed" (660:1-666:4, 17730-17826)
+│       lang: "yaml"
+│       meta: "HFM"
+│       data: {"codeFM":{"lang":"yaml","langSpec":{"id":"yaml","extensions":[".yaml",".yml"],"comment":{"line":["#"],"block":[]}},"meta":"HFM","pi":{"args":["yaml","HFM"],"pos":["HFM"],"flags":{"HFM":true},"count":2,"posCount":1},"cmdLang":"yaml","cli":"yaml HFM"}}
+├─186 paragraph[1] (668:1-668:15, 17828-17842)
+│     │ data: {"isHeadingLikeText":true}
+│     └─0 strong[1] (668:1-668:15, 17828-17842)
+│         └─0 text "Attachment" (668:3-668:13, 17830-17840)
+├─187 list[3] (670:1-672:62, 17844-18063)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (670:1-670:79, 17844-17922)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[1] (670:3-670:79, 17846-17922)
+│     │       └─0 link[1] (670:3-670:79, 17846-17922)
+│     │           │ title: null
+│     │           │ url: "./evidence/TC-RNDTRIP-0001/1.0/mdast.before.json"
+│     │           └─0 text "Pre-roundtrip MDAST JSON" (670:4-670:28, 17847-17871)
+│     ├─1 listItem[1] (671:1-671:79, 17923-18001)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[1] (671:3-671:79, 17925-18001)
+│     │       └─0 link[1] (671:3-671:79, 17925-18001)
+│     │           │ title: null
+│     │           │ url: "./evidence/TC-RNDTRIP-0001/1.0/mdast.after.json"
+│     │           └─0 text "Post-roundtrip MDAST JSON" (671:4-671:29, 17926-17951)
+│     └─2 listItem[1] (672:1-672:62, 18002-18063)
+│         │ spread: false
+│         │ checked: null
+│         └─0 paragraph[1] (672:3-672:62, 18004-18063)
+│             └─0 link[1] (672:3-672:62, 18004-18063)
+│                 │ title: null
+│                 │ url: "./evidence/TC-RNDTRIP-0001/1.0/diff.auto.txt"
+│                 └─0 text "Diff report" (672:4-672:15, 18005-18016)
+├─188 thematicBreak (674:1-674:4, 18065-18068)
+├─189 heading[1] (676:1-676:11, 18070-18080)
+│     │ depth: 2
+│     └─0 text "Summary" (676:4-676:11, 18073-18080)
+├─190 decorator<id> (678:1-678:21, 18082-18102)
+│       kind: "@"
+│       decorator: "id summary-strategy"
+│       pi: {"args":["id","summary-strategy"],"pos":["summary-strategy"],"flags":{"summary-strategy":true},"count":2,"posCount":1}
+├─191 paragraph[1] (680:1-680:33, 18104-18136)
+│     └─0 text "This synthetic Markdown fixture:" (680:1-680:33, 18104-18136)
+├─192 list[3] (682:1-698:25, 18138-18775)
+│     │ ordered: false
+│     │ start: null
+│     │ spread: false
+│     ├─0 listItem[1] (682:1-683:25, 18138-18238)
+│     │   │ spread: false
+│     │   │ checked: null
+│     │   └─0 paragraph[7] (682:3-683:25, 18140-18238)
+│     │       ├─0 text "Is " (682:3-682:6, 18140-18143)
+│     │       ├─1 strong[1] (682:6-682:28, 18143-18165)
+│     │       │   └─0 text "expressly designed" (682:8-682:26, 18145-18163)
+│     │       ├─2 text " to be processed by " (682:28-682:48, 18165-18185)
+│     │       ├─3 inlineCode "remark" (682:48-682:56, 18185-18193)
+│     │       ├─4 text " and the " (682:56-682:65, 18193-18202)
+│     │       ├─5 strong[1] (682:65-683:24, 18202-18237)
+│     │       │   └─0 text "full Spry\nremark plugin stack" (682:67-683:22, 18204-18235)
+│     │       └─6 text "." (683:24-683:25, 18237-18238)
+│     ├─1 listItem[2] (684:1-695:26, 18239-18593)
+│     │   │ spread: true
+│     │   │ checked: null
+│     │   ├─0 paragraph[3] (684:3-685:30, 18241-18348)
+│     │   │   ├─0 text "Provides a " (684:3-684:14, 18241-18252)
+│     │   │   ├─1 strong[1] (684:14-684:80, 18252-18318)
+│     │   │   │   └─0 text "dense set of headings, identities, frontmatter, and code cells" (684:16-684:78, 18254-18316)
+│     │   │   └─2 text "\nthat collectively exercise:" (684:80-685:30, 18318-18348)
+│     │   └─1 list[9] (687:3-695:26, 18352-18593)
+│     │       │ ordered: false
+│     │       │ start: null
+│     │       │ spread: false
+│     │       ├─0 listItem[1] (687:3-687:27, 18352-18376)
+│     │       │   │ spread: false
+│     │       │   │ checked: null
+│     │       │   └─0 paragraph[1] (687:5-687:27, 18354-18376)
+│     │       │       └─0 text "doc frontmatter plugin" (687:5-687:27, 18354-18376)
+│     │       ├─1 listItem[1] (688:3-688:22, 18379-18398)
+│     │       │   │ spread: false
+│     │       │   │ checked: null
+│     │       │   └─0 paragraph[1] (688:5-688:22, 18381-18398)
+│     │       │       └─0 text "doc schema plugin" (688:5-688:22, 18381-18398)
+│     │       ├─2 listItem[1] (689:3-689:31, 18401-18429)
+│     │       │   │ spread: false
+│     │       │   │ checked: null
+│     │       │   └─0 paragraph[1] (689:5-689:31, 18403-18429)
+│     │       │       └─0 text "heading frontmatter plugin" (689:5-689:31, 18403-18429)
+│     │       ├─3 listItem[1] (690:3-690:31, 18432-18460)
+│     │       │   │ spread: false
+│     │       │   │ checked: null
+│     │       │   └─0 paragraph[1] (690:5-690:31, 18434-18460)
+│     │       │       └─0 text "node classification plugin" (690:5-690:31, 18434-18460)
+│     │       ├─4 listItem[1] (691:3-691:27, 18463-18487)
+│     │       │   │ spread: false
+│     │       │   │ checked: null
+│     │       │   └─0 paragraph[1] (691:5-691:27, 18465-18487)
+│     │       │       └─0 text "node identities plugin" (691:5-691:27, 18465-18487)
+│     │       ├─5 listItem[1] (692:3-692:28, 18490-18515)
+│     │       │   │ spread: false
+│     │       │   │ checked: null
+│     │       │   └─0 paragraph[1] (692:5-692:28, 18492-18515)
+│     │       │       └─0 text "code annotations plugin" (692:5-692:28, 18492-18515)
+│     │       ├─6 listItem[1] (693:3-693:28, 18518-18543)
+│     │       │   │ spread: false
+│     │       │   │ checked: null
+│     │       │   └─0 paragraph[1] (693:5-693:28, 18520-18543)
+│     │       │       └─0 text "code frontmatter plugin" (693:5-693:28, 18520-18543)
+│     │       ├─7 listItem[1] (694:3-694:24, 18546-18567)
+│     │       │   │ spread: false
+│     │       │   │ checked: null
+│     │       │   └─0 paragraph[1] (694:5-694:24, 18548-18567)
+│     │       │       └─0 text "code partial plugin" (694:5-694:24, 18548-18567)
+│     │       └─8 listItem[1] (695:3-695:26, 18570-18593)
+│     │           │ spread: false
+│     │           │ checked: null
+│     │           └─0 paragraph[1] (695:5-695:26, 18572-18593)
+│     │               └─0 text "code injection plugin" (695:5-695:26, 18572-18593)
+│     └─2 listItem[1] (696:1-698:25, 18594-18775)
+│         │ spread: false
+│         │ checked: null
+│         └─0 paragraph[5] (696:3-698:25, 18596-18775)
+│             ├─0 text "Serves as a " (696:3-696:15, 18596-18608)
+│             ├─1 strong[1] (696:15-696:58, 18608-18651)
+│             │   └─0 text "long-lived, high-fidelity test resource" (696:17-696:56, 18610-18649)
+│             ├─2 text " for " (696:58-696:63, 18651-18656)
+│             ├─3 inlineCode "mdast-io" (696:63-696:73, 18656-18666)
+│             └─4 text " and any\ndownstream TypeScript or Deno tooling that depends on stable, structured,\nprogrammable Markdown." (696:73-698:25, 18666-18775)
+└─193 paragraph[3] (700:1-702:64, 18777-18996)
+      ├─0 text "Any test harness that can parse this file, assert on the described behaviors,\nand round-trip the tree without information loss can be considered compatible\nwith Spry’s " (700:1-702:13, 18777-18945)
+      ├─1 strong[1] (702:13-702:52, 18945-18984)
+      │   └─0 text "“Markdown as a programmable medium”" (702:15-702:50, 18947-18982)
+      └─2 text " philosophy." (702:52-702:64, 18984-18996)

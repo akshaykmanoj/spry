@@ -1,34 +1,17 @@
-import { assert, assertEquals } from "@std/assert";
-import { toMarkdown } from "mdast-util-to-markdown";
-import { Heading, Paragraph } from "types/mdast";
-import { queryPosixPI } from "../universal/posix-pi.ts";
+import { assert, assertEquals, assertFalse } from "@std/assert";
+import { inspect } from "unist-util-inspect";
+import { graphEdgesTree, headingsTreeText, typicalRules } from "./edge/mod.ts";
+import { fixturesFactory } from "./fixture/mod.ts";
 import {
   astGraphEdges,
-  GraphEdge,
-  graphEdgesTree,
-  headingsTreeText,
-} from "./edge/mod.ts";
-import {
-  containedInHeadingRule,
-  containedInSectionRule,
-  createGraphRulesBuilder,
-  defineRelationships,
-  frontmatterClassificationRule,
-  headingLikeNodeDataBag,
-  isBoldSingleLineParagraph,
-  isColonSingleLineParagraph,
-  IsSectionContainer,
-  nodeDependencyRule,
-  nodesClassificationRule,
-  RuleContext,
-  sectionFrontmatterRule,
-  selectedNodesClassificationRule,
-} from "./edge/rule/mod.ts";
-import { fixturesFactory } from "./fixture/mod.ts";
-import { Graph, graphToDot } from "./graph.ts";
-import { markdownASTs } from "./io/mod.ts";
-import { codeFrontmatter } from "./mdast/code-frontmatter.ts";
-import { headingText } from "./mdast/node-content.ts";
+  Graph,
+  graphToDot,
+  MarkdownEncountered,
+} from "./mod.ts";
+import { graphProjectionFromFiles } from "./projection.ts";
+
+// deno-lint-ignore no-explicit-any
+type Any = any;
 
 const ff = fixturesFactory(import.meta.resolve, "./fixture");
 const fixtures = {
@@ -36,172 +19,118 @@ const fixtures = {
   comprehensiveMdPath: ff.pmdPath("comprehensive.md"),
 };
 
-const relationships = defineRelationships(
-  "containedInHeading",
-  "containedInSection",
-  "isImportant",
-  "isTask",
-  "isSelected",
-  "codeDependsOn",
-  "frontmatter",
-  "role:project",
-  "role:strategy",
-  "role:plan",
-  "role:suite",
-  "role:case",
-  "role:evidence",
-);
-type Relationship = (typeof relationships)[number];
-
-type TestEdge = GraphEdge<Relationship>;
-type TestCtx = RuleContext;
-
-// isSectionContainer that only treats real headings as containers
-const _headingOnlySectionContainer: IsSectionContainer = (node) => {
-  if (node.type === "heading") {
-    return {
-      nature: "heading",
-      label: headingText(node),
-      mdLabel: headingText(node),
-    };
-  }
-  return false;
-};
-
-// isSectionContainer that treats headings AND heading-like paragraphs as containers
-const headingLikeSectionContainer: IsSectionContainer = (node) => {
-  if (node.type === "heading") {
-    return {
-      nature: "heading",
-      label: headingText(node),
-      mdLabel: toMarkdown(node as Heading), // TODO: stringify the node
-    };
-  }
-
-  if (node.type !== "paragraph") return false;
-
-  const candidate = isBoldSingleLineParagraph(node as Paragraph) ??
-    isColonSingleLineParagraph(node as Paragraph);
-
-  if (candidate == false) return false;
-
-  headingLikeNodeDataBag.attach(node, true);
-  return {
-    nature: "section",
-    ...candidate,
+Deno.test(`Axiom regression / smoke test of ${ff.relToCWD(fixtures.comprehensiveMdPath)}`, async (t) => {
+  const f = {
+    comprehensive: {
+      projection: "mod_test.ts-comprehensive.md-projection.json",
+      graphDot: "mod_test.ts-comprehensive.md-graph.dot",
+      inspect: "mod_test.ts-comprehensive.md-inspect.txt",
+    },
   };
-};
 
-Deno.test(`Axiom regression / smoke test of ${ff.relToCWD(fixtures.comprehensiveMdPath)}`, async () => {
-  const builder = createGraphRulesBuilder<Relationship, TestCtx, TestEdge>();
-  const rules = builder
-    .use(
-      containedInHeadingRule<Relationship, TestCtx, TestEdge>(
-        "containedInHeading",
-      ),
-    )
-    .use(containedInSectionRule<Relationship, TestCtx, TestEdge>(
-      "containedInSection",
-      headingLikeSectionContainer,
-    ))
-    .use( // Then: watch those edges and emit "frontmatter" edges
-      sectionFrontmatterRule<Relationship, TestCtx, TestEdge>(
-        "frontmatter",
-        ["containedInHeading"] as Relationship[],
-      ),
-    )
-    .use(
-      frontmatterClassificationRule<Relationship, TestCtx, TestEdge>(
-        "doc-classify",
-      ),
-    )
-    .use(selectedNodesClassificationRule<Relationship, TestCtx, TestEdge>(
-      "emphasis",
-      "isImportant",
-    ))
-    .use(
-      nodesClassificationRule<Relationship, TestCtx, TestEdge>(
-        "isTask",
-        (node) => (node as { type?: string }).type === "listItem",
-      ),
-    )
-    .use(nodeDependencyRule<Relationship, TestCtx, TestEdge>(
-      "codeDependsOn",
-      (node): boolean => node.type === "code",
-      (node, name): boolean => {
-        const codeFM = codeFrontmatter(node);
-        if (!codeFM) return false;
-        return codeFM.pi.pos[0] == name;
-      },
-      (node) => {
-        const codeFM = codeFrontmatter(node);
-        if (!codeFM) return false;
-        const qf = queryPosixPI(codeFM.pi);
-        const deps = qf.getTextFlagValues("dep");
-        return deps.length > 0 ? deps : false;
-      },
-    ))
-    .build();
-
-  const graphs: Graph<Relationship, TestEdge>[] = [];
-  for await (const mdAST of markdownASTs([fixtures.comprehensiveMdPath])) {
-    const edges: TestEdge[] = [];
-    const baseCtx: TestCtx = { root: mdAST.mdastRoot };
-
-    edges.push(
-      ...astGraphEdges<Relationship, TestEdge, TestCtx>(mdAST.mdastRoot, {
-        prepareContext: () => baseCtx,
-        rules: () => rules,
-      }),
-    );
-
-    graphs.push({ root: mdAST.mdastRoot, edges });
-  }
-
-  const graph = graphs[0];
-  const { edges } = graph;
-  assert(edges);
-
-  assert(edges.length);
-
-  assert(graphToDot(graphs[0]));
-
-  const rels = new Set(edges.map((e) => e.rel));
-  assertEquals(Array.from(rels), [
-    "containedInHeading",
-    "frontmatter",
-    "containedInSection",
-    "role:project",
-    "role:strategy",
-    "role:plan",
-    "role:suite",
-    "role:case",
-    "role:evidence",
-    "isTask",
-  ]);
-
-  const relCounts = edges.reduce(
-    (acc, e) => ((acc[e.rel] = (acc[e.rel] ?? 0) + 1), acc),
-    {} as Record<Relationship, number>,
+  let comprehensive: MarkdownEncountered;
+  const gpff = await graphProjectionFromFiles(
+    [fixtures.comprehensiveMdPath],
+    (encountered) => {
+      // expecting only a single document
+      assertFalse(comprehensive);
+      comprehensive = encountered;
+    },
   );
-  assertEquals(relCounts, {
-    containedInHeading: 1172,
-    frontmatter: 12,
-    containedInSection: 1172,
-    isTask: 175,
-    "role:case": 8,
-    "role:evidence": 6,
-    "role:plan": 6,
-    "role:project": 1,
-    "role:strategy": 8,
-    "role:suite": 6,
-    // deno-lint-ignore no-explicit-any
-  } as any);
 
-  const geTree = graphEdgesTree<Relationship, TestEdge>(edges, {
-    relationships: ["containedInSection"],
+  assert(comprehensive!);
+  const { mdastRoot: root } = comprehensive;
+
+  await t.step(
+    `validate stable projection via JSON in ${
+      ff.relToCWD(f.comprehensive.projection)
+    }`,
+    async () => {
+      // when required, uncomment to store stable "golden" version as a JSON file
+      // await fixtures.goldenJSON(f.comprehensive.projection, gpff);
+      assertEquals(
+        JSON.stringify(gpff), // comparing string to string since the file is large
+        await fixtures.goldenText(f.comprehensive.projection),
+      );
+    },
+  );
+
+  await t.step(
+    `validate stable mdast tree via 'inspect' output in ${
+      ff.relToCWD(f.comprehensive.inspect)
+    }`,
+    async () => {
+      // when required, uncomment to store stable "golden" version as a text file:
+      // await fixtures.goldenText(f.comprehensive.inspect, inspect(root));
+      assertEquals(
+        inspect(root),
+        await fixtures.goldenText(f.comprehensive.inspect),
+      );
+    },
+  );
+
+  const graph: Graph<Any, Any> = {
+    root,
+    edges: Array.from(astGraphEdges(root, {
+      prepareContext: () => ({ root }),
+      rules: () => typicalRules(),
+    })),
+  };
+
+  await t.step(
+    `validate stable graph edges via GraphViz dot in ${
+      ff.relToCWD(f.comprehensive.graphDot)
+    }`,
+    async () => {
+      // when required, uncomment to store stable "golden" version of the edge in GraphViz dot format
+      // await fixtures.goldenText(f.comprehensive.graphDot, graphToDot(graph));
+      assertEquals(
+        graphToDot(graph),
+        await fixtures.goldenText(f.comprehensive.graphDot),
+      );
+    },
+  );
+
+  await t.step(`smoke test relations and headings`, () => {
+    const rels = new Set(graph.edges.map((e) => e.rel));
+    assertEquals(Array.from(rels), [
+      "containedInSection",
+      "sectionSemanticId",
+      "frontmatter",
+      "role:project",
+      "role:strategy",
+      "role:plan",
+      "role:suite",
+      "role:case",
+      "role:evidence",
+      "isCode",
+      "isTask",
+    ]);
+
+    const relCounts = graph.edges.reduce(
+      (acc, e) => ((acc[e.rel] = (acc[e.rel] ?? 0) + 1), acc),
+      {} as Record<Any, number>,
+    );
+    assertEquals(relCounts, {
+      frontmatter: 12,
+      containedInSection: 1172,
+      isTask: 175,
+      "role:case": 8,
+      "role:evidence": 6,
+      "role:plan": 6,
+      "role:project": 1,
+      "role:strategy": 8,
+      "role:suite": 6,
+      isCode: 16,
+      sectionSemanticId: 34,
+      // deno-lint-ignore no-explicit-any
+    } as any);
+
+    const geTree = graphEdgesTree(graph.edges, {
+      relationships: ["containedInSection"],
+    });
+    assertEquals(headingsTreeText(geTree, false), headingsTreeGolden);
   });
-  assertEquals(headingsTreeText(geTree, false), headingsTreeGolden);
 });
 
 const headingsTreeGolden = `
