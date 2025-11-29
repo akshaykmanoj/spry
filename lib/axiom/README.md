@@ -17,6 +17,20 @@ be:
 Axiom enables Markdown to behave like a structured, executable, analyzable, and
 queryable knowledge system instead of just text.
 
+## Try it out
+
+**Text-UI** (`CLI`)
+
+```bash cli
+./lib/axiom/text-ui/cli.ts ls lib/axiom/fixture/test-fixture-01.md
+```
+
+**Web-UI**
+
+```bash web-ui
+./lib/axiom/web-ui/service.ts web-ui lib/axiom/fixture/test-fixture-01.md
+```
+
 ## Why Axiom?
 
 Modern Markdown-based workflows (docs, runbooks, knowledge systems, engineering

@@ -17,9 +17,9 @@ import { TreeLister } from "../../universal/lister-tree-tui.ts";
 import { computeSemVerSync } from "../../universal/version.ts";
 
 import type { Node, Position } from "types/unist";
-import { headingLikeNodeDataBag } from "../graph.ts";
 import * as webUI from "../web-ui/service.ts";
 import { buildGraphViewerModelFromFiles } from "../web-ui/view.ts";
+import { headingLikeNodeDataBag } from "../edge/rule/mod.ts";
 
 type GraphViewerModel = Awaited<
   ReturnType<typeof buildGraphViewerModelFromFiles>

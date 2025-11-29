@@ -5,21 +5,20 @@ import { unified } from "unified";
 
 import type { Heading, Root, RootContent, Text } from "types/mdast";
 import type { Node } from "types/unist";
+import { astGraphEdges, GraphEdge } from "./edge/mod.ts";
 import {
-  astGraphEdges,
   containedInHeadingRule,
   containedInSectionRule,
   createGraphRulesBuilder,
   defineRelationships,
   frontmatterClassificationRule,
-  GraphEdge,
   IsSectionContainer,
   nodeDependencyRule,
   nodesClassificationRule,
   RuleContext,
   sectionFrontmatterRule,
   selectedNodesClassificationRule,
-} from "./graph.ts";
+} from "./edge/rule/mod.ts";
 
 const relationships = defineRelationships(
   "containedInHeading",

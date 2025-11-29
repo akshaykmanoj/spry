@@ -3,19 +3,19 @@ import { fromFileUrl } from "@std/path";
 import { toMarkdown } from "mdast-util-to-markdown";
 import { Heading, Paragraph } from "types/mdast";
 import { queryPosixPI } from "../universal/posix-pi.ts";
-import { graphEdgesTree, headingsTreeText } from "./graph-tree.ts";
 import {
   astGraphEdges,
+  GraphEdge,
+  graphEdgesTree,
+  headingsTreeText,
+} from "./edge/mod.ts";
+import {
   containedInHeadingRule,
   containedInSectionRule,
   createGraphRulesBuilder,
   defineRelationships,
   frontmatterClassificationRule,
-  Graph,
-  GraphEdge,
-  graphToDot,
   headingLikeNodeDataBag,
-  headingText,
   isBoldSingleLineParagraph,
   isColonSingleLineParagraph,
   IsSectionContainer,
@@ -24,9 +24,11 @@ import {
   RuleContext,
   sectionFrontmatterRule,
   selectedNodesClassificationRule,
-} from "./graph.ts";
+} from "./edge/rule/mod.ts";
+import { Graph, graphToDot } from "./graph.ts";
 import { markdownASTs } from "./io/mod.ts";
 import { codeFrontmatter } from "./mdast/code-frontmatter.ts";
+import { headingText } from "./mdast/node-content.ts";
 
 const relationships = defineRelationships(
   "containedInHeading",

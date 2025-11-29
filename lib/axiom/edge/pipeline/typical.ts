@@ -1,23 +1,16 @@
-// model.ts
-//
-// Deno entrypoint for the Spry Graph Viewer.
-// - Reads Markdown fixture(s)
-// - Runs the Ontology Graphs and Edges rule pipeline
-// - Builds a GraphViewerModel (graph-centric JSON)
-// - Injects that JSON into index.html and serves it via Deno.serve
-
 import { toMarkdown } from "mdast-util-to-markdown";
 import type { Heading, Paragraph, Root } from "types/mdast";
 import type { Node } from "types/unist";
-import { queryPosixPI } from "../universal/posix-pi.ts";
-import { type GraphEdgesTree, graphEdgesTree } from "./graph-tree.ts";
+import { queryPosixPI } from "../../../universal/posix-pi.ts";
+import { codeFrontmatter } from "../../mdast/code-frontmatter.ts";
+import { headingText } from "../../mdast/node-content.ts";
+import { isCodePartial } from "../../remark/code-partial.ts";
+import { GraphEdge } from "../governance.ts";
 import {
   containedInSectionRule,
   createGraphRulesBuilder,
   frontmatterClassificationRule,
-  GraphEdge,
   headingLikeNodeDataBag,
-  headingText,
   isBoldSingleLineParagraph,
   isColonSingleLineParagraph,
   IsSectionContainer,
@@ -27,14 +20,13 @@ import {
   sectionFrontmatterRule,
   sectionSemanticIdRule,
   selectedNodesClassificationRule,
-} from "./graph.ts";
-import { codeFrontmatter } from "./mdast/code-frontmatter.ts";
-import { isCodePartial } from "./remark/code-partial.ts";
+} from "../rule/mod.ts";
+import { type GraphEdgesTree, graphEdgesTree } from "../tree.ts";
 
-export type ModelRelationship = string;
+export type TypicalRelationship = string;
 
-export type ModelGraphEdge = GraphEdge<ModelRelationship>;
-export type ModelRuleCtx = RuleContext;
+export type TypicalGraphEdge = GraphEdge<TypicalRelationship>;
+export type TypicalRuleCtx = RuleContext;
 
 // -----------------------------------------------------------------------------
 // Section container callback (headings + heading-like paragraphs)
@@ -63,70 +55,90 @@ const headingLikeSectionContainer: IsSectionContainer = (node: Node) => {
   };
 };
 
-// -----------------------------------------------------------------------------
-// Build the rule pipeline (same as Ontology Graphs and Edges test)
-// -----------------------------------------------------------------------------
-
-export function buildRules() {
+export function typicalRules() {
   const builder = createGraphRulesBuilder<
-    ModelRelationship,
-    ModelRuleCtx,
-    ModelGraphEdge
+    TypicalRelationship,
+    TypicalRuleCtx,
+    TypicalGraphEdge
   >();
 
   return builder
     .use(
-      containedInSectionRule<ModelRelationship, ModelRuleCtx, ModelGraphEdge>(
+      containedInSectionRule<
+        TypicalRelationship,
+        TypicalRuleCtx,
+        TypicalGraphEdge
+      >(
         "containedInSection",
         headingLikeSectionContainer,
       ),
     )
     .use(
-      sectionFrontmatterRule<ModelRelationship, ModelRuleCtx, ModelGraphEdge>(
+      sectionFrontmatterRule<
+        TypicalRelationship,
+        TypicalRuleCtx,
+        TypicalGraphEdge
+      >(
         "frontmatter",
-        ["containedInSection"] as ModelRelationship[],
+        ["containedInSection"] as TypicalRelationship[],
       ),
     )
     .use(
-      sectionSemanticIdRule<ModelRelationship, ModelRuleCtx, ModelGraphEdge>(
+      sectionSemanticIdRule<
+        TypicalRelationship,
+        TypicalRuleCtx,
+        TypicalGraphEdge
+      >(
         "sectionSemanticId",
-        ["containedInSection"] as ModelRelationship[],
+        ["containedInSection"] as TypicalRelationship[],
       ),
     )
     .use(
       frontmatterClassificationRule<
-        ModelRelationship,
-        ModelRuleCtx,
-        ModelGraphEdge
+        TypicalRelationship,
+        TypicalRuleCtx,
+        TypicalGraphEdge
       >("doc-classify"),
     )
     .use(
       selectedNodesClassificationRule<
-        ModelRelationship,
-        ModelRuleCtx,
-        ModelGraphEdge
+        TypicalRelationship,
+        TypicalRuleCtx,
+        TypicalGraphEdge
       >("emphasis", "isImportant"),
     )
     .use(
-      nodesClassificationRule<ModelRelationship, ModelRuleCtx, ModelGraphEdge>(
+      nodesClassificationRule<
+        TypicalRelationship,
+        TypicalRuleCtx,
+        TypicalGraphEdge
+      >(
         "isCode",
         (node) => node.type === "code",
       ),
     )
     .use(
-      nodesClassificationRule<ModelRelationship, ModelRuleCtx, ModelGraphEdge>(
+      nodesClassificationRule<
+        TypicalRelationship,
+        TypicalRuleCtx,
+        TypicalGraphEdge
+      >(
         "isPartial",
         (node) => isCodePartial(node) ? true : false,
       ),
     )
     .use(
-      nodesClassificationRule<ModelRelationship, ModelRuleCtx, ModelGraphEdge>(
+      nodesClassificationRule<
+        TypicalRelationship,
+        TypicalRuleCtx,
+        TypicalGraphEdge
+      >(
         "isTask",
         (node) => node.type === "listItem",
       ),
     )
     .use(
-      nodeDependencyRule<ModelRelationship, ModelRuleCtx, ModelGraphEdge>(
+      nodeDependencyRule<TypicalRelationship, TypicalRuleCtx, TypicalGraphEdge>(
         "codeDependsOn",
         (node): boolean => node.type === "code",
         (node, name): boolean => {
@@ -152,12 +164,9 @@ export function buildRules() {
 
 export function buildGraphTreeForRoot(
   _root: Root,
-  edges: ModelGraphEdge[],
-): GraphEdgesTree<
-  ModelRelationship,
-  ModelGraphEdge
-> {
-  return graphEdgesTree<ModelRelationship, ModelGraphEdge>(edges, {
+  edges: TypicalGraphEdge[],
+): GraphEdgesTree<TypicalRelationship, TypicalGraphEdge> {
+  return graphEdgesTree<TypicalRelationship, TypicalGraphEdge>(edges, {
     relationships: ["containedInSection"],
   });
 }

@@ -1,25 +1,18 @@
-// model.ts
-//
-// Deno entrypoint for the Spry Graph Viewer.
-// - Reads Markdown fixture(s)
-// - Runs the Ontology Graphs and Edges rule pipeline
-// - Builds a GraphViewerModel (graph-centric JSON)
-// - Injects that JSON into index.html and serves it via Deno.serve
-
 import { toMarkdown } from "mdast-util-to-markdown";
 import type { Heading, Root, RootContent } from "types/mdast";
 import type { Node } from "types/unist";
-import { type GraphEdgeTreeNode } from "../graph-tree.ts";
-import { astGraphEdges, headingText } from "../graph.ts";
-import { markdownASTs } from "../io/mod.ts";
 import {
   buildGraphTreeForRoot,
-  buildRules,
-  ModelGraphEdge,
-  ModelRelationship,
-  ModelRuleCtx,
-} from "../model.ts";
+  TypicalGraphEdge,
+  TypicalRelationship,
+  TypicalRuleCtx,
+  typicalRules,
+} from "../edge/pipeline/typical.ts";
+import { type GraphEdgeTreeNode } from "../edge/tree.ts";
+import { markdownASTs } from "../io/mod.ts";
 import { NodeDecorator } from "../remark/node-decorator.ts";
+import { headingText } from "../mdast/node-content.ts";
+import { astGraphEdges } from "../edge/mod.ts";
 
 // -----------------------------------------------------------------------------
 // Types: GraphViewerModel (what index.js expects)
@@ -170,7 +163,7 @@ function nodePlainText(node: Node): string {
 // -----------------------------------------------------------------------------
 
 // The main hierarchical relationship we care about for the tree view.
-const HIERARCHICAL_RELS = new Set<ModelRelationship>([
+const HIERARCHICAL_RELS = new Set<TypicalRelationship>([
   "containedInSection",
 ]);
 
@@ -185,7 +178,7 @@ export async function buildGraphViewerModelFromFiles(
 
   const relEdgeCounts = new Map<string, number>();
 
-  const rules = buildRules();
+  const rules = typicalRules();
 
   let docIndex = 0;
 
@@ -247,13 +240,16 @@ export async function buildGraphViewerModelFromFiles(
     };
 
     // Run rules on this document
-    const baseCtx: ModelRuleCtx = { root };
-    const docEdges: ModelGraphEdge[] = [];
+    const baseCtx: TypicalRuleCtx = { root };
+    const docEdges: TypicalGraphEdge[] = [];
     docEdges.push(
-      ...astGraphEdges<ModelRelationship, ModelGraphEdge, ModelRuleCtx>(root, {
-        prepareContext: () => baseCtx,
-        rules: () => rules,
-      }),
+      ...astGraphEdges<TypicalRelationship, TypicalGraphEdge, TypicalRuleCtx>(
+        root,
+        {
+          prepareContext: () => baseCtx,
+          rules: () => rules,
+        },
+      ),
     );
 
     // Process edges: group by relationship, connect nodes, count rels
@@ -290,7 +286,7 @@ export async function buildGraphViewerModelFromFiles(
     const tree = buildGraphTreeForRoot(root, docEdges);
 
     const toHierarchyNode = (
-      n: GraphEdgeTreeNode<ModelRelationship, ModelGraphEdge>,
+      n: GraphEdgeTreeNode<TypicalRelationship, TypicalGraphEdge>,
     ): HierarchyNode => ({
       nodeId: ensureNodeId(n.node),
       level: n.level,
@@ -318,7 +314,7 @@ export async function buildGraphViewerModelFromFiles(
   for (const [name, count] of relEdgeCounts.entries()) {
     relationships.push({
       name,
-      hierarchical: HIERARCHICAL_RELS.has(name as ModelRelationship),
+      hierarchical: HIERARCHICAL_RELS.has(name as TypicalRelationship),
       edgeCount: count,
       description: undefined,
     });
