@@ -10,32 +10,9 @@
 import { Command } from "@cliffy/command";
 import { CompletionsCommand } from "@cliffy/completions";
 import { HelpCommand } from "@cliffy/help";
-import { fromFileUrl, relative } from "@std/path";
+import { fromFileUrl, join, relative } from "@std/path";
 import { computeSemVerSync } from "../../universal/version.ts";
 import { graphProjectionFromFiles } from "../projection.ts";
-
-/**
- * We use an "injection" model so that saving the file can allow the HTML to
- * work in static mode.
- * @returns
- */
-async function ssrIndexHtml(mdSources: string[]) {
-  const htmlTemplate = await Deno.readTextFile(
-    fromFileUrl(new URL("./index.html", import.meta.url)),
-  );
-
-  const model = await graphProjectionFromFiles(mdSources);
-
-  const json = JSON.stringify(model);
-
-  // Replace the placeholder script tag with inline JSON
-  const injectedHtml = htmlTemplate.replace(
-    /<script type="application\/json" id="web-ui\.model\.json"><\/script>/,
-    `<script type="application/json" id="web-ui.model.json">${json}</script>`,
-  );
-
-  return injectedHtml;
-}
 
 /* --------------------------------------------------------------------------- */
 /* Server + helpers                                                            */
@@ -59,10 +36,14 @@ export async function serve(args: {
   } = args;
 
   if (mdSources.length == 0) {
-    mdSources.push(fromFileUrl(
-      new URL("../fixture/pmd/comprehensive.md", import.meta.url),
-    ));
+    const pmdHome = fromFileUrl(new URL("../fixture/pmd", import.meta.url));
+    mdSources.push(
+      ...[...Deno.readDirSync(pmdHome)].filter((e) =>
+        e.isFile && e.name.endsWith(".md")
+      ).map((e) => join(pmdHome, e.name)),
+    );
   }
+
   const watchTargets = (!watchCandidates || watchCandidates.length == 0)
     ? [...mdSources]
     : watchCandidates;
@@ -152,12 +133,30 @@ export async function serve(args: {
       }
     }, 15000); // every 15s
 
-    const indexHTML = injectReloadSnippet(await ssrIndexHtml(mdSources));
-
     if (url.pathname === "/" || url.pathname === "/index.html") {
-      return new Response(indexHTML, {
-        headers: { "content-type": "text/html; charset=utf-8" },
-      });
+      return new Response(
+        injectReloadSnippet(
+          await Deno.readTextFile(
+            fromFileUrl(new URL("./index.html", import.meta.url)),
+          ),
+        ),
+        { headers: { "content-type": "text/html; charset=utf-8" } },
+      );
+    }
+
+    if (url.pathname === "/projection.view.json") {
+      try {
+        const model = await graphProjectionFromFiles(mdSources);
+        return Response.json(model, {
+          headers: {
+            "content-type": "application/json; charset=utf-8",
+            "cache-control": "no-cache",
+          },
+        });
+      } catch (err) {
+        console.error("Failed to build graph projection for:", err);
+        return new Response("Internal Server Error", { status: 500 });
+      }
     }
 
     if (url.pathname === "/index.css" || url.pathname === "/index.js") {
