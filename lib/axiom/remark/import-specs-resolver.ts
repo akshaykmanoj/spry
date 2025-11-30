@@ -1,9 +1,7 @@
 /**
- * Code-import processing for Spry executable Markdown.
- *
- * This module parses “import spec” code blocks and turns them into
- * typed import instructions that downstream plugins can materialize
- * into real `code` nodes.
+ * This importables module parses “import spec” code blocks and turns them into
+ * typed import instructions that downstream plugins can materialize into real
+ * mdast nodes or graph edges.
  *
  * Responsibilities:
  * - Parse PI-style flags from code frontmatter (e.g. `--base`, `--bin`)
@@ -45,8 +43,7 @@ import {
 import { safeInterpolate } from "../../universal/safe-interpolate.ts";
 import { CodeFrontmatter, codeFrontmatter } from "../mdast/code-frontmatter.ts";
 import { addIssue } from "../mdast/node-issues.ts";
-import { GraphEdge } from "../mod.ts";
-import { InsertedContent } from "./code-insert.ts";
+import { ImportPlaceholder } from "./import-placeholders-generator.ts";
 
 export const codeImportPiFlagsSchema = z.object({
   base: flexibleTextSchema.optional(),
@@ -284,29 +281,20 @@ export function* prepareCodeNodes(specs: CodeImport) {
       }
       : undefined;
 
-    const generated: Code & InsertedContent = {
+    const generated: Code & ImportPlaceholder = {
       type: "code",
+      isImportPlaceholder: true,
       lang: language,
       meta: meta.join(" ").trim(),
       value: `import placeholder: ${specs.lang} ${specs.meta}`,
       // Optional position mapping approximate to spec line:
       position: position ? { start: position, end: position } : undefined,
-      generatedBy: `${specs.lang} ${specs.meta}`,
       provenance,
       isBinaryHint: language === "utf8" ||
         (provenance.ppiq.getFlag("is-binary", "binary", "bin") ?? false),
     };
 
-    yield {
-      generated,
-      edges: [
-        {
-          rel: "isInsertedContent",
-          from: specs,
-          to: generated,
-        } satisfies GraphEdge<"isInsertedContent">,
-      ],
-    };
+    yield generated;
   }
 }
 

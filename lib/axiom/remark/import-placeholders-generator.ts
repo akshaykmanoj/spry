@@ -26,23 +26,24 @@ import type { Code, Node, Root } from "types/mdast";
 import type { Plugin } from "unified";
 import { visit } from "unist-util-visit";
 import { VFile } from "vfile";
-import { graphEdgesVFileDataBag } from "../mod.ts";
 import {
   CodeImportSpecProvenance,
   isCodeImport,
   prepareCodeNodes,
-} from "./code-import.ts";
+} from "./import-specs-resolver.ts";
 
-export type InsertedContent = {
-  readonly generatedBy: string;
+export type ImportPlaceholder = {
+  readonly isImportPlaceholder: true;
   readonly provenance: CodeImportSpecProvenance;
   readonly isBinaryHint: boolean;
-  // TODO: figure out how to create a graph edge to the origin
 };
 
-export function isInsertedContent(node: Node): node is Code & InsertedContent {
-  return node && node.type === "code" && "generatedBy" in node &&
-      node.generatedBy &&
+export function isImportPlaceholder(
+  node: Node,
+): node is Code & ImportPlaceholder {
+  return node && node.type === "code" &&
+      "isImportPlaceholder" in node &&
+      node.isImportPlaceholder &&
       "provenance" in node && node.provenance
     ? true
     : false;
@@ -50,6 +51,11 @@ export function isInsertedContent(node: Node): node is Code & InsertedContent {
 
 export interface CodeImportInsertOptions {
   readonly retainAfterInjections?: (code: Code) => boolean;
+  readonly consumeEdges?: (
+    edges: { generatedBy: Node; placeholder: Node }[],
+    vfile: VFile,
+    tree: Root,
+  ) => void;
 }
 
 /**
@@ -73,7 +79,10 @@ export interface CodeImportInsertOptions {
  *
  * @returns A unified-compatible transformer that mutates the MDAST.
  */
-export const insertCodeImportNodes: Plugin<[CodeImportInsertOptions?], Root> = (
+export const insertImportPlaceholders: Plugin<
+  [CodeImportInsertOptions?],
+  Root
+> = (
   options,
 ) => {
   return (tree: Root, vfile: VFile) => {
@@ -97,14 +106,20 @@ export const insertCodeImportNodes: Plugin<[CodeImportInsertOptions?], Root> = (
           ? "retain-after-injections" as const
           : "remove-before-injections" as const);
 
-      const prepared = Array.from(prepareCodeNodes(code));
-      const imported = prepared.map((p) => p.generated);
-
-      if (graphEdgesVFileDataBag.is(vfile)) {
-        vfile.data.edges.push(...prepared.flatMap((p) => p.edges));
-      }
+      const imported = Array.from(prepareCodeNodes(code));
 
       if (imported.length) {
+        if (options?.consumeEdges) {
+          options.consumeEdges(
+            imported.map((generated) => ({
+              generatedBy: code,
+              placeholder: generated,
+            })),
+            vfile,
+            tree,
+          );
+        }
+
         mutations.push({ parent, index, injected: imported, mode });
       }
     });

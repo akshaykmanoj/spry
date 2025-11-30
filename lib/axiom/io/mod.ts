@@ -32,8 +32,8 @@ import { VFile } from "vfile";
 import { GraphEdge } from "../edge/mod.ts";
 import { dataBag } from "../mdast/data-bag.ts";
 import { nodeSrcText } from "../mdast/node-src-text.ts";
-import { resolveImportSpecs } from "../remark/code-import.ts";
-import { insertCodeImportNodes } from "../remark/code-insert.ts";
+import { insertImportPlaceholders } from "../remark/import-placeholders-generator.ts";
+import { resolveImportSpecs } from "../remark/import-specs-resolver.ts";
 import { nodeDecoratorPlugin } from "../remark/node-decorator.ts";
 
 // deno-lint-ignore no-explicit-any
@@ -60,15 +60,25 @@ export function mardownParserPipeline() {
     .use(remarkDirective) // creates directives from :[x] ::[x] and :::x
     .use(docFrontmatterPlugin) // parses extracted YAML and stores at md AST root
     .use(remarkGfm) // support GitHub flavored markdown
-    .use(resolveImportSpecs, {
+    .use(resolveImportSpecs, { // find code cells which want to be imported from local/remote files
       interpolationCtx: (_root, vfile) => ({
         cwd: Deno.cwd(),
         env: Deno.env.toObject(),
         mdSrcAbsPath: resolve(vfile.path),
         mdSrcDirname: dirname(resolve(vfile.path)),
       }),
-    }) // find code cells which want to be imported from local/remote files
-    .use(insertCodeImportNodes) // generate code cells found by resolveImportSpecs
+    })
+    .use(insertImportPlaceholders, { // generate code cells found by resolveImportSpecs
+      consumeEdges: (edges, vfile) => {
+        if (graphEdgesVFileDataBag.is(vfile)) {
+          vfile.data.edges.push(...edges.map((e) => ({
+            rel: "isImportPlaceholder",
+            from: e.generatedBy,
+            to: e.placeholder,
+          } satisfies GraphEdge<"isImportPlaceholder">)));
+        }
+      },
+    })
     .use(nodeDecoratorPlugin); // look for @id and transform to node.type == "decorator"
 }
 
