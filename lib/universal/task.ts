@@ -167,7 +167,7 @@ export interface TaskExecutionPlan<T extends Task> {
  * console.log(plan.missingDeps);  // { build: ['unknown-dep'] } if any
  */
 export function executionPlan<T extends Task>(
-  tasks: T[],
+  tasks: readonly T[],
 ): TaskExecutionPlan<T> {
   // Index, ids, and lookup
   const ids = tasks.map((t) => t.taskId());
