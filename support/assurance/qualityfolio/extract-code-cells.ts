@@ -12,19 +12,21 @@ import type { Root } from "types/mdast";
 import type { Node } from "types/unist";
 
 import {
-  astGraphEdges,
   containedInSectionRule,
   createGraphRulesBuilder,
+  isBoldSingleLineParagraph,
+  isColonSingleLineParagraph,
+  IsSectionContainer,
+  RuleContext,
+} from "../../../lib/axiom/edge/rule/mod.ts";
+import { headingText } from "../../../lib/axiom/mdast/node-content.ts";
+import {
+  astGraphEdges,
   GraphEdge,
   graphEdgesTree,
   type GraphEdgeTreeNode,
-  headingText,
-  isBoldSingleLineParagraph,
-  isColonSingleLineParagraph,
-  type IsSectionContainer,
   markdownASTs,
-  type RuleContext,
-} from "../../../lib/remark/graph/mod.ts";
+} from "../../../lib/axiom/mod.ts";
 
 // ---------------------------------------------------------------------------
 // Types
