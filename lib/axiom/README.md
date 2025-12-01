@@ -36,7 +36,7 @@ cd support/assurance/qualityfolio
 ./spry.ts web-ui
 ./spry.ts web-ui Qualityfolio.md
 ./spry.ts web-ui qf-complex.md qf-large.md qf-medium.md qf-small.md
-./spry.ts axiom inspect Qualityfolio.md
+./spry.ts inspect Qualityfolio.md
 ```
 
 Runbook Text-UI (`runbook.ts`)
