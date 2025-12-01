@@ -24,12 +24,19 @@ Explorer Text-UI (`CLI`)
 
 ```bash cli
 ./lib/axiom/text-ui/cli.ts ls lib/axiom/fixture/pmd/comprehensive.md
+./lib/axiom/text-ui/cli.ts inspect lib/axiom/fixture/pmd/comprehensive.md
 ```
 
 Web-UI
 
 ```bash web-ui
 ./lib/axiom/web-ui/service.ts web-ui lib/axiom/fixture/pmd/comprehensive.md
+
+cd support/assurance/qualityfolio
+./spry.ts web-ui
+./spry.ts web-ui Qualityfolio.md
+./spry.ts web-ui qf-complex.md qf-large.md qf-medium.md qf-small.md
+./spry.ts axiom inspect Qualityfolio.md
 ```
 
 Runbook Text-UI (`runbook.ts`)
@@ -42,6 +49,8 @@ cd support/assurance/runbook
 
 ./spry.ts run fixture-01.md --graph special
 ./spry.ts task clean fixture-01.md
+
+./spry.ts axiom inspect fixture-01.md
 ```
 
 ## Why Axiom?
