@@ -1,4 +1,9 @@
-import { assertEquals, assertMatch, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertMatch,
+  assertStringIncludes,
+} from "@std/assert";
 import * as path from "@std/path";
 
 import { shebang } from "./pmd-shebang.ts";
@@ -94,7 +99,7 @@ Deno.test("pmd-shebang factory behavior", async (t) => {
     async () => {
       resetEnv("lib/axiom/txt-ui/pm-bootstrap.ts");
 
-      const s = shebang();
+      const s = shebang({ makeExecutable: false });
       const expectedShebang = await s.line();
 
       const tmpDir = await Deno.makeTempDir();
@@ -139,6 +144,71 @@ Deno.test("pmd-shebang factory behavior", async (t) => {
     },
   );
 
-  // Restore original env at the end of all subtests
+  await t.step("emit() makes file executable by default", async () => {
+    resetEnv("lib/axiom/txt-ui/pm-bootstrap.ts");
+
+    const tmpDir = await Deno.makeTempDir();
+    const filePath = path.join(tmpDir, "exec-notebook.md");
+
+    await Deno.writeTextFile(
+      filePath,
+      "# Test\n\nThis file will get a shebang.\n",
+    );
+
+    const s = shebang(); // makeExecutable defaults to true
+    await s.emit(filePath);
+
+    // On Windows, mode may not be meaningful; just ensure it runs.
+    if (Deno.build.os === "windows") {
+      const info = await Deno.lstat(filePath);
+      assert(info.isFile);
+      return;
+    }
+
+    const info = await Deno.lstat(filePath);
+    const mode = info.mode;
+    assert(mode != null, "Expected file mode to be non-null on Unix-like OS");
+
+    // Check that some execute bit is set (user/group/other).
+    assert((mode & 0o111) !== 0, "Expected executable bits to be set");
+  });
+
+  await t.step(
+    "emit() does not change mode when makeExecutable is false",
+    async () => {
+      resetEnv("lib/axiom/txt-ui/pm-bootstrap.ts");
+
+      const tmpDir = await Deno.makeTempDir();
+      const filePath = path.join(tmpDir, "non-exec-notebook.md");
+
+      await Deno.writeTextFile(
+        filePath,
+        "# Test\n\nThis file will get a shebang only.\n",
+      );
+
+      // On Unix-like systems, set a known mode first.
+      if (Deno.build.os !== "windows") {
+        await Deno.chmod(filePath, 0o644);
+      }
+
+      const s = shebang({ makeExecutable: false });
+      await s.emit(filePath);
+
+      if (Deno.build.os === "windows") {
+        const info = await Deno.lstat(filePath);
+        assert(info.isFile);
+        return;
+      }
+
+      const info = await Deno.lstat(filePath);
+      const mode = info.mode;
+      assert(mode != null);
+      assert(
+        (mode & 0o111) === 0,
+        "Expected no executable bits when makeExecutable is false",
+      );
+    },
+  );
+
   resetEnv(originalEnv ?? null);
 });

@@ -99,7 +99,7 @@ export interface ShebangOptions {
    * (absolute, relative, etc.), without converting to a path
    * relative to the current working directory.
    *
-   * Remote URLs (http/https) are *always* used as-is regardless of this flag.
+   * Remote URLs (http/https) are always used as-is regardless.
    *
    * Default: false.
    */
@@ -111,11 +111,18 @@ export interface ShebangOptions {
    * Defaults to:
    *
    *   (specifier) => import.meta.resolve(specifier)
-   *
-   * You can override this if you need custom resolution behavior
-   * (e.g. virtual module graphs, non-standard roots).
    */
   resolver?: (specifier: string) => string | Promise<string>;
+
+  /**
+   * If true (default), emit(filePath) will also try to make the
+   * file executable (chmod +x) after updating the shebang so that
+   * `./file.md` works directly on Unix-like systems.
+   *
+   * On platforms where chmod is not meaningful (e.g. Windows),
+   * failures will be ignored.
+   */
+  makeExecutable?: boolean;
 }
 
 /**
@@ -133,6 +140,7 @@ export function shebang(options: ShebangOptions = {}) {
     denoFlags = ["--allow-all"],
     useRawEnvValue = false,
     resolver = (specifier: string): string => import.meta.resolve(specifier),
+    makeExecutable = true,
   } = options;
 
   const cwd = Deno.cwd();
@@ -208,6 +216,28 @@ export function shebang(options: ShebangOptions = {}) {
     return `#!/usr/bin/env -S deno run ${flagsPart} ${entry}`;
   }
 
+  async function makeFileExecutableIfNeeded(filePath: string): Promise<void> {
+    if (!makeExecutable) return;
+
+    // On Windows or restricted environments, chmod may fail; ignore errors.
+    try {
+      const info = await Deno.lstat(filePath);
+      const currentMode = info.mode;
+
+      if (currentMode != null) {
+        const newMode = currentMode | 0o111; // add execute bits for user/group/other
+        if (newMode !== currentMode) {
+          await Deno.chmod(filePath, newMode);
+        }
+      } else {
+        // If mode is null, just set a reasonable default.
+        await Deno.chmod(filePath, 0o755);
+      }
+    } catch {
+      // Ignore chmod-related errors (e.g., on Windows).
+    }
+  }
+
   /**
    * Emit the shebang:
    *
@@ -215,6 +245,7 @@ export function shebang(options: ShebangOptions = {}) {
    * - If filePath is provided:
    *     - If the file already has a shebang on the first line -> replace it.
    *     - Else -> insert the shebang as the first line.
+   *     - Optionally (default), mark the file as executable.
    */
   async function emit(filePath?: string): Promise<void> {
     const shebangLine = await line();
@@ -234,6 +265,7 @@ export function shebang(options: ShebangOptions = {}) {
     }
 
     await Deno.writeTextFile(filePath, updated);
+    await makeFileExecutableIfNeeded(filePath);
   }
 
   return { line, emit, resolveEntrypointArg };
