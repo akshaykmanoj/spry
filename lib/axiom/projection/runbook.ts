@@ -155,7 +155,7 @@ export async function runbooksFromFiles<
   const tasks: RunnableTask[] = runnables.map((o) => ({
     ...o,
     taskId: () => o.identity, // satisfies Task interface
-    taskDeps: () => dr.deps(o.identity, o.args.deps), // satisfies Task interface
+    taskDeps: () => dr.deps(o.identity, o.spawnableArgs.deps), // satisfies Task interface
   }));
 
   return {
@@ -213,7 +213,7 @@ export function runnableDepsResolver(
     (r) => {
       const compiledList: RegExp[] = [];
 
-      for (const expr of r.args.injectedDep) {
+      for (const expr of r.spawnableArgs.injectedDep) {
         // Special case: "*" means "match everything" → /.*/
         const source = expr === "*" ? ".*" : expr;
 
@@ -251,7 +251,7 @@ export function runnableDepsResolver(
 
       for (const task of catalog) {
         const taskId = task.identity;
-        const di = task.args.injectedDep;
+        const di = task.spawnableArgs.injectedDep;
         if (di.length === 0) continue;
 
         if (injectedDepCache.is(task)) {

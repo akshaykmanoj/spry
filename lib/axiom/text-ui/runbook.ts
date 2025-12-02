@@ -86,7 +86,7 @@ export function executeTasksFactory<
     }
   >({
     isCapturable: (task) =>
-      task.args.capture.length ? task.args.capture : false,
+      task.spawnableArgs.capture.length ? task.spawnableArgs.capture : false,
     prepareCaptured: (op) => {
       const text = () => {
         if (op.execResult) {
@@ -119,7 +119,7 @@ export function executeTasksFactory<
       const interpResult = await interpolateUnsafely({
         task,
         source: task.value,
-        interpolate: task.args.interpolate,
+        interpolate: task.spawnableArgs.interpolate,
       });
       if (interpResult.status) {
         const execResult = await sh.auto(interpResult.source, undefined, task);
@@ -222,7 +222,7 @@ export function informationalEventBuses<T extends RunnableTask, Context>(
   verbose?: VerboseStyle,
 ) {
   const emitStdOut = (ev: ShellBusEvents<T>["spawn:done"]) =>
-    ev.baggage?.args.silent ? false : true;
+    ev.baggage?.spawnableArgs.silent ? false : true;
 
   if (!verbose) {
     return {
@@ -397,10 +397,12 @@ export class CLI {
             {
               filter: opts.graph?.length
                 ? ((task) =>
-                  task.args.graphs?.some((g) => opts.graph!.includes(g))
+                  task.spawnableArgs.graphs?.some((g) =>
+                      opts.graph!.includes(g)
+                    )
                     ? true
                     : false)
-                : ((task) => task.args.graphs?.length ? false : true),
+                : ((task) => task.spawnableArgs.graphs?.length ? false : true),
             },
           );
           const plan = executionPlan(tasks);
@@ -452,7 +454,7 @@ export class CLI {
             paths.length ? paths : this.conf?.defaultFiles ?? [],
           );
           const lsRows = tasks.map((task) => {
-            const { args } = task;
+            const { spawnableArgs: args } = task;
             return {
               code: task,
               name: task.taskId(),

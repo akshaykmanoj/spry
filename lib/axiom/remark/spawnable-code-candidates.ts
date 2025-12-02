@@ -57,7 +57,7 @@ export type CodeSpawnablePiFlags = z.infer<typeof codeSpawnablePiFlagsSchema>;
 export const codeSpawnableSchema = z.object({
   identity: z.string(),
   language: z.custom<LanguageSpec>().optional(),
-  args: codeSpawnablePiFlagsSchema, // typed, parsed, validated
+  spawnableArgs: codeSpawnablePiFlagsSchema, // typed, parsed, validated
 });
 
 export type SpawnableCodeCandidate =
@@ -70,7 +70,7 @@ export function isSpawnableCodeCandidate(
 ): node is SpawnableCodeCandidate {
   return node?.type === "code" && "isSpawnableCodeCandidate" in node &&
       node.isSpawnableCodeCandidate && "identity" in node && node.identity &&
-      "args" in node && node.args
+      "spawnableArgs" in node && node.spawnableArgs
     ? true
     : false;
 }
@@ -116,7 +116,7 @@ export const spawnableCodeCandidates: Plugin<
             spawnable.isSpawnableCodeCandidate = true;
             spawnable.identity = codeFM.pi.pos[0];
             spawnable.language = codeFM.langSpec;
-            spawnable.args = args.data;
+            spawnable.spawnableArgs = args.data;
 
             if (!isSpawnableCodeCandidate(code)) {
               addIssue(code, {
