@@ -9,8 +9,8 @@ import {
   green,
   red,
   yellow,
-} from "jsr:@std/fmt@^1/colors";
-import { ensureDir } from "jsr:@std/fs@^1";
+} from "@std/fmt/colors";
+import { ensureDir } from "@std/fs";
 import {
   basename,
   dirname,
@@ -18,9 +18,9 @@ import {
   globToRegExp,
   join,
   relative,
-} from "jsr:@std/path@^1";
+} from "@std/path";
+import { docFrontmatterDataBag } from "../../axiom/remark/doc-frontmatter.ts";
 import { isImportPlaceholder } from "../../axiom/remark/import-placeholders-generator.ts";
-import * as runbookCLI from "../../axiom/text-ui/runbook.ts";
 import { collectAsyncGenerated } from "../../universal/collectable.ts";
 import { SourceRelativeTo } from "../../universal/content-acquisition.ts";
 import { doctor } from "../../universal/doctor.ts";
@@ -33,11 +33,6 @@ import {
 } from "../../universal/lister-tabular-tui.ts";
 import { TreeLister } from "../../universal/lister-tree-tui.ts";
 import { isRouteSupplier } from "../../universal/route.ts";
-import {
-  executionPlanVisuals,
-  ExecutionPlanVisualStyle,
-} from "../../universal/task-visuals.ts";
-import { executionPlan, executionSubplan } from "../../universal/task.ts";
 import { dedentIfFirstLineBlank } from "../../universal/tmpl-literal-aide.ts";
 import { computeSemVerSync } from "../../universal/version.ts";
 import {
@@ -45,15 +40,14 @@ import {
   watcher,
   WatcherEvents,
 } from "../../universal/watcher.ts";
-import { sqlPageConf } from "./conf.ts";
+import { SqlPageConf, sqlPageConf } from "./conf.ts";
 import {
-  isSqlPageContent,
   normalizeSPC,
   SqlPageContent,
   SqlPageFilesUpsertDialect,
   sqlPageFilesUpsertDML,
 } from "./content.ts";
-import { SqlPagePlaybook, sqlPagePlaybookState } from "./orchestrate.ts";
+import { sqlPageFiles, sqlPagePlaybook } from "./orchestrate.ts";
 
 // deno-lint-ignore no-explicit-any
 type Any = any;
@@ -137,8 +131,6 @@ export function upsertMissingAncestors<T>(
   return out;
 }
 
-// import { fromFileUrl, join, relative } from "jsr:@std/path";
-
 export async function projectPaths(projectHome = Deno.cwd()) {
   const cliModuleUrl = new URL(import.meta.url);
   const isRemote = cliModuleUrl.protocol === "http:" ||
@@ -209,10 +201,7 @@ export async function projectPaths(projectHome = Deno.cwd()) {
 }
 
 export class CLI<Project> {
-  constructor(
-    readonly project: Project,
-    readonly spn = SqlPagePlaybook.instance<Project>(project),
-  ) {
+  constructor(readonly project: Project) {
   }
 
   // wrap this in
@@ -489,18 +478,13 @@ export class CLI<Project> {
       tree?: boolean;
     },
   ) {
-    const { items } = await collectAsyncGenerated(
-      this.spn.sqlPageFiles({
-        mdSources: opts.md,
-        srcRelTo: opts.srcRelTo,
-        state: sqlPagePlaybookState(),
-      }),
-    );
+    const spp = await sqlPagePlaybook(opts.md);
+    const { items } = await collectAsyncGenerated(sqlPageFiles(spp));
     let spfe = items.map((spf) => ({
       ...spf,
       name: basename(spf.path),
       flags: flagsFrom(spf),
-      notebook: spf.cell?.provenance ?? "",
+      notebook: spf.cell?.provenance.file.path ?? "",
     }));
 
     if (opts.tree) {
@@ -547,11 +531,6 @@ export class CLI<Project> {
         .treeOn("name");
       await tree.ls(true);
     } else if (opts.pi || opts.infoAttrs) {
-      const pc = await this.spn.populateContent({
-        mdSources: opts.md,
-        srcRelTo: opts.srcRelTo,
-        state: sqlPagePlaybookState(),
-      });
       await new ListerBuilder<
         {
           line: number;
@@ -571,14 +550,16 @@ export class CLI<Project> {
           "notebook",
         )
         .from(
-          pc.state.directives.tasks.map((cell) => ({
-            line: cell.startLine ?? -1,
-            language: cell.language ?? "?",
-            pi: cell.pi ?? "?",
-            virtual: cell.isVirtual ? "V" : " ",
-            binary: cell.sourceElaboration?.isRefToBinary ? "B" : " ",
-            notebook: cell.provenance ?? "",
-          })),
+          spp.storables.map((s) => {
+            return {
+              line: s.position?.start.line ?? -1,
+              language: s.language?.id ?? "?",
+              pi: s.meta ?? "?",
+              virtual: isImportPlaceholder(s) ? "V" : " ",
+              binary: "?", // TODO: s.sourceElaboration?.isRefToBinary ? "B" : " "
+              notebook: s.provenance.file.path ?? "",
+            };
+          }),
         )
         .field("line", "line", { header: "L#" })
         .field("language", "language", { header: "Lang" })
@@ -611,13 +592,8 @@ export class CLI<Project> {
         globToRegExp(g, { extended: true, globstar: true }).test(path)
       );
 
-    const { items } = await collectAsyncGenerated(
-      this.spn.sqlPageFiles({
-        mdSources: opts.md,
-        srcRelTo: opts.srcRelTo,
-        state: sqlPagePlaybookState(),
-      }),
-    );
+    const spp = await sqlPagePlaybook(opts.md);
+    const { items } = await collectAsyncGenerated(sqlPageFiles(spp));
 
     for (const spf of items) {
       if (matchesAnyGlob(spf.path)) {
@@ -645,12 +621,10 @@ export class CLI<Project> {
         }
       }
     }
+
+    const spp = await sqlPagePlaybook(opts.md);
     for await (
-      const spf of normalizeSPC(this.spn.sqlPageFiles({
-        mdSources: opts.md,
-        srcRelTo: opts.srcRelTo,
-        state: sqlPagePlaybookState(),
-      }))
+      const spf of normalizeSPC(sqlPageFiles(spp))
     ) {
       const absPath = join(fs, spf.path);
       await ensureDir(dirname(absPath));
@@ -728,17 +702,9 @@ export class CLI<Project> {
     await run(opts.watch);
   }
 
-  executableTasksFilter() {
-    return (t: TaskCell<string>) =>
-      t.taskDirective.nature === "TASK" ||
-      (t.taskDirective.nature === "CONTENT" &&
-        isSqlPageContent(t.taskDirective.content) == false);
-  }
-
   command(name = "spry.ts") {
     const srcRelTo = new EnumType(SourceRelativeTo);
     const dialect = new EnumType(SqlPageFilesUpsertDialect);
-    const verboseStyle = new EnumType(VerboseStyle);
     const mdOpt = [
       "-m, --md <mdPath:string>",
       "Use the given Markdown source(s), multiple allowed",
@@ -754,10 +720,6 @@ export class CLI<Project> {
       {
         default: SourceRelativeTo.LocalFs,
       },
-    ] as const;
-    const verboseOpt = [
-      "--verbose <style:verboseStyle>",
-      "Emit information messages verbosely",
     ] as const;
 
     return new Command()
@@ -878,22 +840,17 @@ export class CLI<Project> {
               });
             }
 
+            const spp = await sqlPagePlaybook(opts.md.map((f) => String(f)));
+
             // If -p/--package is present (i.e., user requested SQL package), emit to stdout
             if (opts.package) {
               for (
-                const chunk of await sqlPageFilesUpsertDML(
-                  this.spn.sqlPageFiles({
-                    mdSources: opts.md.map((f) => String(f)),
-                    srcRelTo: opts.srcRelTo,
-                    state: sqlPagePlaybookState(),
-                  }),
-                  {
-                    dialect: opts.dialect
-                      ? opts.dialect
-                      : SqlPageFilesUpsertDialect.SQLite,
-                    includeSqlPageFilesTable: true,
-                  },
-                )
+                const chunk of await sqlPageFilesUpsertDML(sqlPageFiles(spp), {
+                  dialect: opts.dialect
+                    ? opts.dialect
+                    : SqlPageFilesUpsertDialect.SQLite,
+                  includeSqlPageFilesTable: true,
+                })
               ) {
                 console.log(chunk);
               }
@@ -902,29 +859,26 @@ export class CLI<Project> {
             // If --conf is present, write sqlpage.json
             if (opts.conf) {
               let emitted = 0, encountered = 0;
-              const pp = await this.spn.populateContent({
-                mdSources: opts.md.map((f) => String(f)),
-                srcRelTo: opts.srcRelTo,
-                state: sqlPagePlaybookState(),
-              });
-              for (const pb of pp.state.directives.playbooks) {
-                encountered++;
-                const { notebook: nb } = pb;
-                if (nb.fm["sqlpage-conf"]) {
-                  const json = sqlPageConf(nb.fm["sqlpage-conf"]);
-                  // "web_root" should only be specified for `--fs`
-                  // otherwise the directory won't exist
-                  if (opts.package) delete json["web_root"];
-                  await ensureDir(dirname(opts.conf));
-                  await Deno.writeTextFile(
-                    opts.conf,
-                    JSON.stringify(json, null, 2),
-                  );
-                  if (opts.verbose) {
-                    console.log(opts.conf);
+              for (const pb of spp.sources) {
+                if (docFrontmatterDataBag.is(pb.mdastRoot)) {
+                  encountered++;
+                  const { fm } = pb.mdastRoot.data.documentFrontmatter.parsed;
+                  if (fm["sqlpage-conf"]) {
+                    const json = sqlPageConf(fm["sqlpage-conf"] as SqlPageConf);
+                    // "web_root" should only be specified for `--fs`
+                    // otherwise the directory won't exist
+                    if (opts.package) delete json["web_root"];
+                    await ensureDir(dirname(opts.conf));
+                    await Deno.writeTextFile(
+                      opts.conf,
+                      JSON.stringify(json, null, 2),
+                    );
+                    if (opts.verbose) {
+                      console.log(opts.conf);
+                    }
+                    emitted++;
+                    break; // only pick from the first file
                   }
-                  emitted++;
-                  break; // only pick from the first file
                 }
               }
               if (emitted == 0) {
@@ -967,156 +921,6 @@ export class CLI<Project> {
               md: opts.md.map((f) => String(f)),
             })
           ),
-      )
-      .command(
-        "task",
-        new Command() // Emit SQL package (sqlite) to stdout; accepts md path
-          .description(
-            "Spry Task CLI (execute a specific cell and dependencies)",
-          )
-          .type("sourceRelTo", srcRelTo)
-          .type("verboseStyle", verboseStyle)
-          .arguments("<taskId>")
-          .complete("taskId", async () => {
-            const pp = await this.spn.populateContent({
-              mdSources: ["Spryfile.md"],
-              srcRelTo: SourceRelativeTo.LocalFs,
-              state: sqlPagePlaybookState(),
-            });
-            return pp.state.directives.tasks.filter(
-              this.executableTasksFilter(),
-            ).map((t) => t.taskDirective.identity);
-          })
-          .option(...mdOpt)
-          .option(...srcRelToOpt)
-          .option(...verboseOpt)
-          .option("--summarize", "Emit summary after execution in JSON")
-          .action(async (opts, taskId) => {
-            const pp = await this.spn.populateContent({
-              mdSources: opts.md.map((f) => String(f)),
-              srcRelTo: opts.srcRelTo,
-              state: sqlPagePlaybookState(),
-            });
-            const tasks = pp.state.directives.tasks.filter(
-              this.executableTasksFilter(),
-            );
-            if (tasks.find((t) => t.taskId() == taskId)) {
-              const ieb = informationalEventBuses<
-                TaskCell<string>,
-                TaskExecContext
-              >(opts?.verbose);
-              const runbook = await executeTasks(
-                executionSubplan(executionPlan(tasks), [taskId]),
-                execTasksState(pp.state.directives, {
-                  onCapture: gitignorableOnCapture,
-                }),
-                { shellBus: ieb.shellEventBus, tasksBus: ieb.tasksEventBus },
-              );
-              if (ieb.emit) ieb.emit();
-              if (opts.summarize) {
-                console.log(runbook);
-              }
-            } else {
-              console.warn(`Task '${taskId}' not found.`);
-            }
-          })
-          .command("ls", "List task cells")
-          .type("sourceRelTo", srcRelTo)
-          .option(...mdOpt)
-          .option(...srcRelToOpt)
-          .option(
-            "-a, --all",
-            "List all cells in addition to executables",
-          )
-          .option(
-            "-s, --select <cql:string>",
-            "Use Cell Query Language (CQL) to select cells to list",
-          )
-          .action(async (opts) => {
-            const pp = await this.spn.populateContent({
-              mdSources: opts.md.map((f) => String(f)),
-              srcRelTo: opts.srcRelTo,
-              state: sqlPagePlaybookState(),
-            });
-            if (opts.select) {
-              const filterCQL = compileCqlMini<TaskCell<string>>(opts.select);
-              runbookCLI.ls(filterCQL(pp.state.directives.tasks));
-            } else {
-              runbookCLI.ls(
-                opts.all
-                  ? pp.state.directives.tasks
-                  : pp.state.directives.tasks.filter(
-                    this.executableTasksFilter(),
-                  ),
-              );
-            }
-          }),
-      ).command(
-        "runbook",
-        new Command() // Emit SQL package (sqlite) to stdout; accepts md path
-          .description("Spry Runbook CLI (execute all cells in DAG order)")
-          .type("sourceRelTo", srcRelTo)
-          .type("verboseStyle", verboseStyle)
-          .type("visualStyle", new EnumType(ExecutionPlanVisualStyle))
-          .option(...mdOpt)
-          .option(...srcRelToOpt)
-          .option(...verboseOpt)
-          .option("--summarize", "Emit summary after execution in JSON")
-          .option(
-            "-s, --select <cql:string>",
-            "Use Cell Query Language (CQL) to select cells to run as part of runbook",
-          )
-          .option("--visualize <style:visualStyle>", "Visualize the DAG")
-          .action(async (opts) => {
-            const pp = await this.spn.populateContent({
-              mdSources: opts.md.map((f) => String(f)),
-              srcRelTo: opts.srcRelTo,
-              state: sqlPagePlaybookState(),
-            });
-            let plan: ReturnType<typeof executionPlan>;
-            if (opts.select) {
-              const filterCQL = compileCqlMini<TaskCell<string>>(opts.select);
-              plan = executionPlan(filterCQL(pp.state.directives.tasks));
-            } else {
-              plan = executionPlan(
-                pp.state.directives.tasks.filter(this.executableTasksFilter()),
-              );
-            }
-            if (opts?.visualize) {
-              const epv = executionPlanVisuals(plan);
-              console.log(epv.visualText(opts.visualize));
-            } else {
-              const ieb = informationalEventBuses<
-                TaskCell<string>,
-                TaskExecContext
-              >(opts?.verbose);
-              const runbook = await executeTasks(
-                plan,
-                execTasksState(pp.state.directives, {
-                  onCapture: gitignorableOnCapture,
-                }),
-                { shellBus: ieb.shellEventBus, tasksBus: ieb.tasksEventBus },
-              );
-              if (ieb.emit) ieb.emit();
-              if (opts.summarize) {
-                console.log(runbook);
-              }
-            }
-          })
-          .command("ls", "List SQLPage file runbook entries")
-          .type("sourceRelTo", srcRelTo)
-          .option(...mdOpt)
-          .option(...srcRelToOpt)
-          .action(async (opts) => {
-            const pp = await this.spn.populateContent({
-              mdSources: opts.md.map((f) => String(f)),
-              srcRelTo: opts.srcRelTo,
-              state: sqlPagePlaybookState(),
-            });
-            runbookCLI.ls(
-              pp.state.directives.tasks.filter(this.executableTasksFilter()),
-            );
-          }),
       );
   }
 

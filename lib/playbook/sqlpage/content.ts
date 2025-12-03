@@ -1,7 +1,19 @@
+import z from "@zod/zod";
+import { codeFrontmatter } from "../../axiom/mdast/code-frontmatter.ts";
 import { Storable } from "../../axiom/projection/playbook.ts";
 import { PartialCollection } from "../../interpolate/partial.ts";
+import {
+  ensureLanguageByIdOrAlias,
+  languageHandlers,
+} from "../../universal/code.ts";
 import { isAsyncIterator } from "../../universal/collectable.ts";
-import { PageRoute, RouteSupplier } from "../../universal/route.ts";
+import {
+  isRouteSupplier,
+  muateRoutePaths,
+  PageRoute,
+  pageRouteSchema,
+  RouteSupplier,
+} from "../../universal/route.ts";
 import {
   hexOfUint8,
   hexOfUint8Postgres,
@@ -147,36 +159,6 @@ export function isSqlPageFileContributor(
     isSqlPageContent(o.sqlPageFile);
 }
 
-export function sqlPageContentHelpers() {
-  const sql = (
-    path: string,
-    contents: string,
-    candidate?: Partial<SqlPageContent>,
-  ): SqlPageContent => ({
-    kind: candidate?.kind ?? "sqlpage_file_upsert",
-    path,
-    contents,
-    asErrorContents: (text) => text.replaceAll(/^/gm, "-- "),
-    isBinary: false,
-    ...candidate,
-  });
-
-  const json = (
-    path: string,
-    contents: string,
-    candidate?: Partial<SqlPageContent>,
-  ): SqlPageContent => ({
-    kind: candidate?.kind ?? "sqlpage_file_upsert",
-    path,
-    contents,
-    asErrorContents: (text, error) => safeJsonStringify({ text, error }),
-    isBinary: false,
-    ...candidate,
-  });
-
-  return { sql, json };
-}
-
 export type SqlPageContentStream =
   | SqlPageContent
   | AsyncIterable<SqlPageContent>
@@ -302,4 +284,149 @@ export async function sqlPageFilesUpsertDML(
     ...upserts,
     ...tailSql,
   ];
+}
+
+export function mutateRouteInCellAttrs(
+  cell: Storable,
+  identity: string,
+  registerIssue?: (message: string, error?: unknown) => void,
+  candidateAnns?: unknown, // if routes were supplied in annotation
+) {
+  const validated = (route: unknown) => {
+    const parsed = z.safeParse(pageRouteSchema, route);
+    if (!parsed.success) {
+      registerIssue?.(
+        `Zod error parsing route: ${z.prettifyError(parsed.error)}`,
+        parsed.error,
+      );
+      return false;
+    }
+    return true;
+  };
+
+  // if no route was supplied in the cell attributes, use what's in annotations
+  if (!isRouteSupplier(cell.storableAttrs)) {
+    if (candidateAnns) {
+      (cell.storableAttrs ?? {}).route = candidateAnns;
+      const mrp = muateRoutePaths(
+        (cell.storableAttrs ?? {}).route as PageRoute,
+        identity,
+      );
+      return mrp || validated(cell.storableAttrs?.route);
+    }
+  }
+
+  // if route was supplied in the cell attributes, merge with annotations with
+  // what's in the annotations overriding what's in cell attributes
+  if (isRouteSupplier(cell.storableAttrs) && candidateAnns) {
+    // deno-lint-ignore no-explicit-any
+    (cell.storableAttrs as any).route = {
+      ...cell.storableAttrs.route,
+      ...candidateAnns,
+    };
+    const mrp = muateRoutePaths(
+      cell.storableAttrs.route as PageRoute,
+      identity,
+    );
+    return mrp || validated(cell.storableAttrs.route);
+  }
+
+  return false;
+}
+
+export function contentSuppliers() {
+  const sqlSPF = (
+    path: string,
+    contents: string,
+    candidate?: Partial<SqlPageContent>,
+  ): SqlPageContent => ({
+    kind: candidate?.kind ?? "sqlpage_file_upsert",
+    path,
+    contents,
+    asErrorContents: (text) => text.replaceAll(/^/gm, "-- "),
+    isBinary: false,
+    ...candidate,
+  });
+
+  const jsonSPF = (
+    path: string,
+    contents: string,
+    candidate?: Partial<SqlPageContent>,
+  ): SqlPageContent => ({
+    kind: candidate?.kind ?? "sqlpage_file_upsert",
+    path,
+    contents,
+    asErrorContents: (text, error) => safeJsonStringify({ text, error }),
+    isBinary: false,
+    ...candidate,
+  });
+
+  const langHandlers = languageHandlers<
+    [Storable, { registerIssue: (message: string, error?: unknown) => void }],
+    SqlPageContent | false
+  >({
+    defaultHandler: (storable) => {
+      const codeFM = codeFrontmatter(storable);
+      if (!(codeFM?.pi.flags) || !("spc" in codeFM?.pi.flags)) return false;
+      const path = storable.storableIdentity;
+      return {
+        kind: "sqlpage_file_upsert",
+        path,
+        contents: "TODO", // TODO
+        asErrorContents: (supplied) => supplied,
+        isBinary: false, // TODO
+        isUnsafeInterpolatable: storable.storableArgs.interpolate,
+        isInjectableCandidate: storable.storableArgs.injectable,
+        cell: storable,
+      };
+    },
+  });
+
+  langHandlers.register(
+    ensureLanguageByIdOrAlias("sql"),
+    (storable, { registerIssue }) => {
+      const path = storable.storableIdentity;
+      mutateRouteInCellAttrs(storable, path, registerIssue);
+      return {
+        kind: "sqlpage_file_upsert",
+        path,
+        isRoutable: true,
+        contents: storable.value,
+        asErrorContents: (text) => text.replaceAll(/^/gm, "-- "),
+        isUnsafeInterpolatable: true,
+        isInjectableCandidate: true,
+        isBinary: false,
+        cell: storable,
+      };
+    },
+  );
+
+  langHandlers.register(ensureLanguageByIdOrAlias("css"), (storable) => ({
+    kind: "sqlpage_file_upsert",
+    path: storable.storableIdentity,
+    isRoutable: false,
+    contents: storable.value,
+    asErrorContents: (text) => text.replaceAll(/^/gm, "// "),
+    isUnsafeInterpolatable: true,
+    isInjectableCandidate: false,
+    isBinary: false,
+    cell: storable,
+  }));
+
+  langHandlers.register(
+    ensureLanguageByIdOrAlias("typescript"),
+    (storable) => ({
+      kind: "sqlpage_file_upsert",
+      path: storable.storableIdentity,
+      isRoutable: false,
+      contents: storable.value,
+      asErrorContents: (text) => text.replaceAll(/^/gm, "// "),
+      isUnsafeInterpolatable: true,
+      isInjectableCandidate: false,
+      isBinary: false,
+      cell: storable,
+    }),
+  );
+
+  return { ...langHandlers, sqlSPF, jsonSPF };
 }
