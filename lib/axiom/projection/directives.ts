@@ -66,9 +66,10 @@ export function collectDirectives<
 
       // Always pass schemaSpec + strictArgs; inject is optional.
       partials.register(
-        partialContent<FragmentLocals>(
+        partialContent<FragmentLocals, Directive>(
           ld.identity,
           ld.value,
+          ld,
           {
             schemaSpec,
             strictArgs: true,
