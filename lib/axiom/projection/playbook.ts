@@ -22,6 +22,7 @@
  *   - optional injection metadata (glob-based wrapper behavior).
  */
 
+import { Node } from "types/mdast";
 import { visit } from "unist-util-visit";
 import {
   PartialCollection,
@@ -57,6 +58,14 @@ export type Runnable =
 export type Storable =
   & Omit<StorableCodeCandidate, "isSpawnableCodeCandidate">
   & { readonly provenance: MarkdownEncountered };
+
+export function isStorable(
+  node: Node | null | undefined,
+): node is Storable {
+  return node?.type === "code" && "nature" in node && node.nature === "STORABLE"
+    ? true
+    : false;
+}
 
 /**
  * A runnable task is a `Runnable` with the two methods expected by the
