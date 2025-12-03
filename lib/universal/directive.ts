@@ -121,6 +121,26 @@ export interface DirectivesParserOptions {
   perNatureRequirement?: Record<string, "both" | "auto">;
 }
 
+// -------------------------------------------------------------
+// Regex: NATURE is required, IDENTITY is optional.
+//
+// Examples that match:
+//   `PARTIAL foo`
+//   `TASK`
+//   `  NOTE   myNote`
+//   `PARTIAL header`
+//   `PARTIAL "Main header"`
+//   `NOTE "Section 1: Intro"`
+//   `TASK foo_bar-123`
+//
+// Not allowed unless quoted:
+//    `PARTIAL main header`     // invalid (space without quotes)
+//    `NOTE foo,bar`            // invalid unless "foo,bar"
+// -------------------------------------------------------------
+export const onlyDirectiveCandidateRegEx = /^[A-Z][A-Z0-9_-]*$/;
+export const directiveAndNatureCandidateRegEx =
+  /^\s*(?<nature>[A-Z][A-Z0-9_-]*)(?:\s+(?<identity>"[^"]+"|[A-Za-z_][\.A-Za-z0-9_-]*))?\b/;
+
 export function directivesParser(options: DirectivesParserOptions = {}) {
   const {
     defaultPad = 4,
@@ -166,17 +186,6 @@ export function directivesParser(options: DirectivesParserOptions = {}) {
   }
 
   // -------------------------------------------------------------
-  // Regex: NATURE is required, IDENTITY is optional.
-  //
-  // Examples that match:
-  //   "PARTIAL foo"
-  //   "TASK"
-  //   "  NOTE   myNote"
-  // -------------------------------------------------------------
-  const directiveCandidateRegEx =
-    /^\s*(?<nature>[A-Z][A-Z0-9_-]*)(?:\s+(?<identity>[A-Za-z_][A-Za-z0-9_-]*))?\b/;
-
-  // -------------------------------------------------------------
   // Main instruction parser
   // Always returns either:
   //   - false
@@ -186,7 +195,7 @@ export function directivesParser(options: DirectivesParserOptions = {}) {
   function isDirective(
     text: string,
   ): false | { nature: string; identity: string } {
-    const match = text.match(directiveCandidateRegEx);
+    const match = text.match(directiveAndNatureCandidateRegEx);
     if (!match?.groups) return false;
 
     let { nature, identity } = match.groups as {
@@ -215,7 +224,7 @@ export function directivesParser(options: DirectivesParserOptions = {}) {
   }
 
   return {
-    directiveCandidateRegEx,
+    directiveCandidateRegEx: directiveAndNatureCandidateRegEx,
     isDirective,
     counter,
     counters,
