@@ -6,6 +6,7 @@ import { codeFrontmatter } from "../../mdast/code-frontmatter.ts";
 import { headingText } from "../../mdast/node-content.ts";
 import { type GraphEdgesTree, graphEdgesTree } from "../../projection/tree.ts";
 import {
+  isCodeDirectiveCandidate,
   isCodePartialCandidate,
 } from "../../remark/code-directive-candidates.ts";
 import { isSpawnableCodeCandidate } from "../../remark/spawnable-code-candidates.ts";
@@ -114,6 +115,13 @@ export function typicalRules() {
         TypicalRuleCtx,
         TypicalGraphEdge
       >("isSpawnableCodeCandidate", (node) => isSpawnableCodeCandidate(node)),
+    )
+    .use(
+      nodesClassificationRule<
+        TypicalRelationship,
+        TypicalRuleCtx,
+        TypicalGraphEdge
+      >("isDirectiveCandidate", (node) => isCodeDirectiveCandidate(node)),
     )
     .use(
       nodesClassificationRule<
