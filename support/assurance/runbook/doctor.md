@@ -1,4 +1,4 @@
-# 🌐 **Spry for DevOps / SRE — Executable Documentation for Reliability Automation**
+#  **Spry for DevOps / SRE**
 
 Spry allows DevOps and SRE teams to define, document, and automate operational
 workflows in **executable Markdown**. Instead of using scattered scripts, tribal
@@ -12,9 +12,9 @@ knowledge, or outdated runbooks, Spry unifies:
 
 All in **version-controlled Markdown**.
 
----
 
-# 🚀 What is Spry for DevOps / SRE?
+
+#  What is Spry for DevOps / SRE?
 
 Spry for DevOps/SRE enables teams to:
 
@@ -27,42 +27,29 @@ Spry for DevOps/SRE enables teams to:
 Every runbook becomes a **reliable automation unit**, stored next to your source
 code.
 
----
 
-# 🎯 Why DevOps / SRE Teams Use Spry
 
-### ✔ **Unified documentation + execution**
+#  Why DevOps / SRE Teams Use Spry
+
+###  **Unified documentation + execution**
 
 One source of truth for docs + automation.
 
-### ✔ **Version-controlled processes**
+###  **Version-controlled processes**
 
 Operational changes are tracked in Git — enabling audit, rollback, and review.
 
-### ✔ **Reproducible reliability workflows**
+###  **Reproducible reliability workflows**
 
 Same behavior across Dev / Staging / Production.
 
-### ✔ **Executable runbooks**
-
-Tasks such as:
-
-- deploy
-- rollback
-- incident-response
-- scale
-- backup-validate
-- security-scan
-
-…can be executed directly from Markdown.
-
-### ✔ **Better onboarding**
+###  **Better onboarding**
 
 New engineers learn by reading + running the same executable docs.
 
 ---
 
-# 🛠️ Getting Started
+#  Getting Started
 
 ### **Prerequisites**
 
@@ -75,9 +62,9 @@ You may:
 - Use an existing Spry repository, or
 - Create a new SRE/Infra automation module
 
----
 
-# 🖥️ **Linux Monitoring Runbooks — Core Tasks**
+
+#  **Linux Monitoring Runbooks — Core Tasks**
 
 These tasks are **simple, critical, and ideal for demos**, onboarding, and real
 SRE/DevOps usage.
@@ -90,25 +77,25 @@ They include checks for:
 - SSH security
 - Critical services
 
----
 
-# 1️⃣ **CPU Utilization Monitoring**
+
+#  **CPU Utilization Monitoring**
 
 ### **Purpose:**
 
 Detect CPU overload conditions and notify when CPU usage exceeds 80%.
 
----
 
-## ✔ Example Spry Task
+##  Example Spry Task
 
-```bash CPU-Utilization --descr "Check CPU utilization using osquery and notify if threshold crossed"
+```bash cpu-utilization -C CPUusage --descr "Check CPU utilization using osquery and notify if threshold crossed"
 #!/usr/bin/env -S bash
 
 THRESHOLD=80
 EMAIL="devops-team@example.com"
+TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
 
-# Get CPU usage using osquery (more accurate than parsing top)
+
 CPU_USAGE=$(osqueryi --json "
   SELECT 
     ROUND(AVG(100.0 - (idle * 100.0 / (user + system + idle + nice))), 2)
@@ -118,7 +105,7 @@ CPU_USAGE=$(osqueryi --json "
 
 CPU_INT=$(printf "%.0f" "$CPU_USAGE")
 
-echo "Current CPU Usage: ${CPU_INT}%"
+echo "$TIMESTAMP Current CPU Usage: ${CPU_INT}%"
 
 if [ "$CPU_INT" -gt "$THRESHOLD" ]; then
     SUBJECT="ALERT: High CPU Usage on $(hostname)"
@@ -127,34 +114,36 @@ if [ "$CPU_INT" -gt "$THRESHOLD" ]; then
     exit 1
 fi
 
-echo "✅ CPU usage normal"
+echo " $TIMESTAMP CPU usage normal"
 ```
 
-# 2️⃣ **Disk Usage Monitoring**
+#  **Disk Usage Monitoring**
 
 Alerts when the root filesystem exceeds 80% usage.
 
-```bash check-disk --descr "Check root disk usage"
+```bash check-disk -C Diskusage --descr "Check root disk usage"
 #!/usr/bin/env -S bash
 
 THRESHOLD=80
+TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
+
 USAGE=$(df -h / | awk 'NR==2 {gsub("%","",$5); print $5}')
 
-echo "Disk Usage: ${USAGE}%"
+echo "$TIMESTAMP Disk Usage: ${USAGE}%"
 
 if [ "$USAGE" -gt "$THRESHOLD" ]; then
-  echo "🚨 ALERT: Disk usage exceeded ${THRESHOLD}%"
+  echo " ALERT: Disk usage exceeded ${THRESHOLD}%"
   exit 1
 fi
 
-echo "✅ Disk usage normal"
+echo " $TIMESTAMP Disk usage normal"
 ```
 
-# 3️⃣ **Memory Usage Monitoring**
+#  **Memory Usage Monitoring**
 
 Monitors RAM utilization and triggers alert if crossing 80%.
 
-```bash check-memory --descr "Check memory usage percentage"
+```bash check-memory -C Memoryusage --descr "Check memory usage percentage"
 #!/usr/bin/env -S bash
 
 THRESHOLD=80
@@ -163,14 +152,14 @@ USED=$(free | awk '/Mem:/ {printf("%d"), ($3/$2)*100}')
 echo "Memory Usage: ${USED}%"
 
 if [ "$USED" -gt "$THRESHOLD" ]; then
-  echo "🚨 ALERT: High memory usage"
+  echo " ALERT: High memory usage"
   exit 1
 fi
 
-echo "✅ Memory usage normal"
+echo " Memory usage normal"
 ```
 
-# 4️⃣ **Failed SSH Login Detection**
+#  **Failed SSH Login Detection**
 
 Detects brute-force attempts and abnormal SSH activity.
 
@@ -183,30 +172,28 @@ FAILS=$(grep -c "Failed password" /var/log/auth.log)
 echo "Failed SSH Logins: $FAILS"
 
 if [ "$FAILS" -gt "$THRESHOLD" ]; then
-  echo "🚨 ALERT: Possible brute-force attack"
+  echo " ALERT: Possible brute-force attack"
   exit 1
 fi
 
-echo "✅ SSH login activity normal"
+echo " SSH login activity normal"
 ```
 
-# 5️⃣ **Critical Service Availability Check**
+#  **Critical Service Availability Check**
 
 Ensures critical system services (example: nginx) are running.
 
-This version uses **osquery** to detect the correct master process.
-
-```bash check-Service-runnning --decr "Check if Critical Service is Running"
-#!/usr/bin/env bash
+```bash check-Service-runnning --capture ./Service-status.txt --decr "Check if Critical Service is Running"
+#!/usr/bin/env -S bash
 
 SERVICE="nginx"
 EMAIL="devops-team@example.com"
 
-# Check only the master process via osquery
 IS_RUNNING=$(osqueryi --json "
 SELECT count(*) AS running
 FROM processes
-WHERE name = '${SERVICE}' AND cmdline LIKE '%: master%';
+WHERE name = 'nginx'
+AND cmdline LIKE '%master process%';
 " | jq -r '.[0].running')
 
 echo "Master process count: $IS_RUNNING"
@@ -216,8 +203,17 @@ if [ "$IS_RUNNING" -eq 0 ]; then
     BODY="Critical service '$SERVICE' is NOT running on $(hostname)."
 
     echo "$BODY" | mail -s "$SUBJECT" "$EMAIL"
-    echo "⚠️ Alert email sent!"
+    echo "Alert email sent!"
 else
-    echo "✅ $SERVICE is running."
+    echo "$SERVICE is running."
 fi
+```
+
+Here It helps to show the output of each task
+
+```bash Compilation-Results -I --descr "Show captured output"
+#!/usr/bin/env -S cat
+# from cpu captured output: "${captured.CPUusage.text().trim()}"
+# from disk captured output: "${captured.Diskusage.text().trim()}"
+# from memory captured output: "${captured.Memoryusage.text().trim()}"
 ```
