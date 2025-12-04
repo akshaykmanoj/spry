@@ -152,6 +152,7 @@ export const actionableCodePiFlagsSchema = z.object({
   dep: flexibleTextSchema.optional(), // collected as multiple --dep
   capture: flexibleTextSchema.optional(),
   interpolate: z.boolean().optional(),
+  noInterpolate: z.boolean().optional(),
   silent: z.boolean().optional(),
   gitignore: z.union([z.string(), z.boolean()]).optional(),
   graph: flexibleTextSchema.optional(),
@@ -180,6 +181,7 @@ export const actionableCodePiFlagsSchema = z.object({
         : { nature: "memory", key: c }) satisfies CaptureSpec
     ),
     interpolate: raw.I ?? raw.interpolate,
+    noInterpolate: raw.noInterpolate,
     injectable: raw.J ?? raw.injectable,
     graphs: graphRaw
       ? typeof graphRaw === "string" ? [graphRaw] : graphRaw
@@ -300,7 +302,7 @@ export const actionableCodeCandidates: Plugin<
                 actionable.nature = "EXECUTABLE";
                 actionable.spawnableIdentity = identity;
                 actionable.language = codeFM.langSpec!;
-                actionable.spawnableArgs = args.data;
+                actionable.spawnableArgs = args.data; // by default we do NOT interpolate
                 actionable.captureOnly = captureOnlySpawnableLangSpecs.find(
                     (l) => l.id == codeFM.langSpec?.id,
                   )
@@ -315,6 +317,9 @@ export const actionableCodeCandidates: Plugin<
                 actionable.language = codeFM.langSpec;
                 actionable.isBlob = code.lang == "utf8";
                 actionable.materializationArgs = args.data;
+                if (!args.data.noInterpolate) {
+                  actionable.materializationArgs.interpolate = true; // by default we interpolate
+                }
                 actionable.materializationAttrs = codeFM.attrs;
               }
             }
