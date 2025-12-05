@@ -8,6 +8,35 @@
 //  - Recursive interpolation for backtick template strings (depth limited)
 //  - Pluggable escaping (HTML, text, etc.)
 //  - No eval / Function / arbitrary JS execution
+//
+// This file now supports both synchronous and asynchronous usage:
+//  - safeInterpolate(): fully synchronous, same semantics as before.
+//    If it encounters an async callback (Promise), it throws with a clear error.
+//  - safeInterpolateAsync(): async/await friendly, supports async functions/hooks.
+//  - renderCompiledTemplate(): sync renderer for compiled templates.
+//  - renderCompiledTemplateAsync(): async renderer for compiled templates.
+
+// -----------------------------------------------------------------------------
+// Shared helpers
+// -----------------------------------------------------------------------------
+
+type MaybePromise<T> = T | Promise<T>;
+
+function isPromiseLike(value: unknown): value is Promise<unknown> {
+  return !!value &&
+    (typeof value === "object" || typeof value === "function") &&
+    typeof (value as { then?: unknown }).then === "function";
+}
+
+function ensureSync<T>(value: MaybePromise<T>, what: string): T {
+  if (isPromiseLike(value)) {
+    throw new Error(
+      `Asynchronous ${what} used in synchronous interpolation. ` +
+        `Use safeInterpolateAsync() or renderCompiledTemplateAsync().`,
+    );
+  }
+  return value;
+}
 
 // -----------------------------------------------------------------------------
 // SafeString & escaping utilities
@@ -95,12 +124,16 @@ export interface SafeBracketSpec {
 /**
  * Function registry entry: implement your own safe operations here.
  * Receives bracketID so behavior can differ by bracket.
+ *
+ * It can be synchronous or asynchronous:
+ *   - safeInterpolate(): requires synchronous functions.
+ *   - safeInterpolateAsync(): supports async functions (awaited).
  */
 export type SafeInterpolationFunction = (
   args: unknown[],
   context: SafeInterpolationContext,
   info: { readonly bracketID: string },
-) => unknown;
+) => MaybePromise<unknown>;
 
 /**
  * Registry mapping function names (in expressions) to implementations.
@@ -117,18 +150,20 @@ export type SafeMissingValueStrategy =
   | "leave" // leave the original expression text in place
   | "empty" // replace with empty string
   | "throw" // throw an error
-  | ((
+  | (((
     exprText: string,
     info: {
       readonly context: SafeInterpolationContext;
       readonly bracketID: string;
     },
-  ) => string);
+  ) => MaybePromise<string>));
 
 /**
  * Hook that is called whenever a *path* is resolved, before being used or
  * passed further down. You can transform the value depending on the path or
  * bracket type (e.g. different behavior for `${}` vs `%{}`).
+ *
+ * May be synchronous or asynchronous (awaited in async APIs).
  */
 export interface SafeResolvedPathParams {
   readonly path: readonly (string | number)[];
@@ -139,10 +174,10 @@ export interface SafeResolvedPathParams {
 
 export type SafeResolvedPathHook = (
   params: SafeResolvedPathParams,
-) => unknown;
+) => MaybePromise<unknown>;
 
 /**
- * Options for the safeInterpolate() function.
+ * Options for the safeInterpolate() / safeInterpolateAsync() functions.
  */
 export interface SafeInterpolationOptions {
   /**
@@ -154,13 +189,15 @@ export interface SafeInterpolationOptions {
    * Escape function for resolved values. Receives the value, the *expression
    * text*, the context, and the bracket spec.
    * Defaults to `defaultEscape`.
+   *
+   * May be synchronous or asynchronous.
    */
   readonly escape?: (
     value: unknown,
     expr: string,
     context: SafeInterpolationContext,
     bracket: SafeBracketSpec,
-  ) => string;
+  ) => MaybePromise<string>;
 
   /**
    * Registry of safe functions callable from expressions.
@@ -171,6 +208,8 @@ export interface SafeInterpolationOptions {
   /**
    * Handling of missing values (e.g. unknown paths or undefined results).
    * Defaults to "leave".
+   *
+   * If a function is provided, it may be sync or async.
    */
   readonly onMissing?: SafeMissingValueStrategy;
 
@@ -178,6 +217,8 @@ export interface SafeInterpolationOptions {
    * Hook called whenever a path is resolved, before its value is returned.
    * You can normalize, coerce, or otherwise transform path values depending
    * on the path and bracketID.
+   *
+   * May be synchronous or asynchronous.
    */
   readonly resolvedPath?: SafeResolvedPathHook;
 
@@ -456,7 +497,7 @@ function parseCallOrPathOrLiteral(t: Tokenizer): Expr {
 }
 
 // -----------------------------------------------------------------------------
-// Evaluator
+// Evaluator (sync + async variants)
 // -----------------------------------------------------------------------------
 
 function resolvePath(
@@ -496,7 +537,62 @@ function evalExpr(
       const raw = resolvePath(ctx, ast.parts);
       const hook = opts.resolvedPath;
       if (hook) {
-        return hook({
+        const hooked = hook({
+          path: ast.parts,
+          value: raw,
+          bracketID: bracket.id,
+          context: ctx,
+        });
+        return ensureSync(hooked, "resolvedPath hook");
+      }
+      return raw;
+    }
+
+    case "call": {
+      const fn = opts.functions?.[ast.name];
+      if (!fn) {
+        throw new Error(`Unknown function: ${ast.name}`);
+      }
+      const argVals = ast.args.map((a) =>
+        evalExpr(a, ctx, opts, bracket, depth, interpolateInternal)
+      );
+      const result = fn(argVals, ctx, { bracketID: bracket.id });
+      return ensureSync(result, `function '${ast.name}'`);
+    }
+
+    case "backtick": {
+      const maxDepth = opts.maxDepth ?? 5;
+      if (depth >= maxDepth) {
+        throw new Error("Maximum interpolation recursion depth exceeded");
+      }
+      // Inner string is recursively interpolated with the same options.
+      return interpolateInternal(ast.raw, ctx, opts, depth + 1);
+    }
+  }
+}
+
+async function evalExprAsync(
+  ast: Expr,
+  ctx: SafeInterpolationContext,
+  opts: SafeInterpolationOptions,
+  bracket: SafeBracketSpec,
+  depth: number,
+  interpolateInternalAsync: (
+    template: string,
+    context: SafeInterpolationContext,
+    options: SafeInterpolationOptions,
+    depth: number,
+  ) => Promise<string>,
+): Promise<unknown> {
+  switch (ast.type) {
+    case "literal":
+      return ast.value;
+
+    case "path": {
+      const raw = resolvePath(ctx, ast.parts);
+      const hook = opts.resolvedPath;
+      if (hook) {
+        return await hook({
           path: ast.parts,
           value: raw,
           bracketID: bracket.id,
@@ -511,10 +607,12 @@ function evalExpr(
       if (!fn) {
         throw new Error(`Unknown function: ${ast.name}`);
       }
-      const argVals = ast.args.map((a) =>
-        evalExpr(a, ctx, opts, bracket, depth, interpolateInternal)
+      const argVals = await Promise.all(
+        ast.args.map((a) =>
+          evalExprAsync(a, ctx, opts, bracket, depth, interpolateInternalAsync)
+        ),
       );
-      return fn(argVals, ctx, { bracketID: bracket.id });
+      return await fn(argVals, ctx, { bracketID: bracket.id });
     }
 
     case "backtick": {
@@ -522,8 +620,7 @@ function evalExpr(
       if (depth >= maxDepth) {
         throw new Error("Maximum interpolation recursion depth exceeded");
       }
-      // Inner string is recursively interpolated with the same options.
-      return interpolateInternal(ast.raw, ctx, opts, depth + 1);
+      return await interpolateInternalAsync(ast.raw, ctx, opts, depth + 1);
     }
   }
 }
@@ -742,16 +839,26 @@ export function compileSafeTemplate(
   };
 }
 
+// -----------------------------------------------------------------------------
+// Compiled template renderers (sync + async)
+// -----------------------------------------------------------------------------
+
+function reconstructPlaceholder(
+  part: Extract<TemplatePart, { kind: "expr" }>,
+): string {
+  const prefix = part.bracket.prefix ?? "";
+  return `${prefix}${part.bracket.open}${part.exprText}${part.bracket.close}`;
+}
+
 /**
- * Render a previously compiled template with a given context.
+ * Render a previously compiled template with a given context (synchronous).
  *
- * This reuses:
- *  - pre-scanned parts
- *  - pre-parsed ASTs for expressions
- *
- * It keeps the same semantics as safeInterpolate():
+ * Keeps the same semantics as safeInterpolate():
  *  - parse/eval errors are treated as "missing" and delegated to onMissing
  *  - undefined values are also delegated to onMissing
+ *
+ * If any async callbacks are encountered, this throws with a clear error,
+ * telling you to use renderCompiledTemplateAsync() instead.
  */
 export function renderCompiledTemplate(
   compiled: CompiledTemplate,
@@ -764,21 +871,14 @@ export function renderCompiledTemplate(
 
   const chunks: string[] = [];
 
-  // We route backtick recursion through the existing internal engine so
-  // we don't duplicate that logic. evalExpr already expects an
-  // interpolateInternal function, which we satisfy with safeInterpolateInternal.
   const interpolateInternal = (
     template: string,
     ctx: SafeInterpolationContext,
     opts: SafeInterpolationOptions,
     depth: number,
   ): string => {
-    // NOTE: this uses the non-compiled path for nested backticks.
-    // That’s acceptable for now; the big win is avoiding re-parse for
-    // the top-level template and its expressions.
-    // You could later add a compiled-subtemplate cache here if needed.
-    // deno-lint-ignore no-explicit-any
-    return (safeInterpolateInternal as any)(template, ctx, opts, depth);
+    // non-compiled path for nested backticks
+    return safeInterpolateInternal(template, ctx, opts, depth);
   };
 
   for (const part of parts) {
@@ -800,13 +900,15 @@ export function renderCompiledTemplate(
         interpolateInternal,
       );
     } catch (err) {
-      // Same behavior as safeInterpolateInternal: treat parse/eval errors
-      // as "missing" and delegate to onMissing.
       if (onMissing === "throw") {
         throw err;
       }
       if (typeof onMissing === "function") {
-        chunks.push(onMissing(exprText, { context, bracketID: bracket.id }));
+        const replacement = ensureSync(
+          onMissing(exprText, { context, bracketID: bracket.id }),
+          "onMissing handler",
+        );
+        chunks.push(replacement);
       } else if (onMissing === "empty") {
         // nothing
       } else {
@@ -829,7 +931,11 @@ export function renderCompiledTemplate(
         );
       }
       if (typeof onMissing === "function") {
-        chunks.push(onMissing(exprText, { context, bracketID: bracket.id }));
+        const replacement = ensureSync(
+          onMissing(exprText, { context, bracketID: bracket.id }),
+          "onMissing handler",
+        );
+        chunks.push(replacement);
       } else if (onMissing === "empty") {
         // nothing
       } else {
@@ -845,22 +951,119 @@ export function renderCompiledTemplate(
       continue;
     }
 
-    chunks.push(escapeFn(value, exprText, context, bracket));
+    const escaped = ensureSync(
+      escapeFn(value, exprText, context, bracket),
+      "escape() function",
+    );
+    chunks.push(escaped);
+  }
+
+  return chunks.join("");
+}
+
+/**
+ * Async renderer for a compiled template. Supports async functions/hooks.
+ */
+export async function renderCompiledTemplateAsync(
+  compiled: CompiledTemplate,
+  context: SafeInterpolationContext,
+): Promise<string> {
+  const { parts, options } = compiled;
+  const escapeFn = options.escape ??
+    ((value: unknown): string => defaultEscape(value));
+  const onMissing = options.onMissing ?? "leave";
+
+  const chunks: string[] = [];
+
+  const interpolateInternalAsync = (
+    template: string,
+    ctx: SafeInterpolationContext,
+    opts: SafeInterpolationOptions,
+    depth: number,
+  ): Promise<string> => {
+    return safeInterpolateInternalAsync(template, ctx, opts, depth);
+  };
+
+  for (const part of parts) {
+    if (part.kind === "literal") {
+      chunks.push(part.text);
+      continue;
+    }
+
+    const { exprText, bracket, ast } = part.compiled;
+    let value: unknown;
+
+    try {
+      value = await evalExprAsync(
+        ast,
+        context,
+        options,
+        bracket,
+        /* depth */ 0,
+        interpolateInternalAsync,
+      );
+    } catch (err) {
+      if (onMissing === "throw") {
+        throw err;
+      }
+      if (typeof onMissing === "function") {
+        const replacement = await onMissing(exprText, {
+          context,
+          bracketID: bracket.id,
+        });
+        chunks.push(replacement);
+      } else if (onMissing === "empty") {
+        // nothing
+      } else {
+        // "leave"
+        chunks.push(
+          reconstructPlaceholder({
+            kind: "expr",
+            exprText,
+            bracket,
+          } as unknown as Extract<TemplatePart, { kind: "expr" }>),
+        );
+      }
+      continue;
+    }
+
+    if (value === undefined) {
+      if (onMissing === "throw") {
+        throw new Error(
+          `Missing interpolation value for '${exprText}' (bracketID=${bracket.id})`,
+        );
+      }
+      if (typeof onMissing === "function") {
+        const replacement = await onMissing(exprText, {
+          context,
+          bracketID: bracket.id,
+        });
+        chunks.push(replacement);
+      } else if (onMissing === "empty") {
+        // nothing
+      } else {
+        // "leave"
+        chunks.push(
+          reconstructPlaceholder({
+            kind: "expr",
+            exprText,
+            bracket,
+          } as unknown as Extract<TemplatePart, { kind: "expr" }>),
+        );
+      }
+      continue;
+    }
+
+    const escaped = await escapeFn(value, exprText, context, bracket);
+    chunks.push(escaped);
   }
 
   return chunks.join("");
 }
 
 // -----------------------------------------------------------------------------
-// Internal implementation with depth tracking
+// Internal implementation with depth tracking (sync + async)
 // -----------------------------------------------------------------------------
-
-function reconstructPlaceholder(
-  part: Extract<TemplatePart, { kind: "expr" }>,
-): string {
-  const prefix = part.bracket.prefix ?? "";
-  return `${prefix}${part.bracket.open}${part.exprText}${part.bracket.close}`;
-}
 
 function safeInterpolateInternal(
   template: string,
@@ -901,7 +1104,11 @@ function safeInterpolateInternal(
         throw err;
       }
       if (typeof onMissing === "function") {
-        out += onMissing(exprText, { context, bracketID: bracket.id });
+        const replacement = ensureSync(
+          onMissing(exprText, { context, bracketID: bracket.id }),
+          "onMissing handler",
+        );
+        out += replacement;
       } else if (onMissing === "empty") {
         // nothing
       } else {
@@ -919,7 +1126,11 @@ function safeInterpolateInternal(
         );
       }
       if (typeof onMissing === "function") {
-        out += onMissing(exprText, { context, bracketID: bracket.id });
+        const replacement = ensureSync(
+          onMissing(exprText, { context, bracketID: bracket.id }),
+          "onMissing handler",
+        );
+        out += replacement;
       } else if (onMissing === "empty") {
         // nothing
       } else {
@@ -929,16 +1140,109 @@ function safeInterpolateInternal(
       continue;
     }
 
-    out += escapeFn(value, exprText, context, bracket);
+    const escaped = ensureSync(
+      escapeFn(value, exprText, context, bracket),
+      "escape() function",
+    );
+    out += escaped;
+  }
+
+  return out;
+}
+
+async function safeInterpolateInternalAsync(
+  template: string,
+  context: SafeInterpolationContext,
+  options: SafeInterpolationOptions,
+  depth: number,
+): Promise<string> {
+  const parts = scanTemplate(template, options.brackets);
+  const escapeFn = options.escape ??
+    ((value: unknown): string => defaultEscape(value));
+  const onMissing = options.onMissing ?? "leave";
+
+  let out = "";
+
+  for (const part of parts) {
+    if (part.kind === "literal") {
+      out += part.text;
+      continue;
+    }
+
+    const exprText = part.exprText;
+    const bracket = part.bracket;
+    let value: unknown;
+
+    try {
+      const ast = parseExpression(exprText);
+      value = await evalExprAsync(
+        ast,
+        context,
+        options,
+        bracket,
+        depth,
+        safeInterpolateInternalAsync,
+      );
+    } catch (err) {
+      if (onMissing === "throw") {
+        throw err;
+      }
+      if (typeof onMissing === "function") {
+        const replacement = await onMissing(exprText, {
+          context,
+          bracketID: bracket.id,
+        });
+        out += replacement;
+      } else if (onMissing === "empty") {
+        // nothing
+      } else {
+        out += reconstructPlaceholder(part);
+      }
+      continue;
+    }
+
+    if (value === undefined) {
+      if (onMissing === "throw") {
+        throw new Error(
+          `Missing interpolation value for '${exprText}' (bracketID=${bracket.id})`,
+        );
+      }
+      if (typeof onMissing === "function") {
+        const replacement = await onMissing(exprText, {
+          context,
+          bracketID: bracket.id,
+        });
+        out += replacement;
+      } else if (onMissing === "empty") {
+        // nothing
+      } else {
+        out += reconstructPlaceholder(part);
+      }
+      continue;
+    }
+
+    const escaped = await escapeFn(value, exprText, context, bracket);
+    out += escaped;
   }
 
   return out;
 }
 
 // -----------------------------------------------------------------------------
-// Public API: safeInterpolate()
+// Public API: safeInterpolate() + safeInterpolateAsync()
 // -----------------------------------------------------------------------------
 
+const DEFAULT_BRACKETS: readonly SafeBracketSpec[] = Object.freeze([
+  { id: "typical", prefix: "$", open: "{", close: "}" },
+]);
+
+/**
+ * Synchronous interpolation.
+ *
+ * This preserves 100% of the original behavior. All functions/hooks must be
+ * synchronous; if any async callbacks are used, this throws with a clear error
+ * suggesting safeInterpolateAsync().
+ */
 export function safeInterpolate(
   template: string,
   context?: SafeInterpolationContext,
@@ -947,8 +1251,27 @@ export function safeInterpolate(
   return safeInterpolateInternal(
     template,
     context,
-    options ??
-      { brackets: [{ id: "typical", prefix: "$", open: "{", close: "}" }] },
+    options ?? { brackets: DEFAULT_BRACKETS },
+    0,
+  );
+}
+
+/**
+ * Asynchronous interpolation.
+ *
+ * This supports async functions/hooks and awaits them as needed.
+ * Backtick recursion, function calls, resolvedPath, and onMissing all
+ * participate in the async flow.
+ */
+export async function safeInterpolateAsync(
+  template: string,
+  context?: SafeInterpolationContext,
+  options?: SafeInterpolationOptions,
+): Promise<string> {
+  return await safeInterpolateInternalAsync(
+    template,
+    context,
+    options ?? { brackets: DEFAULT_BRACKETS },
     0,
   );
 }

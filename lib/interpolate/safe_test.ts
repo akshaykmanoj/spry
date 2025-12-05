@@ -1,9 +1,13 @@
-import { assertEquals } from "@std/assert";
+// deno-lint-ignore-file require-await
+import { assertEquals, assertNotEquals } from "@std/assert";
+import { instructionsFromText } from "../universal/posix-pi.ts";
 import {
   compileSafeTemplate,
   defaultEscape,
   renderCompiledTemplate,
+  renderCompiledTemplateAsync,
   safeInterpolate,
+  safeInterpolateAsync,
   SafeInterpolationContext,
   SafeInterpolationOptions,
   SafeString,
@@ -43,6 +47,39 @@ Deno.test("Safe Interpolator - simple ${} with HTML escaping", () => {
   );
 });
 
+Deno.test("Safe Interpolator - simple ${} with HTML escaping (async)", async () => {
+  const ctx: SafeInterpolationContext = {
+    user: {
+      name: "<Shahid>",
+      title: "Mr.",
+      last: "Shah",
+      orders: [1, 2, 3],
+    },
+  };
+
+  const opts: SafeInterpolationOptions = {
+    brackets: [
+      { id: "html", prefix: "$", open: "{", close: "}" },
+    ],
+    functions: {
+      upper: async ([v]) => String(v).toUpperCase(),
+      len: async ([v]) => Array.isArray(v) ? v.length : 0,
+    },
+    escape: async (value, _expr, _ctx, _bracket) => {
+      return defaultEscape(value);
+    },
+  };
+
+  const template =
+    "Hello ${ user.name } (escaped) - total orders: ${ len(user.orders) }";
+
+  const rendered = await safeInterpolateAsync(template, ctx, opts);
+  assertEquals(
+    rendered,
+    "Hello &lt;Shahid&gt; (escaped) - total orders: 3",
+  );
+});
+
 Deno.test("Safe Interpolator - backtick recursion with nested interpolation", () => {
   const ctx: SafeInterpolationContext = {
     user: {
@@ -67,6 +104,35 @@ Deno.test("Safe Interpolator - backtick recursion with nested interpolation", ()
     "Outer: ${ greet(`Hello ${ user.title } ${ user.last }`) } for ${ user.name }";
 
   const rendered = safeInterpolate(template, ctx, opts);
+  assertEquals(
+    rendered,
+    "Outer: GREETING(Hello Mr. Shah) for Shahid",
+  );
+});
+
+Deno.test("Safe Interpolator - backtick recursion with nested interpolation (async)", async () => {
+  const ctx: SafeInterpolationContext = {
+    user: {
+      name: "Shahid",
+      title: "Mr.",
+      last: "Shah",
+    },
+  };
+
+  const opts: SafeInterpolationOptions = {
+    brackets: [
+      { id: "html", prefix: "$", open: "{", close: "}" },
+    ],
+    functions: {
+      greet: async ([s]) => `GREETING(${s})`,
+    },
+    escape: async (value) => String(value),
+  };
+
+  const template =
+    "Outer: ${ greet(`Hello ${ user.title } ${ user.last }`) } for ${ user.name }";
+
+  const rendered = await safeInterpolateAsync(template, ctx, opts);
   assertEquals(
     rendered,
     "Outer: GREETING(Hello Mr. Shah) for Shahid",
@@ -98,6 +164,37 @@ Deno.test("Safe Interpolator - resolvedPath transforms values per bracket", () =
   const template = "Slug: ${ meta.slug } | Title: {{ meta.title }}";
 
   const rendered = safeInterpolate(template, ctx, opts);
+  assertEquals(
+    rendered,
+    "Slug: my-page | Title: My Page",
+  );
+});
+
+Deno.test("Safe Interpolator - resolvedPath transforms values per bracket (async)", async () => {
+  const ctx: SafeInterpolationContext = {
+    meta: {
+      slug: "  my-page  ",
+      title: "My Page",
+    },
+  };
+
+  const opts: SafeInterpolationOptions = {
+    brackets: [
+      { id: "slug", prefix: "$", open: "{", close: "}" },
+      { id: "title", open: "{{", close: "}}" },
+    ],
+    escape: async (value) => String(value),
+    resolvedPath: async ({ path, value, bracketID }) => {
+      if (bracketID === "slug" && path.join(".") === "meta.slug") {
+        return String(value).trim().replace(/\s+/g, "-").toLowerCase();
+      }
+      return value;
+    },
+  };
+
+  const template = "Slug: ${ meta.slug } | Title: {{ meta.title }}";
+
+  const rendered = await safeInterpolateAsync(template, ctx, opts);
   assertEquals(
     rendered,
     "Slug: my-page | Title: My Page",
@@ -150,6 +247,35 @@ Deno.test("Safe Interpolator - missing values and onMissing strategies", () => {
   );
 });
 
+Deno.test("Safe Interpolator - missing values and onMissing strategies (async)", async () => {
+  const ctx: SafeInterpolationContext = {
+    user: { name: "Shahid" },
+  };
+
+  const baseOpts: SafeInterpolationOptions = {
+    brackets: [{ id: "html", prefix: "$", open: "{", close: "}" }],
+    escape: async (v) => String(v),
+  };
+
+  const template = "Hello ${ user.name } ${ user.missing }";
+
+  // custom async onMissing
+  const optsCustomAsync: SafeInterpolationOptions = {
+    ...baseOpts,
+    onMissing: async (expr, info) =>
+      `[MISSING-ASYNC:${info.bracketID}:${expr}]`,
+  };
+  const renderedCustomAsync = await safeInterpolateAsync(
+    template,
+    ctx,
+    optsCustomAsync,
+  );
+  assertEquals(
+    renderedCustomAsync,
+    "Hello Shahid [MISSING-ASYNC:html:user.missing]",
+  );
+});
+
 Deno.test("Safe Interpolator - SafeString is passed through escape", () => {
   const ctx: SafeInterpolationContext = {
     raw: "<b>Bold</b>",
@@ -169,6 +295,31 @@ Deno.test("Safe Interpolator - SafeString is passed through escape", () => {
   const template = "Raw: ${ raw }";
 
   const rendered = safeInterpolate(template, ctx, opts);
+  assertEquals(
+    rendered,
+    "Raw: <b>Bold</b>",
+  );
+});
+
+Deno.test("Safe Interpolator - SafeString is passed through escape (async)", async () => {
+  const ctx: SafeInterpolationContext = {
+    raw: "<b>Bold</b>",
+  };
+
+  const opts: SafeInterpolationOptions = {
+    brackets: [{ id: "html", prefix: "$", open: "{", close: "}" }],
+    escape: async (value) => defaultEscape(value),
+    resolvedPath: async ({ value, path }) => {
+      if (path.join(".") === "raw") {
+        return SafeString.from(String(value));
+      }
+      return value;
+    },
+  };
+
+  const template = "Raw: ${ raw }";
+
+  const rendered = await safeInterpolateAsync(template, ctx, opts);
   assertEquals(
     rendered,
     "Raw: <b>Bold</b>",
@@ -216,6 +367,37 @@ Deno.test("Safe Interpolator - '}' inside backtick string inside expression", ()
   assertEquals(
     rendered,
     "Backtick brace: <<val}ue 42>> done",
+  );
+});
+
+Deno.test("Safe Interpolator - records inside function", () => {
+  const ctx: SafeInterpolationContext = {
+    n: 42,
+  };
+
+  const opts: SafeInterpolationOptions = {
+    brackets: [{
+      id: "instructionsFromText",
+      open: "{{",
+      close: "}}",
+    }],
+    escape: (v) => String(v),
+    functions: {
+      show: ([v]) => `<<${v}>>`,
+    },
+    onMissing: (expr) => {
+      const ir = instructionsFromText(expr);
+      return `<<${JSON.stringify(ir.attrs)}>>`;
+    },
+  };
+
+  const template =
+    'instructionsFromText inside brackets: {{ show { x: "y" } }} done';
+
+  const rendered = safeInterpolate(template, ctx, opts);
+  assertEquals(
+    rendered,
+    'instructionsFromText inside brackets: <<{"x":"y"}>> done',
   );
 });
 
@@ -320,3 +502,65 @@ Deno.test("Safe Interpolator - compiled template reused with different contexts"
   assertEquals(rendered1, direct1);
   assertEquals(rendered2, direct2);
 });
+
+Deno.test("Safe Interpolator - compiled template reused with different contexts (async)", async () => {
+  const template = "Hello ${ user.name } – orders: ${ len(user.orders) }";
+
+  const opts: SafeInterpolationOptions = {
+    brackets: [{ id: "html", prefix: "$", open: "{", close: "}" }],
+    escape: async (value) => String(value),
+    functions: {
+      len: async ([v]) => Array.isArray(v) ? v.length : 0,
+    },
+  };
+
+  const compiled = compileSafeTemplate(template, opts);
+
+  const ctx1: SafeInterpolationContext = {
+    user: { name: "Shahid", orders: [1, 2, 3] },
+  };
+  const ctx2: SafeInterpolationContext = {
+    user: { name: "Alice", orders: [10] },
+  };
+
+  const rendered1 = await renderCompiledTemplateAsync(compiled, ctx1);
+  const rendered2 = await renderCompiledTemplateAsync(compiled, ctx2);
+
+  const direct1 = await safeInterpolateAsync(template, ctx1, opts);
+  const direct2 = await safeInterpolateAsync(template, ctx2, opts);
+
+  assertEquals(rendered1, "Hello Shahid – orders: 3");
+  assertEquals(rendered2, "Hello Alice – orders: 1");
+
+  assertEquals(rendered1, direct1);
+  assertEquals(rendered2, direct2);
+});
+
+Deno.test(
+  "Safe Interpolator - async function behaves differently in sync vs async API",
+  async () => {
+    const ctx: SafeInterpolationContext = {
+      user: { name: "Shahid" },
+    };
+
+    const opts: SafeInterpolationOptions = {
+      brackets: [{ id: "html", prefix: "$", open: "{", close: "}" }],
+      escape: (v) => String(v),
+      functions: {
+        // async function returning a Promise
+        upper: async ([v]) => String(v).toUpperCase(),
+      },
+    };
+
+    const template = "Hello ${ upper(user.name) }";
+
+    const syncRendered = safeInterpolate(template, ctx, opts);
+    const asyncRendered = await safeInterpolateAsync(template, ctx, opts);
+
+    // The async API should give us the "real" value
+    assertEquals(asyncRendered, "Hello SHAHID");
+
+    // The sync API does *not* await the Promise; its output should differ
+    assertNotEquals(syncRendered, asyncRendered);
+  },
+);
