@@ -11,7 +11,6 @@ import {
   InjectionProvider,
   Interpolator,
   Memory,
-  MemoryValue,
 } from "../../universal/render.ts";
 import { ensureTrailingNewline } from "../../universal/text-utils.ts";
 import { Directive } from "../projection/directives.ts";
@@ -62,7 +61,6 @@ export const partialTmplPiFlagsSchema = z.object({
 export type PartialTmplPiFlags = z.infer<typeof partialTmplPiFlagsSchema>;
 
 export type PartialTmpl =
-  & MemoryValue
   & Directive
   & { readonly args: PartialTmplPiFlags }
   & Partial<InjectionProvider<Executable | Materializable>>;
@@ -97,7 +95,8 @@ export function partialTmpl(d: Directive): PartialTmpl | false {
   return false;
 }
 
-export type FlexibleMemoryShape = Record<string, MemoryValue>;
+export type FlexibleMemoryValue = unknown;
+export type FlexibleMemoryShape = Record<string, FlexibleMemoryValue>;
 
 export type Capturable = ActionableCodePiFlags["capture"];
 
@@ -110,7 +109,7 @@ export type Captured = {
 export function flexibleMemory(
   directives: readonly Directive[],
   captures?: Record<string, Captured>,
-): Memory<FlexibleMemoryShape, Capturable> & {
+): Memory<FlexibleMemoryValue, FlexibleMemoryShape, Capturable> & {
   partials: Record<string, PartialTmpl>;
 } {
   const injectables = {
@@ -133,7 +132,11 @@ export function flexibleMemory(
     }
   }
 
-  const memoize: Memory<FlexibleMemoryShape, Capturable>["memoize"] = async (
+  const memoize: Memory<
+    FlexibleMemoryValue,
+    FlexibleMemoryShape,
+    Capturable
+  >["memoize"] = async (
     rendered,
     capture,
   ) => {
@@ -226,6 +229,7 @@ export function renderStrategy(
       },
     } satisfies Interpolator<
       Materializable | Executable,
+      FlexibleMemoryValue,
       FlexibleMemoryShape,
       Capturable
     >,

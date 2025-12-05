@@ -6,31 +6,10 @@
 export type BodyInput = string | Uint8Array | AsyncIterable<Uint8Array>;
 
 /**
- * Minimal schema interface so we can plug in Zod (or anything Zod-like).
- * Zod schemas are compatible because they expose .parse().
- */
-export interface Schema<T> {
-  parse(input: unknown): T;
-}
-
-/**
- * Base memory value.
- *
- * Args:   type of arguments when this value is "invoked" (e.g. partial locals).
- * Result: type of result when invoked (e.g. rendered string).
- *
- * argsSchema / resultSchema are optional, for validating user-supplied data.
- */
-export interface MemoryValue<Args = unknown, Result = unknown> {
-  readonly argsSchema?: Schema<Args>;
-  readonly resultSchema?: Schema<Result>;
-}
-
-/**
  * Shape: map of string names to concrete memory values.
  * Keys are restricted to string to avoid keyof Shape including number | symbol.
  */
-export type MemoryShape = Record<string, MemoryValue<unknown, unknown>>;
+export type MemoryShape<MemoryValue> = Record<string, MemoryValue>;
 
 /**
  * Memory store for a given Shape.
@@ -40,7 +19,11 @@ export type MemoryShape = Record<string, MemoryValue<unknown, unknown>>;
  * - `memoize` is the hook the renderer calls when it wants to store
  *   a rendered result; the implementation knows how to construct Shape[Name].
  */
-export interface Memory<Shape extends MemoryShape, Memoizable> {
+export interface Memory<
+  MemoryValue,
+  Shape extends MemoryShape<MemoryValue>,
+  Memoizable,
+> {
   get<Name extends keyof Shape>(
     name: Name,
   ): Shape[Name] | undefined | Promise<Shape[Name] | undefined>;
@@ -134,9 +117,9 @@ export interface InjectionProvider<S> {
  * Any MemoryValue that also implements InjectionProvider<S> will be
  * treated as an injection-capable value by the engine.
  */
-export function isInjectionProviderForSource<S>(
-  value: MemoryValue<unknown, unknown>,
-): value is MemoryValue<unknown, unknown> & InjectionProvider<S> {
+export function isInjectionProviderForSource<S, MemoryValue>(
+  value: MemoryValue,
+): value is MemoryValue & InjectionProvider<S> {
   const candidate = value as { inject?: unknown };
   return typeof candidate.inject === "function";
 }
@@ -145,13 +128,18 @@ export function isInjectionProviderForSource<S>(
  * Interpolator takes a full string and returns a fully interpolated string.
  * It can be safe or unsafe; the engine doesn't care how it works internally.
  */
-export interface Interpolator<S, Shape extends MemoryShape, Memoizable> {
+export interface Interpolator<
+  S,
+  MemoryValue,
+  Shape extends MemoryShape<MemoryValue>,
+  Memoizable,
+> {
   interpolate(
     input: string,
     options: {
       path?: string;
       content: S;
-      memory: Memory<Shape, Memoizable>;
+      memory: Memory<MemoryValue, Shape, Memoizable>;
       globals?: Record<string, unknown>;
       locals: Record<string, unknown>;
     },
@@ -195,10 +183,15 @@ export interface RenderEvents<S, Memoizable> {
 /**
  * Strategy/environment/configuration for the renderer.
  */
-export interface RenderStrategy<S, Shape extends MemoryShape, Memoizable> {
+export interface RenderStrategy<
+  S,
+  MemoryValue,
+  Shape extends MemoryShape<MemoryValue>,
+  Memoizable,
+> {
   content: Content<S, Memoizable>;
-  memory: Memory<Shape, Memoizable>;
-  interpolator: Interpolator<S, Shape, Memoizable>;
+  memory: Memory<MemoryValue, Shape, Memoizable>;
+  interpolator: Interpolator<S, MemoryValue, Shape, Memoizable>;
   globals?: Record<string, unknown>;
   bus?: EventBus<RenderEvents<S, Memoizable>>;
 }
@@ -215,7 +208,7 @@ export interface RenderResult {
 /**
  * Renderer interface: render one or many content items.
  */
-export interface Renderer<S, Shape extends MemoryShape> {
+export interface Renderer<S> {
   renderOne(source: S): Promise<RenderResult>;
 
   renderAll(
@@ -284,9 +277,14 @@ async function* toAsyncIterable<T>(
  * 5. Use Content.isMemoizable and Content.memoized to let Memory.memoize
  *    store the output back into Memory.
  */
-export function renderer<S, Shape extends MemoryShape, Memoizable>(
-  rs: RenderStrategy<S, Shape, Memoizable>,
-): Renderer<S, Shape> {
+export function renderer<
+  S,
+  MemoryValue,
+  Shape extends MemoryShape<MemoryValue>,
+  Memoizable,
+>(
+  rs: RenderStrategy<S, MemoryValue, Shape, Memoizable>,
+): Renderer<S> {
   const { content, memory, interpolator, globals, bus } = rs;
 
   async function applyInjections(
@@ -306,7 +304,7 @@ export function renderer<S, Shape extends MemoryShape, Memoizable>(
 
     for await (const [name, value] of asyncList) {
       // Any memory value that implements InjectionProvider<S> participates.
-      if (!isInjectionProviderForSource<S>(value)) continue;
+      if (!isInjectionProviderForSource<S, MemoryValue>(value)) continue;
 
       const injected = await value.inject({
         path,
