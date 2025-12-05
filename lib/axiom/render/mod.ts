@@ -1,6 +1,6 @@
 import { globToRegExp, isGlob, normalize } from "@std/path";
 import z from "@zod/zod";
-import { safeInterpolateAsync } from "../../interpolate/safe.ts";
+import { safeInterpolateAsync } from "../../universal/flexible-interpolator.ts";
 import { gitignore } from "../../universal/gitignore.ts";
 import {
   flexibleTextSchema,

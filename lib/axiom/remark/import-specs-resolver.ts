@@ -25,9 +25,9 @@ import type { Code, Root } from "types/mdast";
 import type { Plugin } from "unified";
 import { visit } from "unist-util-visit";
 import { VFile } from "vfile";
-import { safeInterpolate } from "../../interpolate/safe.ts";
 import { relativeUrlAsFsPath } from "../../universal/content-acquisition.ts";
 import { onlyDirectiveCandidateRegEx } from "../../universal/directive.ts";
+import { safeInterpolate } from "../../universal/flexible-interpolator.ts";
 import {
   flexibleTextSchema,
   instructionsFromText,
