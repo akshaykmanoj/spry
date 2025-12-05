@@ -134,5 +134,10 @@ Deno.test(
         },
       ]);
     });
+
+    await t.step("exercise multiple interpolation types", async () => {
+      const result = await r.renderOne(materializablesById["debug.txt"]);
+      console.log(result.text);
+    });
   },
 );

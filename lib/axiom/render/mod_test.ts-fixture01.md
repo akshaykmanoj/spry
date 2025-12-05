@@ -103,21 +103,25 @@ layout when it matches.
 
 A debug cell that exercises helpers and error behavior.
 
+Note that "simple" text expressions and pre-registered functions use `${...}`
+while calling a PARTIAL is done using `{{...}}`. The full "unsafe" JS eval is
+available with `$!{...}`.
+
 ```text debug.txt
 markdown link: ${md.link("demo", "https://example.com")}
 siteName: ${ctx.siteName}
 
 - missing partial:
-${await partial("non-existent")}
+{{non-existent}}
 
 - greet-user with wrong args:
-${await partial("greet-user", { wrongName: "oops" })}
+{{ greet-user { wrongName: "oops" } }}
 
 - greet-user with correct args:
-${await partial("greet-user", { userName: "Debug User", mood: "alert" })}
+{{ greet-user { userName: "Debug User", mood: "alert" } }}
 
-- full ctx (escaped):
-${safeJsonStringify(ctx)}
+- full ctx (unsafe):
+$!{safeJsonStringify(ctx)}
 ```
 
 ## Outro
