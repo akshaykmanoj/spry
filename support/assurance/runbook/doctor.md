@@ -1,92 +1,97 @@
-#  **Spry for DevOps / SRE**
+# **Spry for DevOps / SRE**
 
-Spry allows DevOps and SRE teams to define, document, and automate operational
-workflows in **executable Markdown**. Instead of using scattered scripts, tribal
-knowledge, or outdated runbooks, Spry unifies:
+Spry is a lightweight framework that helps DevOps and SRE teams **combine documentation and automation** in one place.
+Instead of maintaining separate runbooks, scripts, and wiki pages, Spry lets you write Markdown that is both **readable** and **executable** — ensuring everything stays current, consistent, and automation-ready.
 
-- Documentation
-- Automation scripts
-- Monitoring & health checks
-- Incident response runbooks
-- Infrastructure provisioning logic
+## What Spry Solves
 
-All in **version-controlled Markdown**.
+Operational knowledge is often scattered across teams and tools. Spry helps fix:
 
+* Outdated runbooks
+* Different teams following different workflows
+* Scripts stored in multiple repositories without explanation
+* Manual steps that slow incident response
+* No standard way to run monitoring or health checks
 
+Spry treats **operations as code**, so documentation and execution always stay in sync.
 
-#  What is Spry for DevOps / SRE?
+## Who Should Use Spry?
 
-Spry for DevOps/SRE enables teams to:
+Spry is ideal for teams working on:
 
-- Codify infrastructure automation
-- Build self-documenting runbooks
-- Execute health checks and recovery tasks
-- Standardize deployments, scaling, and incident workflows
-- Reduce human error through repeatable automated tasks
+* Production operations
+* Incident management
+* Monitoring & alerting
+* DevOps automation
+* Cloud platform engineering
+* Kubernetes or container operations
+* Site Reliability Engineering (SRE)
 
-Every runbook becomes a **reliable automation unit**, stored next to your source
-code.
+## Why Spry Is a Game-Changer
 
+* **Reduces reliance on tribal knowledge** — everything is documented and runnable
+* **Standardizes operations** across teams
+* **Improves production reliability** using proactive checks
+* **Accelerates onboarding** for new developers and SREs
+* **Connects documentation to automation**, eliminating outdated docs
 
+## Unified Operational Workflow
 
-#  Why DevOps / SRE Teams Use Spry
+Spry brings all key SRE and DevOps components together:
 
-###  **Unified documentation + execution**
+### Human-Readable Documentation
 
-One source of truth for docs + automation.
+Write Markdown that explains the purpose, steps, and context of any operational task.
 
-###  **Version-controlled processes**
+### Embedded Automation
 
-Operational changes are tracked in Git — enabling audit, rollback, and review.
+Run Bash, Python, SQL, osquery, etc., directly from the same document.
 
-###  **Reproducible reliability workflows**
+### Monitoring & Health Checks
 
-Same behavior across Dev / Staging / Production.
+Create executable tasks for CPU, disk, memory, service uptime, and more.
 
-###  **Better onboarding**
+### Incident Response Runbooks
 
-New engineers learn by reading + running the same executable docs.
+Give responders clear instructions *and* executable buttons in a single file.
 
----
+### Infra Provisioning
 
-#  Getting Started
+Integrate commands for Terraform, Ansible, Docker, Kubernetes, and cloud services.
+
+## Getting Started
 
 ### **Prerequisites**
 
-- Spry CLI installed [https://sprymd.org/docs/getting-started/installation/]
+* Spry CLI installed [Refer to the Spry documentation for installation instructions.](https://sprymd.org/docs/getting-started/installation/)
 
 ### **Initialize project**
 
 You may:
 
-- Use an existing Spry repository, or
-- Create a new SRE/Infra automation module
+* Use an existing Spry repository, or
+* Create a new SRE/Infra automation module
 
-
-
-#  **Linux Monitoring Runbooks — Core Tasks**
+## **Linux Monitoring Runbooks — Core Tasks**
 
 These tasks are **simple, critical, and ideal for demos**, onboarding, and real
 SRE/DevOps usage.
 
 They include checks for:
 
-- CPU
-- Memory
-- Disk
-- SSH security
-- Critical services
+* CPU
+* Memory
+* Disk
+* SSH security
+* Critical services
 
-
-
-#  **CPU Utilization Monitoring**
+## **CPU Utilization Monitoring**
 
 ### **Purpose:**
 
 Detect CPU overload conditions and notify when CPU usage exceeds 80%.
 
-
-##  Example Spry Task
+### Example Spry Task
 
 ```bash cpu-utilization -C CPUusage --descr "Check CPU utilization using osquery and notify if threshold crossed"
 #!/usr/bin/env -S bash
@@ -114,10 +119,10 @@ if [ "$CPU_INT" -gt "$THRESHOLD" ]; then
     exit 1
 fi
 
-echo " $TIMESTAMP CPU usage normal"
+echo "CPU usage normal"
 ```
 
-#  **Disk Usage Monitoring**
+## **Disk Usage Monitoring**
 
 Alerts when the root filesystem exceeds 80% usage.
 
@@ -136,10 +141,10 @@ if [ "$USAGE" -gt "$THRESHOLD" ]; then
   exit 1
 fi
 
-echo " $TIMESTAMP Disk usage normal"
+echo "Disk usage normal"
 ```
 
-#  **Memory Usage Monitoring**
+## **Memory Usage Monitoring**
 
 Monitors RAM utilization and triggers alert if crossing 80%.
 
@@ -149,7 +154,7 @@ Monitors RAM utilization and triggers alert if crossing 80%.
 THRESHOLD=80
 USED=$(free | awk '/Mem:/ {printf("%d"), ($3/$2)*100}')
 
-echo "Memory Usage: ${USED}%"
+echo "$TIMESTAMP Memory Usage: ${USED}%"
 
 if [ "$USED" -gt "$THRESHOLD" ]; then
   echo " ALERT: High memory usage"
@@ -159,31 +164,37 @@ fi
 echo " Memory usage normal"
 ```
 
-#  **Failed SSH Login Detection**
+## **Failed SSH Login Detection**
 
 Detects brute-force attempts and abnormal SSH activity.
 
 ```bash check-ssh-fail --descr "Detect failed SSH login attempts"
 #!/usr/bin/env -S bash
 
-THRESHOLD=10
-FAILS=$(grep -c "Failed password" /var/log/auth.log)
+THRESHOLD=5
+
+if [ -f /var/log/auth.log ]; then
+    FAILS=$(grep -c "Failed password" /var/log/auth.log)
+else
+    echo "auth.log does not exist"
+    FAILS=0
+fi
 
 echo "Failed SSH Logins: $FAILS"
 
 if [ "$FAILS" -gt "$THRESHOLD" ]; then
-  echo " ALERT: Possible brute-force attack"
-  exit 1
+    echo "ALERT: Possible brute-force attack"
+    exit 1
 fi
 
-echo " SSH login activity normal"
+echo "SSH login activity normal"
 ```
 
-#  **Critical Service Availability Check**
+## **Critical Service Availability Check**
 
 Ensures critical system services (example: nginx) are running.
 
-```bash check-Service-runnning --capture ./Service-status.txt --decr "Check if Critical Service is Running"
+```bash check-Service-running --capture ./Service-status.txt --decr "Check if Critical Service is Running"
 #!/usr/bin/env -S bash
 
 SERVICE="nginx"
@@ -209,11 +220,50 @@ else
 fi
 ```
 
-Here It helps to show the output of each task
+This shows the output of each task
 
 ```bash Compilation-Results -I --descr "Show captured output"
 #!/usr/bin/env -S cat
-# from cpu captured output: "${captured.CPUusage.text().trim()}"
-# from disk captured output: "${captured.Diskusage.text().trim()}"
-# from memory captured output: "${captured.Memoryusage.text().trim()}"
+# captured output: "${captured.CPUusage.text().trim()}"  "${captured.Diskusage.text().trim()}" "${captured.Memoryusage.text().trim()}"
 ```
+
+## How To Run Tasks
+
+* Append the above code blocks in order in the Spryfile.md file.
+* Execute the following commands in a bash terminal:
+
+  ### Check CPU usage
+
+  ```bash
+  ./spry.ts task CPU-Utlization Spryfile.md --verbose rich
+  ```
+
+  ### Check Disk usage
+
+  ```bash
+  ./spry.ts task Disk-Usage Spryfile.md --verbose rich
+  ```
+
+  ### Memory Usage Monitoring
+
+  ```bash
+  ./spry.ts task check-memory Spryfile.md --verbose rich
+  ```
+
+  ### Check SSL expiry
+
+  ```bash
+  ./spry.ts task check-ssh-fail Spryfile.md --verbose rich
+  ```
+
+  ### Ensure essential services (nginx, mysql, redis, etc.) are running
+
+  ```bash
+  ./spry.ts task Critical-Service-Availability Spryfile.md --verbose rich
+  ```
+
+  ### Run the whole code block in a single command
+
+  ```bash
+  ./spry.ts run Spryfile.md --verbose rich
+  ```
