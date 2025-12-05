@@ -427,24 +427,16 @@ console.table(lsSchema(f, view));
 support/
 └── assurance/
     └── qualityfolio/
-    │   ├── evidence/
-    │   │   ├── TC-0001/
-    │   │   │   └── 1.1/
-    │   │   │       ├── screenshot1.auto.png
-    │   │   │       ├── screenshot2.auto.png
-    │   │   │       ├── result.auto.json
-    │   │   │       └── run.auto.md
-    │   ├── cap-exec-cli.surveilr[json].ts
-    │   ├── cap-exec.surveilr[json].ts
-    │   ├── cap-exec.surveillance[json].ts
-    │   ├── extract-code-cells.ts
-    │   ├── qf-complex.md
-    │   ├── qf-large.md
-    │   ├── qf-medium.md
-    │   ├── qf-small.md
-    │   └── readme-updated.md
+    │   ├── sample
+    │   │   └── example-artifact.md	
+    │   └── evidence/
+    │   │   └── TC-0001/
+    │   │       ├── screenshot1.auto.png
+    │   │       ├── screenshot2.auto.png
+    │   │       ├── result.auto.png
+    │   │       └── run.auto.md
     ├── resource-surveillance.sqlite.db
-    └── sqlite-etl.sql	
+    └── sqlite-etl.sql		
 ```
 
 > Remember: the parser does not require any folder layout. This is just for DX.
