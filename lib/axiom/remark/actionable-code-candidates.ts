@@ -137,7 +137,6 @@ import type { Code, Root } from "types/mdast";
 import type { Node } from "types/unist";
 import type { Plugin } from "unified";
 import { visit } from "unist-util-visit";
-import { CaptureSpec } from "../../interpolate/capture.ts";
 import { languageRegistry, languageSpecSchema } from "../../universal/code.ts";
 import {
   flexibleTextSchema,
@@ -146,6 +145,17 @@ import {
 import { codeFrontmatter } from "../mdast/code-frontmatter.ts";
 import { addIssue } from "../mdast/node-issues.ts";
 import { isCodeDirectiveCandidate } from "./code-directive-candidates.ts";
+
+export type CaptureSpec =
+  | {
+    readonly nature: "relFsPath";
+    readonly fsPath: string;
+    readonly gitignore?: boolean | string;
+  }
+  | {
+    readonly nature: "memory";
+    readonly key: string;
+  };
 
 export const actionableCodePiFlagsSchema = z.object({
   descr: z.string().optional(),
@@ -159,6 +169,7 @@ export const actionableCodePiFlagsSchema = z.object({
   branch: flexibleTextSchema.optional(),
   injectedDep: flexibleTextSchema.optional(),
   injectable: z.boolean().optional(),
+  notinjectable: z.boolean().optional(),
 
   // shortcuts
   /* capture */ C: z.string().optional(),
@@ -183,6 +194,7 @@ export const actionableCodePiFlagsSchema = z.object({
     interpolate: raw.I ?? raw.interpolate,
     noInterpolate: raw.noInterpolate,
     injectable: raw.J ?? raw.injectable,
+    notInjectable: raw.notinjectable,
     graphs: graphRaw
       ? typeof graphRaw === "string" ? [graphRaw] : graphRaw
       : undefined,
@@ -319,6 +331,9 @@ export const actionableCodeCandidates: Plugin<
                 actionable.materializationArgs = args.data;
                 if (!args.data.noInterpolate) {
                   actionable.materializationArgs.interpolate = true; // by default we interpolate
+                }
+                if (!args.data.notInjectable) {
+                  actionable.materializationArgs.injectable = true; // by default we are injectable
                 }
                 actionable.materializationAttrs = codeFM.attrs;
               }
