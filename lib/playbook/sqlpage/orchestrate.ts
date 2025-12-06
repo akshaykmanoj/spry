@@ -1,4 +1,6 @@
+import { parse } from "@std/path";
 import z from "@zod/zod";
+import { codeFrontmatter } from "../../axiom/mdast/code-frontmatter.ts";
 import {
   codeInterpolationStrategy,
 } from "../../axiom/mdast/code-interpolate.ts";
@@ -126,6 +128,7 @@ export function sqlPageInterpolator(
       `/* \${paginate("tableOrViewName")} not called yet*/`,
   };
 
+  // available as "ctx.*" in ${...} variables
   const globals = {
     env: Deno.env.toObject(),
     pagination,
@@ -157,6 +160,7 @@ export function sqlPageInterpolator(
     globals,
   });
 
+  // available as "locals" in ${...} variables without "ctx." prefix
   const typicalLocals = {
     pagination: globals.pagination,
     paginate: globals.paginate,
@@ -175,9 +179,15 @@ export async function* sqlPageFiles(
   playbook: Awaited<ReturnType<typeof sqlPagePlaybook>>,
 ) {
   const { sources, routes, materializables, routeAnnsF, directives } = playbook;
-  const { sqlSPF, jsonSPF, handlers: csHandlers } = contentSuppliers();
+  const { sqlSPF, jsonSPF, handlers: csHandlers, contents } =
+    contentSuppliers();
 
   const spi = sqlPageInterpolator(playbook, directives);
+
+  const ensureExtn = (name: string, ext: string) =>
+    parse(name).ext.toLowerCase() === ext.toLowerCase()
+      ? name
+      : `${name}${ext}`;
 
   for (const src of sources) {
     if (docFrontmatterDataBag.is(src.mdastRoot)) {
@@ -189,31 +199,23 @@ export async function* sqlPageFiles(
     }
   }
 
-  for (const [name, tmpl] of Object.entries(spi.strategy.memory.partials)) {
-    yield sqlSPF(
-      `spry.d/auto/partial/${name}.auto.sql`,
-      `-- ${safeJsonStringify(tmpl)}\n${tmpl.value}`,
-      { isPartial: true, cell: tmpl },
-    );
-  }
-
   for (const d of directives) {
     switch (d.directive) {
       case "HEAD":
         yield {
-          contents: d.value,
           kind: "head_sql",
-          path: `sql.d/head/${d.identity}.sql`,
+          path: ensureExtn(`sql.d/head/${d.identity}`, ".sql"),
           cell: d,
+          ...await contents(d, codeFrontmatter(d)),
         } satisfies SqlPageHeadOrTail;
         break;
 
       case "TAIL":
         yield {
-          contents: d.value,
           kind: "tail_sql",
-          path: `sql.d/tail/${d.identity}.sql`,
+          path: ensureExtn(`sql.d/tail/${d.identity}`, ".sql"),
           cell: d,
+          ...await contents(d, codeFrontmatter(d)),
         } satisfies SqlPageHeadOrTail;
         break;
     }
@@ -237,6 +239,7 @@ export async function* sqlPageFiles(
               ...locals,
               cell: m,
               path: spc.path,
+              spc,
             }),
           });
           spc.contents = rendered.text;

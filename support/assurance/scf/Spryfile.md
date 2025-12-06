@@ -150,6 +150,10 @@ pseudo-cells.
 sql *.sql TAIL
 ```
 
+💡 `schema-info.dml.sqlite.sql` will appear twice in the output, once as
+`sql.d/tail/0000.sql` and another as `sql.d/tail/schema-info.dml.sqlite.sql`
+because the file is referenced in both the `import` cell and using `--import`.
+
 ## Layout
 
 This cell instructs Spry to automatically inject the SQL `PARTIAL` into all

@@ -385,12 +385,9 @@ export function contentSuppliers() {
     return { contents, isBinary };
   };
 
-  const contents = async (
-    materializable: Materializable,
-    codeFM: CodeFrontmatter | null,
-  ) => {
-    if (isImportPlaceholder(materializable)) {
-      return await contentsFromResource(materializable.importSpecProvenance);
+  const contents = async (code: Code, codeFM: CodeFrontmatter | null) => {
+    if (isImportPlaceholder(code)) {
+      return await contentsFromResource(code.importSpecProvenance);
     } else {
       if (
         codeFM?.pi && "import" in codeFM.pi.flags &&
@@ -398,7 +395,7 @@ export function contentSuppliers() {
       ) {
         return await contentsFromResource({ path: codeFM.pi.flags.import });
       } else {
-        return { contents: materializable.value, isBinary: false as const };
+        return { contents: code.value, isBinary: false as const };
       }
     }
   };
@@ -471,5 +468,5 @@ export function contentSuppliers() {
     }),
   );
 
-  return { ...langHandlers, sqlSPF, jsonSPF };
+  return { ...langHandlers, sqlSPF, jsonSPF, contents, contentsFromResource };
 }
