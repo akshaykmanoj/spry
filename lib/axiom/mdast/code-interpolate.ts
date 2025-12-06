@@ -2,9 +2,9 @@ import { globToRegExp, isGlob, normalize } from "@std/path";
 import z from "@zod/zod";
 import { Code } from "types/mdast";
 import {
+  SafeBracketSpec,
   safeInterpolateAsync,
   SafeInterpolationFunctionRegistry,
-  SafeInterpolationOptions,
 } from "../../universal/flexible-interpolator.ts";
 import { gitignore } from "../../universal/gitignore.ts";
 import {
@@ -269,37 +269,52 @@ export type CodeInterpBracketID =
   | typeof partialTmplCodeBID
   | typeof unsafeCodeBID;
 
-export const safeOnlyBrackets = [
-  { id: safeExprCodeBID, prefix: "$", open: "{", close: "}" },
-  { id: partialTmplCodeBID, open: "{{", close: "}}" },
-] as const;
-
-export const safetyFirstBrackets = [
-  { id: safeExprCodeBID, prefix: "$", open: "{", close: "}" },
-  { id: partialTmplCodeBID, open: "{{", close: "}}" },
-  { id: unsafeCodeBID, prefix: "$!", open: "{", close: "}" },
-] as const;
-
-export const unsafeBrackets = [
-  { id: unsafeCodeBID, prefix: "$", open: "{", close: "}" },
-  { id: partialTmplCodeBID, open: "{{", close: "}}" },
-] as const;
-
 export function codeInterpolationStrategy(
   partialTmplCandidates: Iterable<
     Code & { readonly directive: string; readonly identity?: string }
   >,
   strategyOpts?: {
+    approach?: "safe-only" | "safety-first" | "unsafe-allowed";
     unsafeGlobalsCtxName?: string;
     globals?: Record<string, unknown>;
     safeFunctions?: SafeInterpolationFunctionRegistry;
     memoized?: Record<string, Captured>;
-    brackets?: SafeInterpolationOptions["brackets"];
   },
 ) {
   const memoized = strategyOpts?.memoized ?? {};
   const memory = flexibleMemory(partialTmplCandidates, memoized);
-  const { unsafeGlobalsCtxName = "ctx" } = strategyOpts ?? {};
+  const {
+    approach = "safe-only",
+    unsafeGlobalsCtxName = "ctx",
+    safeFunctions: functions,
+  } = strategyOpts ?? {};
+
+  const onRawExpr = "onMissing" as const;
+  let brackets: SafeBracketSpec[];
+  switch (approach) {
+    case "safe-only": {
+      brackets = [
+        { id: safeExprCodeBID, prefix: "$", open: "{", close: "}", functions },
+        { id: partialTmplCodeBID, open: "{{", close: "}}" },
+      ];
+      break;
+    }
+    case "safety-first": {
+      brackets = [
+        { id: safeExprCodeBID, prefix: "$", open: "{", close: "}", functions },
+        { id: partialTmplCodeBID, open: "{{", close: "}}", onRawExpr },
+        { id: unsafeCodeBID, prefix: "$!", open: "{", close: "}", onRawExpr },
+      ];
+      break;
+    }
+    case "unsafe-allowed": {
+      brackets = [
+        { id: unsafeCodeBID, prefix: "$", open: "{", close: "}", onRawExpr },
+        { id: partialTmplCodeBID, open: "{{", close: "}}", onRawExpr },
+      ];
+      break;
+    }
+  }
 
   const interpolate: Interpolator<
     Materializable | Executable,
@@ -317,7 +332,11 @@ export function codeInterpolationStrategy(
         if (rendered.error) return rendered.text;
         const result = await interpolate(rendered.text, {
           ...interpOpts,
-          locals: { ...interpOpts.locals, ...partialTmplArgs },
+          locals: {
+            PARTIAL: partial,
+            ...interpOpts.locals,
+            ...partialTmplArgs,
+          },
         });
         return result.text;
       }
@@ -327,13 +346,12 @@ export function codeInterpolationStrategy(
 
     return {
       text: await safeInterpolateAsync(input, {
-        ...interpOpts.globals,
+        ...interpOpts.globals, // in typical "safe" interpolators globals and locals are the same
         ...interpOpts.locals,
         captured: memoized,
         memoized,
       }, {
-        brackets: strategyOpts?.brackets ?? safetyFirstBrackets,
-        functions: strategyOpts?.safeFunctions,
+        brackets,
         onMissing: async (expr, info) => {
           switch (info.bracketID as CodeInterpBracketID) {
             case "safe":
@@ -356,12 +374,10 @@ export function codeInterpolationStrategy(
                   unsafeGlobalsCtxName, // `ctx.*` allows access to the "globals" properties
                   Object.keys(unsafeJsExprLocals),
                 );
-                const value = await fn(interpOpts.globals, unsafeJsExprLocals);
-                const result = await interpolate(
-                  String(value ?? ""),
-                  interpOpts,
-                );
-                return result.text;
+                return await fn(
+                  interpOpts.globals,
+                  unsafeJsExprLocals,
+                ) as string;
               } catch (err) {
                 return `$!{ERROR(unsafe): ${String(err)}}`;
               }

@@ -1,4 +1,5 @@
 import z from "@zod/zod";
+import { Code } from "types/mdast";
 import {
   CodeFrontmatter,
   codeFrontmatter,
@@ -10,6 +11,7 @@ import {
   languageHandlers,
 } from "../../universal/code.ts";
 import { isAsyncIterator } from "../../universal/collectable.ts";
+import { RenderResult } from "../../universal/render.ts";
 import {
   provenanceResource,
   ResourceProvenance,
@@ -27,8 +29,6 @@ import {
   literal,
 } from "../../universal/sql-text.ts";
 import { safeJsonStringify } from "../../universal/tmpl-literal-aide.ts";
-import { RenderResult } from "../../universal/render.ts";
-import { Code } from "types/mdast";
 
 export const sqlCodeCellLangId = "sql" as const;
 export const sqlCodeCellLangSpec = ensureLanguageByIdOrAlias(sqlCodeCellLangId);
@@ -374,7 +374,7 @@ export function contentSuppliers() {
   const contentsFromResource = async (rp: ResourceProvenance) => {
     let contents: SqlPageFileUpsert["contents"];
     let isBinary: SqlPageFileUpsert["isBinary"];
-    const resource = await provenanceResource(rp);
+    const resource = provenanceResource(rp);
     if (resource.strategy.encoding === "utf8-binary") {
       contents = await resource.stream();
       isBinary = contents;

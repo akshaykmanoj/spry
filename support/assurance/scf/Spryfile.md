@@ -158,6 +158,9 @@ required by Spry but only used for reference), but the `--inject **/*` argument
 is how matching occurs. The `--BEGIN` and `--END` comments are not required by
 Spry but make it easier to trace where _partial_ injections are occurring.
 
+⚠️ Content injection content happens _before_ any other interpolation so the
+final interpolation for injected content will occur in the destination cell.
+
 ```sql PARTIAL global-layout.sql --inject **/*
 -- BEGIN: PARTIAL global-layout.sql
 SELECT 'shell' AS component,
@@ -177,10 +180,6 @@ SET page_path = json_extract($resource_json, '$.route.path');
 ${ctx.breadcrumbs()}
 
 -- END: PARTIAL global-layout.sql
--- locals: ${Object.keys(__l).join(", ")}
--- cell.pi: ${JSON.stringify(cell.pi)}
--- cell: ${Object.keys(cell).join(", ")}
--- mdastNode: ${safeJsonStringify(cell)}
 ```
 
 Get the brand assets and store them into the SQLPage content stream. They will
@@ -199,6 +198,8 @@ utf8 https://www.surveilr.com/assets/brand/compliance-explorer.png --spc
 Index page which automatically generates links to all `/scf` pages.
 
 ```sql index.sql { route: { caption: "Home" } }
+-- locals: ${Object.keys(__l).join(", ")}
+-- mdastNode: ${safeJsonStringify(cell)}
 SET routes_json = sqlpage.read_file_as_text('spry.d/auto/route/forest.auto.json');
 SET root_path   = '/scf';
 

@@ -90,6 +90,11 @@ ${partial("greet-user", { userName: "Zoya (no await)" })}
 The following partial acts as a global layout and will be injected for all pages
 unless a more specific layout overrides it.
 
+⚠️ Content injection content happens _before_ any other interpolation so the
+final interpolation for injected content will occur in the destination cell.
+This means if you use `${...}` type variable replacements they will be done
+after injection.
+
 ```md PARTIAL global-layout --inject **/*
 # global layout (injected for any path)
 ```

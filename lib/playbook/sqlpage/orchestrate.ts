@@ -1,7 +1,6 @@
 import z from "@zod/zod";
 import {
   codeInterpolationStrategy,
-  unsafeBrackets,
 } from "../../axiom/mdast/code-interpolate.ts";
 import {
   Directive,
@@ -153,7 +152,7 @@ export function sqlPageInterpolator(
   };
 
   const strategy = codeInterpolationStrategy(directives, {
-    brackets: unsafeBrackets,
+    approach: "unsafe-allowed",
     unsafeGlobalsCtxName: "ctx",
     globals,
   });
@@ -233,8 +232,14 @@ export async function* sqlPageFiles(
         if (typeof spc.contents === "string") {
           const rendered = await renderOne(m, {
             body: () => spc.contents,
-            locals: (locals) => ({ cell: m, ...locals, ...typicalLocals }),
+            locals: (locals) => ({
+              ...typicalLocals,
+              ...locals,
+              cell: m,
+              path: spc.path,
+            }),
           });
+          spc.contents = rendered.text;
           // see if any @route.* annotations are supplied in the mutated content
           // and merge them with existing { route: {...} } cell
           const route = routeAnnsF.transform(

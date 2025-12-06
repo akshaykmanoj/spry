@@ -23,7 +23,6 @@ import { isMaterializable } from "../../axiom/projection/playbook.ts";
 import { docFrontmatterDataBag } from "../../axiom/remark/doc-frontmatter.ts";
 import { isImportPlaceholder } from "../../axiom/remark/import-placeholders-generator.ts";
 import { collectAsyncGenerated } from "../../universal/collectable.ts";
-import { SourceRelativeTo } from "../../universal/content-acquisition.ts";
 import { doctor } from "../../universal/doctor.ts";
 import { eventBus } from "../../universal/event-bus.ts";
 import { MarkdownDoc } from "../../universal/fluent-md.ts";
@@ -480,7 +479,6 @@ export class CLI<Project> {
   async ls(
     opts: {
       md: string[];
-      srcRelTo: SourceRelativeTo;
       conf?: boolean;
       pi?: boolean;
       infoAttrs?: boolean;
@@ -493,7 +491,9 @@ export class CLI<Project> {
       ...spf,
       name: basename(spf.path),
       flags: flagsFrom(spf),
-      notebook: spf.cell?.provenance.file.path ?? "",
+      notebook: spf.cell && "provenance" in spf.cell
+        ? (spf.cell?.provenance.file.path ?? "")
+        : "",
     }));
 
     if (opts.tree) {
@@ -594,7 +594,7 @@ export class CLI<Project> {
   }
 
   async cat(
-    opts: { md: string[]; srcRelTo: SourceRelativeTo; glob: string[] },
+    opts: { md: string[]; glob: string[] },
   ) {
     const matchesAnyGlob = (path: string) =>
       opts.glob.some((g) =>
@@ -614,7 +614,6 @@ export class CLI<Project> {
   async *materializeFs(
     opts: {
       md: string[];
-      srcRelTo: SourceRelativeTo;
       fs: string;
       destroyFirst?: boolean;
     },
@@ -649,7 +648,6 @@ export class CLI<Project> {
   async materializeFsWatch(
     opts: {
       md: string[];
-      srcRelTo: SourceRelativeTo;
       fs: string;
       destroyFirst?: boolean;
       watch?: boolean;
@@ -712,7 +710,6 @@ export class CLI<Project> {
   }
 
   command(name = "spry.ts") {
-    const srcRelTo = new EnumType(SourceRelativeTo);
     const dialect = new EnumType(SqlPageFilesUpsertDialect);
     const mdOpt = [
       "-m, --md <mdPath:string>",
@@ -721,13 +718,6 @@ export class CLI<Project> {
         required: true,
         collect: true,
         default: ["Spryfile.md"],
-      },
-    ] as const;
-    const srcRelToOpt = [
-      "--src-rel-to <relative-to:sourceRelTo>",
-      "When relative paths are used, what are they relative to?",
-      {
-        default: SourceRelativeTo.LocalFs,
       },
     ] as const;
 
@@ -785,10 +775,8 @@ export class CLI<Project> {
         "spc",
         new Command() // Emit SQL package (sqlite) to stdout; accepts md path
           .description("SQLPage Content (spc) CLI")
-          .type("sourceRelTo", srcRelTo)
           .type("dialect", dialect)
           .option(...mdOpt)
-          .option(...srcRelToOpt)
           .option(
             "-p, --package",
             "Emit SQL package to stdout from the given markdown path",
@@ -837,7 +825,6 @@ export class CLI<Project> {
               await this.materializeFsWatch({
                 // not sure why this mapping is needed, Cliffy seems to not type `default` for `collect`ed arrays properly?
                 md: opts.md.map((f) => String(f)),
-                srcRelTo: opts.srcRelTo,
                 fs: opts.fs,
                 destroyFirst: opts.destroyFirst,
                 verbose: opts.verbose,
@@ -898,9 +885,7 @@ export class CLI<Project> {
             }
           })
           .command("ls", "List SQLPage file entries")
-          .type("sourceRelTo", srcRelTo)
           .option(...mdOpt)
-          .option(...srcRelToOpt)
           .option(
             "-i, --pi",
             "Show just the cell names and INFO lines for each cell",
@@ -917,9 +902,7 @@ export class CLI<Project> {
             })
           )
           .command("cat", "Concatenate SQLPage file contents")
-          .type("sourceRelTo", srcRelTo)
           .option(...mdOpt)
-          .option(...srcRelToOpt)
           .option("-g, --glob <path:string>", "Path glob(s) to target", {
             required: true,
             collect: true,

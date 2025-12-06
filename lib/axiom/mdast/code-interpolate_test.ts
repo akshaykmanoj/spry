@@ -37,6 +37,7 @@ Deno.test(
     const { directives } = pbff;
 
     const rs = codeInterpolationStrategy(directives, {
+      approach: "safety-first",
       globals: {
         siteName: "Synthetic1",
         md: {
