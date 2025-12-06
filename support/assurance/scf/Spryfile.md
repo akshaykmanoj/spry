@@ -177,7 +177,10 @@ SET page_path = json_extract($resource_json, '$.route.path');
 ${ctx.breadcrumbs()}
 
 -- END: PARTIAL global-layout.sql
--- this is the `${cell.info}` cell on line ${cell.startLine}
+-- locals: ${Object.keys(__l).join(", ")}
+-- cell.pi: ${JSON.stringify(cell.pi)}
+-- cell: ${Object.keys(cell).join(", ")}
+-- mdastNode: ${safeJsonStringify(cell)}
 ```
 
 Get the brand assets and store them into the SQLPage content stream. They will

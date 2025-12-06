@@ -41,23 +41,20 @@ import {
 } from "../../universal/task.ts";
 import { computeSemVerSync } from "../../universal/version.ts";
 
-import {
-  captureFactory,
-  CaptureSpec,
-  gitignorableOnCapture,
-} from "../../interpolate/capture.ts";
-import { type PartialCollection } from "../../interpolate/partial.ts";
-import {
-  unsafeInterpFactory,
-  UnsafeInterpolationResult,
-} from "../../interpolate/unsafe.ts";
 import { eventBus } from "../../universal/event-bus.ts";
+import { renderer } from "../../universal/render.ts";
 import { shell } from "../../universal/shell.ts";
 import {
   executionPlanVisuals,
   ExecutionPlanVisualStyle,
 } from "../../universal/task-visuals.ts";
-import { ExecutableTask, playbooksFromFiles } from "../projection/playbook.ts";
+import { codeInterpolationStrategy } from "../mdast/code-interpolate.ts";
+import {
+  Directive,
+  ExecutableTask,
+  playbooksFromFiles,
+} from "../projection/playbook.ts";
+import { CaptureSpec } from "../remark/actionable-code-candidates.ts";
 import * as axiomCLI from "./cli.ts";
 
 // deno-lint-ignore no-explicit-any
@@ -66,84 +63,43 @@ type Any = any;
 export function executeTasksFactory<
   T extends ExecutableTask,
   Context extends { readonly runId: string },
-  FragmentLocals extends Record<string, unknown> = Record<string, unknown>,
 >(
   opts?: {
-    partials: PartialCollection<FragmentLocals>;
+    directives: readonly Directive[];
     shellBus?: ReturnType<typeof eventBus<ShellBusEvents>>;
     tasksBus?: ReturnType<typeof eventBus<TaskExecEventMap<T, Context>>>;
   },
 ) {
+  const cis = codeInterpolationStrategy(opts?.directives ?? []);
+  const interpolator = renderer(cis);
+  const sh = shell({ bus: opts?.shellBus });
   const td = new TextDecoder();
 
-  const cf = captureFactory<
-    ExecutableTask,
-    {
-      readonly interpResult: UnsafeInterpolationResult;
-      readonly execResult?: Awaited<
-        ReturnType<ReturnType<typeof shell>["auto"]>
-      >;
-    }
-  >({
-    isCapturable: (task) =>
-      task.spawnableArgs.capture.length ? task.spawnableArgs.capture : false,
-    prepareCaptured: (op) => {
-      const text = () => {
-        if (op.execResult) {
-          if (Array.isArray(op.execResult)) {
-            return op.execResult.map((er) => td.decode(er.stdout)).join("\n");
-          } else {
-            return td.decode(op.execResult.stdout);
-          }
-        } else {
-          return op.interpResult.source;
-        }
-      };
-      const json = () => JSON.parse(text());
-      return { text, json };
-    },
-    onCapture: gitignorableOnCapture,
-  });
-
-  const { capture, history: captured } = cf;
-  const { partials } = opts ?? {};
-  const unsafeInterp = unsafeInterpFactory({
-    partialsCollec: partials,
-    interpCtx: () => ({ captured }),
-  });
-  const sh = shell({ bus: opts?.shellBus });
-  const { interpolateUnsafely } = unsafeInterp;
-
-  const te = new TextEncoder();
   const execute = async (plan: TaskExecutionPlan<T>) =>
     await executeDAG(plan, async (task, ctx) => {
-      const interpResult = await interpolateUnsafely({
-        task,
-        source: task.value,
-        interpolate: task.spawnableArgs.interpolate,
-      });
-      if (interpResult.status) {
-        const execResult = task.captureOnly
-          ? { // could be "env", "envrc" or other "output-only" tasks
-            code: 0,
-            success: true,
-            stdout: te.encode(interpResult.source),
-            stderr: new Uint8Array(),
+      const rendered = await interpolator.renderOne(task);
+      if (!rendered.error) {
+        // if the task is a "memoize only" (no execution) then the interpolator
+        // already handled the memoization and we won't run the task
+        if (!task.memoizeOnly) {
+          const execResult = await sh.auto(rendered.text, undefined, task);
+          if (task.spawnableArgs.capture.length > 0) {
+            // before the task runs, "memoize" in interpolator.renderOne stores
+            // the "source" (before execution) and now we need to overwrite that
+            // "memoization" with the actual execution's stdout / result
+            const output = Array.isArray(execResult)
+              ? execResult.map((er) => td.decode(er.stdout)).join("\n")
+              : td.decode(execResult.stdout);
+            cis.memory.memoize?.(output, task.spawnableArgs.capture);
           }
-          : await sh.auto(interpResult.source, undefined, task);
-        await capture(task, { interpResult, execResult });
+        }
         return ok(ctx);
       } else {
-        return fail(ctx, interpResult.error);
+        return fail(ctx, rendered.error);
       }
     }, { eventBus: opts?.tasksBus });
 
-  return {
-    execute,
-    sh,
-    unsafeInterp,
-    capture: cf,
-  };
+  return { execute, sh, cis, interpolator };
 }
 
 export type LsTaskRow = {
@@ -151,8 +107,8 @@ export type LsTaskRow = {
   name: string;
   origin: string;
   engine: ReturnType<ReturnType<typeof shell>["strategy"]> | {
-    engine: "capture-only";
-    label: "Capture Only";
+    engine: "memoize-only";
+    label: "Memoize Only";
     linesOfCode: string[];
   };
   descr: string;
@@ -220,7 +176,7 @@ function lsCmdEngineField<Row extends LsTaskRow>(): Partial<
           return green(v.label);
         case "deno-task":
           return cyan(v.label);
-        case "capture-only":
+        case "memoize-only":
           return gray(v.label);
       }
     },
@@ -361,7 +317,7 @@ export class CLI {
       .option("--summarize", "Emit summary after execution in JSON")
       .action(
         async (opts, taskId, ...paths: string[]) => {
-          const { tasks, partials } = await playbooksFromFiles(
+          const { tasks, directives } = await playbooksFromFiles(
             paths.length ? paths : this.conf?.defaultFiles ?? [],
           );
           if (tasks.find((t) => t.taskId() == taskId)) {
@@ -370,7 +326,7 @@ export class CLI {
               { runId: string }
             >(opts?.verbose);
             const etf = executeTasksFactory({
-              partials,
+              directives,
               shellBus: ieb.shellEventBus,
               tasksBus: ieb.tasksEventBus,
             });
@@ -407,7 +363,7 @@ export class CLI {
       .option("--visualize <style:visualStyle>", "Visualize the DAG")
       .action(
         async (opts, ...paths: string[]) => {
-          const { tasks, partials } = await playbooksFromFiles(
+          const { tasks, directives } = await playbooksFromFiles(
             paths.length ? paths : this.conf?.defaultFiles ?? [],
             {
               filter: opts.graph?.length
@@ -430,7 +386,7 @@ export class CLI {
               { runId: string }
             >(opts?.verbose);
             const etf = executeTasksFactory({
-              partials,
+              directives,
               shellBus: ieb.shellEventBus,
               tasksBus: ieb.tasksEventBus,
             });
@@ -476,17 +432,17 @@ export class CLI {
               deps: task.taskDeps().join(", "),
               descr: args.description ?? "",
               origin: task.provenance.fileRef(task),
-              engine: task.captureOnly
+              engine: task.memoizeOnly
                 ? {
-                  engine: "capture-only",
-                  label: "Capture Only",
+                  engine: "memoize-only",
+                  label: "Memoize Only",
                   linesOfCode: [],
                 }
                 : sh.strategy(task.value),
               flags: {
                 isInterpolated: args.interpolate ? true : false,
                 isCaptured: args.capture.length > 0 ? args.capture[0] : false,
-                isCaptureOnly: task.captureOnly ?? false,
+                isCaptureOnly: task.memoizeOnly ?? false,
                 isGitIgnored: args.capture[0]?.gitignore ? true : false,
                 isSilent: args.silent ?? false,
                 hasIssues: false,

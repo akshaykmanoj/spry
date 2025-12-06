@@ -56,7 +56,7 @@ This text will be interpolated but will result in no mutations though it will
 get injections from the global PARTIAL.
 ```
 
-```md admin/name.md
+```md admin/name.md -C sampleCap1
 This text will be interpolated: **${unsafeEval("2 + 3")}** = 5;
 
 - [ ] confirm locals are visible: site = ${siteName}
@@ -67,9 +67,9 @@ This is a named PARTIAL directive that uses type-safe locals.
 ```md PARTIAL greet-user { userName: { type: "string", required: true }, mood: { type: "string" } }
 # PARTIAL greet-user
 
-- path: ${path}
+- path: ${identity}
 - userName: ${userName}
-- mood: ${mood ?? "undefined"}
+- mood: $!{mood ?? "undefined"}
 ```
 
 This cell uses the partial from within a normal page.
@@ -77,7 +77,7 @@ This cell uses the partial from within a normal page.
 ```text admin/home.txt { route: { caption: "Admin Home" } }
 admin home page
 path: ${SELF.materializableIdentity} via SELF
-path: ${path} passed in
+path: ${identity} passed in
 route caption: ${route.caption} coming from code attrs
 
 direct call with await
@@ -108,8 +108,8 @@ while calling a PARTIAL is done using `{{...}}`. The full "unsafe" JS eval is
 available with `$!{...}`.
 
 ```text debug.txt
-markdown link: ${md.link("demo", "https://example.com")}
-siteName: ${ctx.siteName}
+markdown link: ${mdLink("demo", "https://example.com")} (comes from "safeFunctions")
+siteName: ${siteName} (comes from "globals")
 
 - missing partial:
 {{non-existent}}
@@ -120,8 +120,21 @@ siteName: ${ctx.siteName}
 - greet-user with correct args:
 {{ greet-user { userName: "Debug User", mood: "alert" } }}
 
+- greet-user with correct args using unsafe interpolator:
+$!{await partial("greet-user", { wrongName: "oops" })}
+$!{await partial("greet-user", { userName: "Zoya", mood: "cheerful" })}
+
 - full ctx (unsafe):
 $!{safeJsonStringify(ctx)}
+
+- captured/memoized (synonyms):
+-----
+${captured.sampleCap1}
+-----
+
+====
+${memoized.sampleCap1}
+====
 ```
 
 ## Outro

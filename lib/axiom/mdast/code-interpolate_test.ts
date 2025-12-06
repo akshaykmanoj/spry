@@ -1,12 +1,12 @@
 import { assertEquals } from "@std/assert";
 import { renderer } from "../../universal/render.ts";
-import { CodeFrontmatter, codeFrontmatter } from "../mdast/code-frontmatter.ts";
+import { codeInterpolationStrategy } from "../mdast/code-interpolate.ts";
 import {
   Executable,
   Materializable,
   playbooksFromFiles,
 } from "../projection/playbook.ts";
-import { renderStrategy } from "./mod.ts";
+import { CodeFrontmatter, codeFrontmatter } from "./code-frontmatter.ts";
 
 const executableIDs = ["init", "prime"] as const;
 type ExecutableID = typeof executableIDs[number];
@@ -29,18 +29,25 @@ type PartialID = typeof partialIDs[number];
 Deno.test(
   "markdown-driven partials, interpolation, and injection (via playbooksFromFiles)",
   async (t) => {
-    const fixtureUrl = new URL("./mod_test.ts-fixture01.md", import.meta.url);
+    const fixtureUrl = new URL(
+      "./code-interpolate_test.ts-fixture01.md",
+      import.meta.url,
+    );
     const pbff = await playbooksFromFiles([fixtureUrl.pathname]);
     const { directives } = pbff;
 
-    const rs = renderStrategy(directives, {
+    const rs = codeInterpolationStrategy(directives, {
       globals: {
         siteName: "Synthetic1",
-        mdHelpers: {
+        md: {
           link(text: string, url: string): string {
             return `[${text}](${url})`;
           },
         },
+      },
+      safeFunctions: {
+        unsafeEval: ([code]) => eval(String(code)),
+        mdLink: ([text, url]) => `[${text}](${url})`,
       },
     });
     const r = renderer(rs);
@@ -115,6 +122,12 @@ Deno.test(
             "-- also test nested expression: 6 = 6",
           mutation: "mutated",
           error: undefined,
+          injectedTmpls: [
+            {
+              path: "path1/name.txt",
+              templateName: "global-layout",
+            },
+          ],
         },
         {
           text: "# global layout (injected for any path)\n" +
@@ -123,6 +136,16 @@ Deno.test(
             "get injections from the global PARTIAL.",
           mutation: "mutated",
           error: undefined,
+          injectedTmpls: [
+            {
+              path: "admin/name.txt",
+              templateName: "admin-layout",
+            },
+            {
+              path: "admin/name.txt",
+              templateName: "global-layout",
+            },
+          ],
         },
         {
           text: "# global layout (injected for any path)\n" +
@@ -131,13 +154,72 @@ Deno.test(
             "- [ ] confirm locals are visible: site = Synthetic1",
           mutation: "mutated",
           error: undefined,
+          injectedTmpls: [
+            {
+              path: "admin/name.md",
+              templateName: "admin-layout",
+            },
+            {
+              path: "admin/name.md",
+              templateName: "global-layout",
+            },
+          ],
         },
       ]);
     });
 
     await t.step("exercise multiple interpolation types", async () => {
       const result = await r.renderOne(materializablesById["debug.txt"]);
-      console.log(result.text);
+      assertEquals(result.error, undefined);
+      assertEquals(result.text, debugTxtGolden);
     });
   },
 );
+
+const debugTxtGolden = `# global layout (injected for any path)
+markdown link: [demo](https://example.com) (comes from "safeFunctions")
+siteName: Synthetic1 (comes from "globals")
+
+- missing partial:
+partial "non-existent" not found (available: 'greet-user', 'global-layout', 'admin-layout')
+
+- greet-user with wrong args:
+partial "greet-user" arguments invalid: ✖ Invalid input: expected string, received undefined
+  → at userName)
+
+- greet-user with correct args:
+# PARTIAL greet-user
+
+- path: debug.txt
+- userName: Debug User
+- mood: alert
+
+- greet-user with correct args using unsafe interpolator:
+partial "greet-user" arguments invalid: ✖ Invalid input: expected string, received undefined
+  → at userName)
+# PARTIAL greet-user
+
+- path: debug.txt
+- userName: Zoya
+- mood: cheerful
+
+- full ctx (unsafe):
+{"siteName":"Synthetic1","md":{}}
+
+- captured/memoized (synonyms):
+-----
+# global layout (injected for any path)
+## admin layout (injected for any admin/* paths)
+This text will be interpolated: **5** = 5;
+
+- [ ] confirm locals are visible: site = Synthetic1
+-----
+
+====
+# global layout (injected for any path)
+## admin layout (injected for any admin/* paths)
+This text will be interpolated: **5** = 5;
+
+- [ ] confirm locals are visible: site = Synthetic1
+====
+`.trim();

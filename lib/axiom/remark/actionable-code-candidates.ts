@@ -72,10 +72,10 @@
  *         path (`nature: "relFsPath"`) with optional `gitignore`.
  *       - Otherwise it is treated as an in-memory capture key
  *         (`nature: "memory"`).
- *   - `captureOnly`:
+ *   - `memoizeOnly`:
  *       - When true, indicates that the code should not actually be executed,
  *         only interpolated and captured.
- *       - For some languages (see `captureOnlyLangIds`), this effectively
+ *       - For some languages (see `memoizeOnlyLangIds`), this effectively
  *         makes the node `nature: "STORABLE"` even though it is still a `code`
  *         block in the Markdown.
  *
@@ -86,7 +86,7 @@
  * - `spawnableLangIds`: base language IDs (e.g. `"shell"`, `"envrc"`, `"env"`).
  * - `spawnableLangSpecs`: their corresponding `LanguageSpec` entries from
  *   `languageRegistry`.
- * - `captureOnlyLangIds`: a subset of those whose code is never “run” but
+ * - `memoizeOnlyLangIds`: a subset of those whose code is never “run” but
  *   only **captured** (e.g. `"env"`, `"envrc"`); these are always treated as
  *   `nature: "STORABLE"` and not as executable tasks.
  *
@@ -208,7 +208,7 @@ export type ActionableCodePiFlags = z.infer<typeof actionableCodePiFlagsSchema>;
 export const actionableCodeSchema = z.discriminatedUnion("nature", [
   z.object({
     nature: z.literal("EXECUTABLE"),
-    captureOnly: z.boolean().optional(), // don't execute, just capture interpolation results
+    memoizeOnly: z.boolean().optional(), // don't execute, just capture interpolation results
     spawnableIdentity: z.string().min(1), // required, names the task
     language: languageSpecSchema,
     spawnableArgs: actionableCodePiFlagsSchema, // typed, parsed, validated
@@ -271,7 +271,7 @@ export const spawnableLangSpecs = spawnableLangIds.map((lid) => {
   if (!langSpec) throw new Error("this should never happen");
   return langSpec;
 });
-export const captureOnlySpawnableLangSpecs = captureOnlySpawnableLangIds.map(
+export const memoizeOnlySpawnableLangSpecs = captureOnlySpawnableLangIds.map(
   (lid) => {
     const langSpec = languageRegistry.get(lid);
     if (!langSpec) throw new Error("this should never happen");
@@ -315,7 +315,7 @@ export const actionableCodeCandidates: Plugin<
                 actionable.spawnableIdentity = identity;
                 actionable.language = codeFM.langSpec!;
                 actionable.spawnableArgs = args.data; // by default we do NOT interpolate
-                actionable.captureOnly = captureOnlySpawnableLangSpecs.find(
+                actionable.memoizeOnly = memoizeOnlySpawnableLangSpecs.find(
                     (l) => l.id == codeFM.langSpec?.id,
                   )
                   ? true

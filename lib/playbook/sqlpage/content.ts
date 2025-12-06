@@ -3,10 +3,8 @@ import {
   CodeFrontmatter,
   codeFrontmatter,
 } from "../../axiom/mdast/code-frontmatter.ts";
-import { Directive } from "../../axiom/projection/directives.ts";
-import { Materializable } from "../../axiom/projection/playbook.ts";
+import { Directive, Materializable } from "../../axiom/projection/playbook.ts";
 import { isImportPlaceholder } from "../../axiom/remark/import-placeholders-generator.ts";
-import { PartialCollection } from "../../interpolate/partial.ts";
 import {
   ensureLanguageByIdOrAlias,
   languageHandlers,
@@ -29,6 +27,8 @@ import {
   literal,
 } from "../../universal/sql-text.ts";
 import { safeJsonStringify } from "../../universal/tmpl-literal-aide.ts";
+import { RenderResult } from "../../universal/render.ts";
+import { Code } from "types/mdast";
 
 export const sqlCodeCellLangId = "sql" as const;
 export const sqlCodeCellLangSpec = ensureLanguageByIdOrAlias(sqlCodeCellLangId);
@@ -97,8 +97,6 @@ export function sqlPagePathsFactory() {
   };
 }
 
-type InjectableMatch = PartialCollection["findInjectableForPath"];
-
 /** Common fields present on all SqlPageFile variants */
 type SqlPageFileBase = {
   /** Discriminator */
@@ -110,7 +108,7 @@ type SqlPageFileBase = {
   /** Optional timestamp (not used in DML; engine time is used) */
   readonly lastModified?: Date;
   /** The notebook/playbook cell this file originated from, if any */
-  readonly cell?: Materializable | Directive;
+  readonly cell?: Code | Materializable | Directive;
 };
 
 /** Minimal variant for static head/tail SQL files */
@@ -133,7 +131,7 @@ export type SqlPageFileUpsert =
     readonly isUnsafeInterpolatable?: boolean;
     isInterpolated?: boolean;
     readonly isInjectableCandidate?: boolean;
-    partialInjected?: InjectableMatch;
+    partialsInjected?: RenderResult["injectedTmpls"];
     error?: unknown;
   };
 

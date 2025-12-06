@@ -1,6 +1,11 @@
 import { globToRegExp, isGlob, normalize } from "@std/path";
 import z from "@zod/zod";
-import { safeInterpolateAsync } from "../../universal/flexible-interpolator.ts";
+import { Code } from "types/mdast";
+import {
+  safeInterpolateAsync,
+  SafeInterpolationFunctionRegistry,
+  SafeInterpolationOptions,
+} from "../../universal/flexible-interpolator.ts";
 import { gitignore } from "../../universal/gitignore.ts";
 import {
   flexibleTextSchema,
@@ -15,8 +20,8 @@ import {
 } from "../../universal/render.ts";
 import { ensureTrailingNewline } from "../../universal/text-utils.ts";
 import { safeJsonStringify } from "../../universal/tmpl-literal-aide.ts";
+import { unsafeJsExpr } from "../../universal/unsafe-js-expr.ts";
 import { build as zodSchemaFromUserAgent } from "../../universal/zod-aide.ts";
-import { Directive } from "../projection/directives.ts";
 import {
   Executable,
   isMaterializable,
@@ -26,6 +31,7 @@ import {
   ActionableCodePiFlags,
   CaptureSpec,
 } from "../remark/actionable-code-candidates.ts";
+import { codeFrontmatter } from "./code-frontmatter.ts";
 
 export const partialTmplPiFlagsSchema = z.object({
   descr: z.string().optional(),
@@ -63,27 +69,32 @@ export const partialTmplPiFlagsSchema = z.object({
 
 export type PartialTmplPiFlags = z.infer<typeof partialTmplPiFlagsSchema>;
 
+export const PARTIAL = "PARTIAL" as const;
+export type PARTIAL = typeof PARTIAL;
+
 export type PartialTmpl =
-  & Directive
+  & Code
   & {
+    readonly directive: PARTIAL;
+    readonly identity: string;
     readonly piFlags: PartialTmplPiFlags;
     readonly argsSchema?: z.ZodTypeAny;
     readonly render: (locals?: unknown) => { text: string; error?: unknown };
   }
   & Partial<InjectionProvider<Executable | Materializable>>;
 
-export function partialTmpl(d: Directive): PartialTmpl | false {
-  const argsSchema: PartialTmpl["argsSchema"] = d.instructions.attrs
+export function partialTmpl(identity: string, code: Code): PartialTmpl | false {
+  const codeFM = codeFrontmatter(code);
+  if (!codeFM) return false;
+
+  const argsSchema: PartialTmpl["argsSchema"] = codeFM.attrs
     ? zodSchemaFromUserAgent({
       type: "object",
-      properties: d.instructions.attrs,
+      properties: codeFM.attrs,
       additionalProperties: true,
     })
     : undefined;
-  const parsedPiFlags = z.safeParse(
-    partialTmplPiFlagsSchema,
-    d.instructions.pi.flags,
-  );
+  const parsedPiFlags = z.safeParse(partialTmplPiFlagsSchema, codeFM.pi.flags);
   if (parsedPiFlags.success) {
     const { data: piFlags } = parsedPiFlags;
     let inject: PartialTmpl["inject"] = undefined;
@@ -91,14 +102,14 @@ export function partialTmpl(d: Directive): PartialTmpl | false {
       const { injectAll, regExes, append } = piFlags;
       inject = injectAll
         ? ((ctx) =>
-          append ? `${ctx.body}\n${d.value}` : `${d.value}\n${ctx.body}`)
+          append ? `${ctx.body}\n${code.value}` : `${code.value}\n${ctx.body}`)
         : (ctx) => {
           if (ctx.path && regExes) {
             for (const re of regExes) {
               if (re.test(ctx.path)) {
                 return append
-                  ? `${ctx.body}\n${d.value}`
-                  : `${d.value}\n${ctx.body}`;
+                  ? `${ctx.body}\n${code.value}`
+                  : `${code.value}\n${ctx.body}`;
               }
             }
           }
@@ -109,13 +120,21 @@ export function partialTmpl(d: Directive): PartialTmpl | false {
         const parsed = argsSchema.safeParse(locals);
         if (!parsed.success) {
           // deno-fmt-ignore
-          const message = `partial "${name}" arguments invalid: ${z.prettifyError(parsed.error)})`;
+          const message = `partial "${identity}" arguments invalid: ${z.prettifyError(parsed.error)})`;
           return { text: message, error: new Error(message) };
         }
       }
-      return { text: d.value };
+      return { text: code.value };
     };
-    return { ...d, piFlags, inject, argsSchema, render };
+    return {
+      ...code,
+      directive: PARTIAL,
+      identity,
+      piFlags,
+      inject,
+      argsSchema,
+      render,
+    };
   }
   return false;
 }
@@ -129,31 +148,40 @@ export type Captured = {
   readonly spec: CaptureSpec;
   readonly text: () => string;
   readonly json: <Value>() => Value;
+  readonly toString: () => string; // defaults to text()
 };
 
 export type FlexibleMemory =
   & Memory<FlexibleMemoryValue, FlexibleMemoryShape, Capturable>
-  & { partials: Record<string, PartialTmpl> };
+  & {
+    readonly partials: Record<string, PartialTmpl>;
+    readonly memoizedFsPaths: (Extract<CaptureSpec, { nature: "relFsPath" }> & {
+      readonly captured: Captured;
+    })[];
+  };
 
 export function flexibleMemory(
-  directives: readonly Directive[],
-  captures?: Record<string, Captured>,
+  partialTmplCandidates: Iterable<
+    Code & { readonly directive: string; readonly identity?: string }
+  >,
+  memoized?: Record<string, Captured>,
 ): FlexibleMemory {
+  const memoizedFsPaths: FlexibleMemory["memoizedFsPaths"] = [];
   const injectables = {
     all: [] as [string, PartialTmpl][],
     regExes: [] as [string, PartialTmpl][],
   };
   const partials: Record<string, PartialTmpl> = {};
 
-  for (const d of directives) {
-    if (d.directive === "PARTIAL" && d.identity) {
-      const partial = partialTmpl(d);
+  for (const ptc of partialTmplCandidates) {
+    if (ptc.directive === PARTIAL && ptc.identity) {
+      const partial = partialTmpl(ptc.identity, ptc);
       if (partial) {
-        partials[d.identity] = partial;
+        partials[ptc.identity] = partial;
         if (partial.piFlags.injectAll) {
-          injectables.all.push([d.identity, partial]);
+          injectables.all.push([ptc.identity, partial]);
         } else if (partial.piFlags.regExes) {
-          injectables.regExes.push([d.identity, partial]);
+          injectables.regExes.push([ptc.identity, partial]);
         }
       }
     }
@@ -163,12 +191,13 @@ export function flexibleMemory(
     FlexibleMemoryValue,
     FlexibleMemoryShape,
     Capturable
-  >["memoize"] = async (rendered, capture) => {
-    for (const cs of capture) {
+  >["memoize"] = async (rendered, captureSpecs) => {
+    for (const cs of captureSpecs) {
       const cap: Captured = {
         spec: cs,
         text: () => rendered,
         json: <Value>() => JSON.parse(rendered) as Value,
+        toString: () => rendered.trim(),
       };
       if (cs.nature === "relFsPath") {
         await Deno.writeTextFile(
@@ -187,8 +216,9 @@ export function flexibleMemory(
             await gitignore(gi);
           }
         }
+        memoizedFsPaths.push({ ...cs, captured: cap });
       } else {
-        if (captures) captures[cs.key] = cap;
+        if (memoized) memoized[cs.key] = cap;
       }
     }
   };
@@ -200,6 +230,7 @@ export function flexibleMemory(
     injectables: () => [...injectables.regExes, ...injectables.all],
     memoize,
     partials,
+    memoizedFsPaths,
   };
 }
 
@@ -207,12 +238,13 @@ export function actionableContent(): Content<
   Executable | Materializable,
   Capturable
 > {
+  const identity = (code: Executable | Materializable) =>
+    isMaterializable(code)
+      ? code.materializableIdentity
+      : code.spawnableIdentity;
   return {
     body: (code) => code.value,
-    path: (code) =>
-      isMaterializable(code)
-        ? code.materializableIdentity
-        : code.spawnableIdentity,
+    path: identity,
     isInterpolatable: (code) =>
       isMaterializable(code)
         ? code.materializationArgs.interpolate ?? false
@@ -225,75 +257,49 @@ export function actionableContent(): Content<
       isMaterializable(code)
         ? code.materializationArgs.capture
         : code.spawnableArgs.capture,
+    locals: (action) => ({ identity: identity(action), action }),
   };
 }
 
-const IDENT_RX = /^[A-Za-z_$][\w$]*$/;
+export const safeExprCodeBID = "safe" as const;
+export const partialTmplCodeBID = "partial" as const;
+export const unsafeCodeBID = "unsafe" as const;
+export type CodeInterpBracketID =
+  | typeof safeExprCodeBID
+  | typeof partialTmplCodeBID
+  | typeof unsafeCodeBID;
 
-const assertValidIdentifier = (name: string, label = "identifier") => {
-  if (!IDENT_RX.test(name)) {
-    throw new Error(
-      `Invalid ${label} "${name}". Use a simple JavaScript identifier.`,
-    );
-  }
-};
+export const safeOnlyBrackets = [
+  { id: safeExprCodeBID, prefix: "$", open: "{", close: "}" },
+  { id: partialTmplCodeBID, open: "{{", close: "}}" },
+] as const;
 
-function compileUnsafeExpr(
-  expr: string,
-  ctxName: string,
-  localKeys: readonly string[],
-) {
-  if (localKeys.includes(ctxName)) {
-    throw new Error(
-      `Local key "${ctxName}" conflicts with ctxName. Rename the local or choose a different ctxName.`,
-    );
-  }
+export const safetyFirstBrackets = [
+  { id: safeExprCodeBID, prefix: "$", open: "{", close: "}" },
+  { id: partialTmplCodeBID, open: "{{", close: "}}" },
+  { id: unsafeCodeBID, prefix: "$!", open: "{", close: "}" },
+] as const;
 
-  for (const k of localKeys) assertValidIdentifier(k, "local key");
+export const unsafeBrackets = [
+  { id: unsafeCodeBID, prefix: "$", open: "{", close: "}" },
+  { id: partialTmplCodeBID, open: "{{", close: "}}" },
+] as const;
 
-  const decls = localKeys
-    .map((k) => `const ${k} = __l[${JSON.stringify(k)}];`)
-    .join("\n");
-
-  const ctxDecl = `const ${ctxName} = __ctx;`;
-
-  // For a single expression inside $!{ ... }, the "template" is just that expr.
-  const bodyLines = [
-    `"use strict";`,
-    decls,
-    ctxDecl,
-    `return (${expr});`,
-  ];
-
-  const body = bodyLines.join("\n");
-
-  const AsyncFunction = Object.getPrototypeOf(async function () {})
-    .constructor as {
-      new (
-        ...args: string[]
-      ): (ctx: unknown, locals: Record<string, unknown>) => Promise<unknown>;
-    };
-
-  return new AsyncFunction(
-    "__ctx",
-    "__l",
-    body,
-  ) as (ctx: unknown, locals: Record<string, unknown>) => Promise<unknown>;
-}
-
-export function renderStrategy(
-  directives: readonly Directive[],
+export function codeInterpolationStrategy(
+  partialTmplCandidates: Iterable<
+    Code & { readonly directive: string; readonly identity?: string }
+  >,
   strategyOpts?: {
+    unsafeGlobalsCtxName?: string;
     globals?: Record<string, unknown>;
-    captures?: Record<string, Captured>;
+    safeFunctions?: SafeInterpolationFunctionRegistry;
+    memoized?: Record<string, Captured>;
+    brackets?: SafeInterpolationOptions["brackets"];
   },
 ) {
-  const simpleExprBID = "simple-expr" as const; // "BID" = "bracket ID"
-  const partialBID = "partial" as const; // whatever you already use for {{ ... }}
-  const unsafeBID = "unsafe" as const; // for $!{ ... }
-  type BracketID = typeof simpleExprBID | typeof partialBID | typeof unsafeBID;
-
-  const memory = flexibleMemory(directives, strategyOpts?.captures);
+  const memoized = strategyOpts?.memoized ?? {};
+  const memory = flexibleMemory(partialTmplCandidates, memoized);
+  const { unsafeGlobalsCtxName = "ctx" } = strategyOpts ?? {};
 
   const interpolate: Interpolator<
     Materializable | Executable,
@@ -301,47 +307,63 @@ export function renderStrategy(
     FlexibleMemoryShape,
     Capturable
   >["interpolate"] = async (input, interpOpts) => {
+    const interpolatedPartial = async (
+      name: string,
+      partialTmplArgs?: Record<string, unknown>,
+    ) => {
+      const partial = memory.partials[name];
+      if (partial) {
+        const rendered = partial.render(partialTmplArgs);
+        if (rendered.error) return rendered.text;
+        const result = await interpolate(rendered.text, {
+          ...interpOpts,
+          locals: { ...interpOpts.locals, ...partialTmplArgs },
+        });
+        return result.text;
+      }
+      // deno-fmt-ignore
+      return `partial "${name}" not found (available: ${Object.keys(memory.partials).map(p => `'${p}'`).join(", ")})`;
+    };
+
     return {
       text: await safeInterpolateAsync(input, {
         ...interpOpts.globals,
         ...interpOpts.locals,
+        captured: memoized,
+        memoized,
       }, {
-        brackets: [
-          { id: simpleExprBID, prefix: "$", open: "{", close: "}" },
-          { id: partialBID, open: "{{", close: "}}" },
-          { id: unsafeBID, prefix: "$!", open: "{", close: "}" },
-        ],
-        functions: {
-          unsafeEval: ([code]) => eval(String(code)),
-        },
+        brackets: strategyOpts?.brackets ?? safetyFirstBrackets,
+        functions: strategyOpts?.safeFunctions,
         onMissing: async (expr, info) => {
-          switch (info.bracketID as BracketID) {
-            case "simple-expr":
+          switch (info.bracketID as CodeInterpBracketID) {
+            case "safe":
               return `\$?{${expr}}`;
             case "partial": {
               const ir = instructionsFromText(expr);
-              const partial = memory.partials[ir.pi.args[0]];
-              if (partial) {
-                const rendered = partial.render(ir.attrs);
-                if (rendered.error) return rendered.text;
-                const result = await interpolate(rendered.text, interpOpts);
-                return result.text;
-              }
-              // deno-fmt-ignore
-              return `partial "${name}" not found (available: ${Object.keys(memory.partials).map(p => `'${p}'`).join(", ")})`;
+              return interpolatedPartial(ir.pi.args[0], ir.attrs);
             }
             case "unsafe": {
               try {
-                const locals = { ...interpOpts.locals, safeJsonStringify };
-                const fn = compileUnsafeExpr(expr, "ctx", Object.keys(locals));
-                const value = await fn(interpOpts.globals, locals);
+                const unsafeJsExprLocals = {
+                  ...interpOpts.locals,
+                  safeJsonStringify,
+                  captured: memoized,
+                  memoized,
+                  partial: interpolatedPartial, // dynamically call a partial
+                };
+                const fn = unsafeJsExpr(
+                  expr,
+                  unsafeGlobalsCtxName, // `ctx.*` allows access to the "globals" properties
+                  Object.keys(unsafeJsExprLocals),
+                );
+                const value = await fn(interpOpts.globals, unsafeJsExprLocals);
                 const result = await interpolate(
                   String(value ?? ""),
                   interpOpts,
                 );
                 return result.text;
               } catch (err) {
-                return `$!{ERROR: ${String(err)}}`;
+                return `$!{ERROR(unsafe): ${String(err)}}`;
               }
             }
           }
@@ -352,8 +374,10 @@ export function renderStrategy(
 
   return {
     content: actionableContent(),
-    interpolator: { interpolate: interpolate },
+    interpolator: { interpolate },
     memory,
     globals: strategyOpts?.globals,
+    captured: memoized,
+    memoized,
   };
 }

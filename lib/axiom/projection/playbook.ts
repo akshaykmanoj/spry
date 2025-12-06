@@ -24,10 +24,6 @@
 
 import { Node } from "types/mdast";
 import { visit } from "unist-util-visit";
-import {
-  PartialCollection,
-  partialContentCollection as partialsCollection,
-} from "../../interpolate/partial.ts";
 import { depsResolver } from "../../universal/depends.ts";
 import { markdownASTs, MarkdownEncountered } from "../io/mod.ts";
 import { dataBag } from "../mdast/data-bag.ts";
@@ -37,7 +33,27 @@ import {
   isMateriazableCodeCandidate,
   MaterializableCodeCandidate,
 } from "../remark/actionable-code-candidates.ts";
-import { collectDirectives, Directive } from "./directives.ts";
+import {
+  CodeDirectiveCandidate,
+  isCodeDirectiveCandidate,
+} from "../remark/code-directive-candidates.ts";
+
+/**
+ * A directive is a code cell that controls behavior instead of being executed.
+ *
+ * Example: a fenced block like
+ *
+ * ```md
+ * ```sql PARTIAL footer
+ * -- footer here
+ * ```
+ *
+ * is parsed as a `CodeDirectiveCandidate`, and we wrap it as a `Directive`
+ * with an added `provenance` (where it came from in which Markdown file).
+ */
+export type Directive =
+  & Omit<CodeDirectiveCandidate<string, string>, "isCodeDirectiveCandidate">
+  & { readonly provenance: MarkdownEncountered };
 
 /**
  * A *executable* is an actionable code cell:
@@ -93,9 +109,7 @@ export type ExecutableTask = Executable & {
  *                     can be used by interpolators (`FragmentLocals` is
  *                     the shape of locals passed when rendering a partial).
  */
-export type PlaybookProjection<
-  FragmentLocals extends Record<string, unknown> = Record<string, unknown>,
-> = {
+export type PlaybookProjection = {
   readonly sources: readonly MarkdownEncountered[];
   readonly executablesById: Record<string, Executable>;
   readonly executables: readonly Executable[];
@@ -103,7 +117,6 @@ export type PlaybookProjection<
   readonly materializables: readonly Materializable[];
   readonly tasks: readonly ExecutableTask[];
   readonly directives: readonly Directive[];
-  readonly partials: PartialCollection<FragmentLocals>;
 };
 
 /**
@@ -147,12 +160,11 @@ export async function playbooksFromFiles<
     ) => void;
     readonly encountered?: (projectable: MarkdownEncountered) => void;
   },
-): Promise<PlaybookProjection<FragmentLocals>> {
+): Promise<PlaybookProjection> {
   const { onDuplicateRunnable, onDuplicateStorable, encountered, filter } =
     init ?? {};
   const sources: MarkdownEncountered[] = [];
   const directives: Directive[] = [];
-  const partials = partialsCollection<FragmentLocals>();
   const executablesById: Record<string, Executable> = {};
   const executables: Executable[] = [];
   const materializablesById: Record<string, Materializable> = {};
@@ -192,9 +204,12 @@ export async function playbooksFromFiles<
           materializablesById[rest.materializableIdentity] = storable;
         }
       }
-    });
 
-    collectDirectives(src, directives, partials);
+      if (isCodeDirectiveCandidate(code)) {
+        const { isCodeDirectiveCandidate: _, ...directive } = code;
+        directives.push({ ...directive, provenance: src });
+      }
+    });
   }
 
   // Resolve dependencies across all runnables.
@@ -215,7 +230,6 @@ export async function playbooksFromFiles<
     materializablesById,
     tasks,
     directives,
-    partials,
   };
 }
 

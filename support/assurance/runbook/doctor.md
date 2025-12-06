@@ -1,39 +1,44 @@
 # **Spry for DevOps / SRE**
 
-Spry is a lightweight framework that helps DevOps and SRE teams **combine documentation and automation** in one place.
-Instead of maintaining separate runbooks, scripts, and wiki pages, Spry lets you write Markdown that is both **readable** and **executable** — ensuring everything stays current, consistent, and automation-ready.
+Spry is a lightweight framework that helps DevOps and SRE teams **combine
+documentation and automation** in one place. Instead of maintaining separate
+runbooks, scripts, and wiki pages, Spry lets you write Markdown that is both
+**readable** and **executable** — ensuring everything stays current, consistent,
+and automation-ready.
 
 ## What Spry Solves
 
 Operational knowledge is often scattered across teams and tools. Spry helps fix:
 
-* Outdated runbooks
-* Different teams following different workflows
-* Scripts stored in multiple repositories without explanation
-* Manual steps that slow incident response
-* No standard way to run monitoring or health checks
+- Outdated runbooks
+- Different teams following different workflows
+- Scripts stored in multiple repositories without explanation
+- Manual steps that slow incident response
+- No standard way to run monitoring or health checks
 
-Spry treats **operations as code**, so documentation and execution always stay in sync.
+Spry treats **operations as code**, so documentation and execution always stay
+in sync.
 
 ## Who Should Use Spry?
 
 Spry is ideal for teams working on:
 
-* Production operations
-* Incident management
-* Monitoring & alerting
-* DevOps automation
-* Cloud platform engineering
-* Kubernetes or container operations
-* Site Reliability Engineering (SRE)
+- Production operations
+- Incident management
+- Monitoring & alerting
+- DevOps automation
+- Cloud platform engineering
+- Kubernetes or container operations
+- Site Reliability Engineering (SRE)
 
 ## Why Spry Is a Game-Changer
 
-* **Reduces reliance on tribal knowledge** — everything is documented and runnable
-* **Standardizes operations** across teams
-* **Improves production reliability** using proactive checks
-* **Accelerates onboarding** for new developers and SREs
-* **Connects documentation to automation**, eliminating outdated docs
+- **Reduces reliance on tribal knowledge** — everything is documented and
+  runnable
+- **Standardizes operations** across teams
+- **Improves production reliability** using proactive checks
+- **Accelerates onboarding** for new developers and SREs
+- **Connects documentation to automation**, eliminating outdated docs
 
 ## Unified Operational Workflow
 
@@ -41,7 +46,8 @@ Spry brings all key SRE and DevOps components together:
 
 ### Human-Readable Documentation
 
-Write Markdown that explains the purpose, steps, and context of any operational task.
+Write Markdown that explains the purpose, steps, and context of any operational
+task.
 
 ### Embedded Automation
 
@@ -53,24 +59,26 @@ Create executable tasks for CPU, disk, memory, service uptime, and more.
 
 ### Incident Response Runbooks
 
-Give responders clear instructions *and* executable buttons in a single file.
+Give responders clear instructions _and_ executable buttons in a single file.
 
 ### Infra Provisioning
 
-Integrate commands for Terraform, Ansible, Docker, Kubernetes, and cloud services.
+Integrate commands for Terraform, Ansible, Docker, Kubernetes, and cloud
+services.
 
 ## Getting Started
 
 ### **Prerequisites**
 
-* Spry CLI installed [Refer to the Spry documentation for installation instructions.](https://sprymd.org/docs/getting-started/installation/)
+- Spry CLI installed
+  [Refer to the Spry documentation for installation instructions.](https://sprymd.org/docs/getting-started/installation/)
 
 ### **Initialize project**
 
 You may:
 
-* Use an existing Spry repository, or
-* Create a new SRE/Infra automation module
+- Use an existing Spry repository, or
+- Create a new SRE/Infra automation module
 
 ## **Linux Monitoring Runbooks — Core Tasks**
 
@@ -79,11 +87,11 @@ SRE/DevOps usage.
 
 They include checks for:
 
-* CPU
-* Memory
-* Disk
-* SSH security
-* Critical services
+- CPU
+- Memory
+- Disk
+- SSH security
+- Critical services
 
 ## **CPU Utilization Monitoring**
 
@@ -224,13 +232,14 @@ This shows the output of each task
 
 ```bash Compilation-Results -I --descr "Show captured output"
 #!/usr/bin/env -S cat
-# captured output: "${captured.CPUusage.text().trim()}"  "${captured.Diskusage.text().trim()}" "${captured.Memoryusage.text().trim()}"
+# captured output (safe): "${captured.CPUusage}"  "${memoized.Diskusage}" "${captured.Memoryusage}"
+# captured output (unsafe): "$!{captured.CPUusage.text().trim()}"  "$!{captured.Diskusage.text().trim()}" "$!{memoized.Memoryusage.text().trim()}"
 ```
 
 ## How To Run Tasks
 
-* Append the above code blocks in order in the Spryfile.md file.
-* Execute the following commands in a bash terminal:
+- Append the above code blocks in order in the Spryfile.md file.
+- Execute the following commands in a bash terminal:
 
   ### Check CPU usage
 
