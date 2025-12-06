@@ -70,7 +70,9 @@ export function executeTasksFactory<
     tasksBus?: ReturnType<typeof eventBus<TaskExecEventMap<T, Context>>>;
   },
 ) {
-  const cis = codeInterpolationStrategy(opts?.directives ?? []);
+  const cis = codeInterpolationStrategy(opts?.directives ?? [], {
+    approach: "safety-first",
+  });
   const interpolator = renderer(cis);
   const sh = shell({ bus: opts?.shellBus });
   const td = new TextDecoder();
