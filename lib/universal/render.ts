@@ -354,8 +354,8 @@ export function renderer<
       : applied.rendered;
 
     // 4. Interpolation (if applicable).
-    const locals = (await content.locals?.(source)) ?? {};
-    await overrides?.locals?.(source, locals);
+    let locals = (await content.locals?.(source)) ?? {};
+    if (overrides?.locals) locals = await overrides.locals(source, locals);
 
     let interpolated = bodyWithInjections;
     let error: unknown;
