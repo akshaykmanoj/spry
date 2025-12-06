@@ -142,7 +142,10 @@ export function partialTmpl(identity: string, code: Code): PartialTmpl | false {
 export type FlexibleMemoryValue = unknown;
 export type FlexibleMemoryShape = Record<string, FlexibleMemoryValue>;
 
-export type Capturable = ActionableCodePiFlags["capture"];
+export type Capturable = {
+  readonly identity: string;
+  readonly captureSpecs: ActionableCodePiFlags["capture"];
+};
 
 export type Captured = {
   readonly spec: CaptureSpec;
@@ -191,8 +194,9 @@ export function flexibleMemory(
     FlexibleMemoryValue,
     FlexibleMemoryShape,
     Capturable
-  >["memoize"] = async (rendered, captureSpecs) => {
-    for (const cs of captureSpecs) {
+  >["memoize"] = async (rendered, capCandidates) => {
+    if (!capCandidates || !capCandidates.captureSpecs) return;
+    for (const cs of capCandidates.captureSpecs) {
       const cap: Captured = {
         spec: cs,
         text: () => rendered,
@@ -218,7 +222,7 @@ export function flexibleMemory(
         }
         memoizedFsPaths.push({ ...cs, captured: cap });
       } else {
-        if (memoized) memoized[cs.key] = cap;
+        if (memoized) memoized[cs.key ?? capCandidates.identity] = cap;
       }
     }
   };
@@ -255,8 +259,14 @@ export function actionableContent(): Content<
         : code.spawnableArgs.injectable ?? false,
     isMemoizable: (code: Executable | Materializable) =>
       isMaterializable(code)
-        ? code.materializationArgs.capture
-        : code.spawnableArgs.capture,
+        ? {
+          identity: identity(code),
+          captureSpecs: code.materializationArgs.capture,
+        }
+        : {
+          identity: identity(code),
+          captureSpecs: code.spawnableArgs.capture,
+        },
     locals: (action) => ({ identity: identity(action), action }),
   };
 }

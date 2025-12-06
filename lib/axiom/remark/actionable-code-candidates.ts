@@ -139,12 +139,20 @@ import type { Plugin } from "unified";
 import { visit } from "unist-util-visit";
 import { languageRegistry, languageSpecSchema } from "../../universal/code.ts";
 import {
+  flexibleFlagOrTextSchema,
   flexibleTextSchema,
+  mergeFlexibleFlagOrText,
   mergeFlexibleText,
 } from "../../universal/posix-pi.ts";
 import { codeFrontmatter } from "../mdast/code-frontmatter.ts";
 import { addIssue } from "../mdast/node-issues.ts";
 import { isCodeDirectiveCandidate } from "./code-directive-candidates.ts";
+
+// given any arbitrary key, make it camel case so it can be easily accessed
+export const resolveCaptureSpecKey = (s: string) =>
+  s.toLowerCase()
+    .replace(/[^a-z0-9]+([a-z0-9])/g, (_, c) => c.toUpperCase())
+    .replace(/[^a-z0-9]/g, "");
 
 export type CaptureSpec =
   | {
@@ -154,13 +162,13 @@ export type CaptureSpec =
   }
   | {
     readonly nature: "memory";
-    readonly key: string;
+    readonly key?: string;
   };
 
 export const actionableCodePiFlagsSchema = z.object({
   descr: z.string().optional(),
   dep: flexibleTextSchema.optional(), // collected as multiple --dep
-  capture: flexibleTextSchema.optional(),
+  capture: flexibleFlagOrTextSchema.optional(),
   interpolate: z.boolean().optional(),
   noInterpolate: z.boolean().optional(),
   silent: z.boolean().optional(),
@@ -172,7 +180,7 @@ export const actionableCodePiFlagsSchema = z.object({
   notinjectable: z.boolean().optional(),
 
   // shortcuts
-  /* capture */ C: z.string().optional(),
+  /* capture */ C: flexibleFlagOrTextSchema.optional(),
   /* branch/graph */ B: flexibleTextSchema.optional(),
   /* dep */ D: flexibleTextSchema.optional(),
   /* graph/branch */ G: flexibleTextSchema.optional(),
@@ -181,16 +189,26 @@ export const actionableCodePiFlagsSchema = z.object({
 }).transform((raw) => {
   const depRaw = mergeFlexibleText(raw.D, raw.dep);
   const graphRaw = mergeFlexibleText(raw.G, raw.graph);
-  const capture = mergeFlexibleText(raw.C, raw.capture);
   const injectedDep = mergeFlexibleText(raw.injectedDep);
+
+  let capture: CaptureSpec[] = [];
+  const capRaw = mergeFlexibleFlagOrText(raw.C, raw.capture);
+  if (capRaw) {
+    capture = capRaw.texts.map((
+      c,
+    ) => (c.startsWith("./")
+      ? { nature: "relFsPath", fsPath: c, gitignore: raw.gitignore }
+      : { nature: "memory", key: c })
+    );
+    if (capRaw.flagsCount > 0) {
+      capture.push({ nature: "memory" }); // "key" will be calculated since null
+    }
+  }
+
   return {
     description: raw.descr,
     deps: depRaw ? typeof depRaw === "string" ? [depRaw] : depRaw : undefined,
-    capture: capture.map((c) =>
-      (c.startsWith("./")
-        ? { nature: "relFsPath", fsPath: c, gitignore: raw.gitignore }
-        : { nature: "memory", key: c }) satisfies CaptureSpec
-    ),
+    capture: capture.length > 0 ? capture : undefined,
     interpolate: raw.I ?? raw.interpolate,
     noInterpolate: raw.noInterpolate,
     injectable: raw.J ?? raw.injectable,
