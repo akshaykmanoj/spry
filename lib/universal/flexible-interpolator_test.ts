@@ -564,3 +564,425 @@ Deno.test(
     assertNotEquals(syncRendered, asyncRendered);
   },
 );
+
+Deno.test("Safe Interpolator - per-bracket escape overrides global escape", () => {
+  const ctx: SafeInterpolationContext = {
+    v: "<Tag>",
+  };
+
+  const opts: SafeInterpolationOptions = {
+    brackets: [
+      {
+        id: "upper",
+        prefix: "$",
+        open: "{",
+        close: "}",
+        escape: (value) => String(value).toUpperCase(),
+      },
+      {
+        id: "global",
+        open: "{{",
+        close: "}}",
+      },
+    ],
+    // Global escape wraps in brackets
+    escape: (value) => `[${String(value)}]`,
+  };
+
+  const template = "Upper: ${ v } | Global: {{ v }}";
+
+  const rendered = safeInterpolate(template, ctx, opts);
+  assertEquals(
+    rendered,
+    "Upper: <TAG> | Global: [<Tag>]",
+  );
+});
+
+Deno.test("Safe Interpolator - per-bracket functions override global registry", () => {
+  const ctx: SafeInterpolationContext = { v: "X" };
+
+  const opts: SafeInterpolationOptions = {
+    brackets: [
+      {
+        id: "local",
+        prefix: "$",
+        open: "{",
+        close: "}",
+        functions: {
+          fmt: ([v]) => `LOCAL:${v}`,
+        },
+      },
+      {
+        id: "global",
+        open: "{{",
+        close: "}}",
+      },
+    ],
+    escape: (v) => String(v),
+    functions: {
+      fmt: ([v]) => `GLOBAL:${v}`,
+    },
+  };
+
+  const template = "Local: ${ fmt(v) } | Global: {{ fmt(v) }}";
+
+  const rendered = safeInterpolate(template, ctx, opts);
+  assertEquals(
+    rendered,
+    "Local: LOCAL:X | Global: GLOBAL:X",
+  );
+});
+
+Deno.test("Safe Interpolator - per-bracket onMissing overrides global onMissing", () => {
+  const ctx: SafeInterpolationContext = {};
+
+  const opts: SafeInterpolationOptions = {
+    brackets: [
+      {
+        id: "one",
+        prefix: "$",
+        open: "{",
+        close: "}",
+        onMissing: (expr) => `[ONE:${expr}]`,
+      },
+      {
+        id: "two",
+        open: "{{",
+        close: "}}",
+      },
+    ],
+    escape: (v) => String(v),
+    onMissing: (expr) => `[GLOBAL:${expr}]`,
+  };
+
+  const template = "A ${ missing } | B {{ missing }}";
+
+  const rendered = safeInterpolate(template, ctx, opts);
+  assertEquals(
+    rendered,
+    "A [ONE:missing] | B [GLOBAL:missing]",
+  );
+});
+
+Deno.test("Safe Interpolator - per-bracket resolvedPath overrides global", () => {
+  const ctx: SafeInterpolationContext = {
+    meta: { slug: "  My Page  " },
+  };
+
+  const opts: SafeInterpolationOptions = {
+    brackets: [
+      {
+        id: "local",
+        prefix: "$",
+        open: "{",
+        close: "}",
+        resolvedPath: ({ path, value }) => {
+          if (path.join(".") === "meta.slug") {
+            return "local";
+          }
+          return value;
+        },
+      },
+      {
+        id: "global",
+        open: "{{",
+        close: "}}",
+      },
+    ],
+    escape: (v) => String(v),
+    resolvedPath: ({ path, value }) => {
+      if (path.join(".") === "meta.slug") {
+        return "global";
+      }
+      return value;
+    },
+  };
+
+  const template = "Local: ${ meta.slug } | Global: {{ meta.slug }}";
+
+  const rendered = safeInterpolate(template, ctx, opts);
+  assertEquals(
+    rendered,
+    "Local: local | Global: global",
+  );
+});
+
+Deno.test("Safe Interpolator - per-bracket maxDepth overrides global", () => {
+  const ctx: SafeInterpolationContext = { v: "X" };
+
+  const opts: SafeInterpolationOptions = {
+    brackets: [
+      { id: "html", prefix: "$", open: "{", close: "}" },
+      {
+        id: "deep",
+        prefix: "%",
+        open: "{",
+        close: "}",
+        maxDepth: 2,
+      },
+    ],
+    escape: (v) => String(v),
+    functions: {
+      id: ([v]) => v,
+    },
+    maxDepth: 0,
+  };
+
+  const template =
+    "Shallow: ${ id(`Level ${ v }`) } | Deep: %{ id(`Level ${ v }`)}";
+
+  const rendered = safeInterpolate(template, ctx, opts);
+
+  assertEquals(
+    rendered,
+    "Shallow: ${id(`Level ${ v }`)} | Deep: Level X",
+  );
+});
+
+Deno.test("Safe Interpolator - onRawExpr treats inner content as raw and ignores nested brackets", () => {
+  const ctx: SafeInterpolationContext = {
+    foo: "X",
+  };
+
+  const opts: SafeInterpolationOptions = {
+    brackets: [
+      {
+        id: "raw",
+        open: "[[",
+        close: "]]",
+        onRawExpr: (expr, info) => `RAW(${info.bracketID}:${expr})`,
+      },
+      {
+        id: "html",
+        prefix: "$",
+        open: "{",
+        close: "}",
+      },
+    ],
+    escape: (v) => String(v),
+  };
+
+  const template = "Raw [[ some ${ foo } here ]] and ${ foo }";
+
+  const rendered = safeInterpolate(template, ctx, opts);
+  assertEquals(
+    rendered,
+    "Raw RAW(raw:some ${ foo } here) and X",
+  );
+});
+
+Deno.test(
+  "Safe Interpolator - onRawExpr non-greedy close uses first matching close",
+  () => {
+    const ctx: SafeInterpolationContext = {};
+
+    const opts: SafeInterpolationOptions = {
+      brackets: [
+        {
+          id: "raw",
+          open: "[[",
+          close: "]]",
+          onRawExpr: (expr) => `<<${expr}>>`,
+        },
+      ],
+      escape: (v) => String(v),
+    };
+
+    const template = "X [[ one ]] Y [[ two ]] Z";
+
+    const rendered = safeInterpolate(template, ctx, opts);
+    assertEquals(
+      rendered,
+      "X <<one>> Y <<two>> Z",
+    );
+  },
+);
+
+Deno.test(
+  "Safe Interpolator - onRawExpr ignores close inside quotes and uses next real close",
+  () => {
+    const ctx: SafeInterpolationContext = {};
+
+    const opts: SafeInterpolationOptions = {
+      brackets: [
+        {
+          id: "raw",
+          open: "[[",
+          close: "]]",
+          onRawExpr: (expr) => `<<${expr}>>`,
+        },
+      ],
+      escape: (v) => String(v),
+    };
+
+    const template = 'A [[ before "]]" after ]] B';
+
+    const rendered = safeInterpolate(template, ctx, opts);
+    assertEquals(
+      rendered,
+      'A <<before "]]" after>> B',
+    );
+  },
+);
+
+Deno.test("Safe Interpolator - onRawExpr (async) with raw handling", async () => {
+  const ctx: SafeInterpolationContext = {
+    foo: "X",
+  };
+
+  const opts: SafeInterpolationOptions = {
+    brackets: [
+      {
+        id: "raw",
+        open: "[[",
+        close: "]]",
+        onRawExpr: async (expr, info) => `RAW-ASYNC(${info.bracketID}:${expr})`,
+      },
+      {
+        id: "html",
+        prefix: "$",
+        open: "{",
+        close: "}",
+      },
+    ],
+    escape: async (v) => String(v),
+  };
+
+  const template = "Raw [[ some ${ foo } here ]] and ${ foo }";
+
+  const rendered = await safeInterpolateAsync(template, ctx, opts);
+  assertEquals(
+    rendered,
+    "Raw RAW-ASYNC(raw:some ${ foo } here) and X",
+  );
+});
+
+Deno.test("Safe Interpolator - onRawExpr='onMissing' delegates to global onMissing", () => {
+  const ctx = {};
+
+  const opts: SafeInterpolationOptions = {
+    brackets: [
+      {
+        id: "raw",
+        open: "[[",
+        close: "]]",
+        onRawExpr: "onMissing",
+      },
+    ],
+    escape: (v) => String(v),
+    onMissing: (expr, info) => `GLOBAL-MISS(${info.bracketID}:${expr})`,
+  };
+
+  const template = "A [[ some ${ weird } expr ]] B";
+
+  const rendered = safeInterpolate(template, ctx, opts);
+
+  assertEquals(
+    rendered,
+    "A GLOBAL-MISS(raw:some ${ weird } expr) B",
+  );
+});
+
+Deno.test("Safe Interpolator - onRawExpr='onMissing' uses bracket-level onMissing override", () => {
+  const ctx = {};
+
+  const opts: SafeInterpolationOptions = {
+    brackets: [
+      {
+        id: "raw",
+        open: "[[",
+        close: "]]",
+        onRawExpr: "onMissing",
+        onMissing: (expr, info) => `LOCAL-MISS(${info.bracketID}:${expr})`,
+      },
+    ],
+    escape: (v) => String(v),
+    onMissing: (expr) => `GLOBAL(${expr})`,
+  };
+
+  const template = "X [[ hello ${ test } ]] Y";
+
+  const rendered = safeInterpolate(template, ctx, opts);
+
+  assertEquals(
+    rendered,
+    "X LOCAL-MISS(raw:hello ${ test }) Y",
+  );
+});
+
+Deno.test("Safe Interpolator - missing onRawExpr behaves as onMissing", () => {
+  const ctx = {};
+
+  const opts: SafeInterpolationOptions = {
+    brackets: [
+      {
+        id: "raw",
+        open: "[[",
+        close: "]]",
+        // no onRawExpr
+      },
+    ],
+    escape: (v) => String(v),
+    onMissing: (expr, info) => `MISS(${info.bracketID}:${expr})`,
+  };
+
+  const template = "T [[ some raw stuff ]] Z";
+
+  const rendered = safeInterpolate(template, ctx, opts);
+
+  assertEquals(
+    rendered,
+    "T MISS(raw:some raw stuff) Z",
+  );
+});
+
+Deno.test("Safe Interpolator - onRawExpr='onMissing' async path", async () => {
+  const ctx = {};
+
+  const opts: SafeInterpolationOptions = {
+    brackets: [
+      {
+        id: "raw",
+        open: "[[",
+        close: "]]",
+        onRawExpr: "onMissing",
+      },
+    ],
+    escape: async (v) => String(v),
+    onMissing: async (expr, info) => `ASYNC-MISS(${info.bracketID}:${expr})`,
+  };
+
+  const template = "A [[ something ${ deep } ]] B";
+
+  const rendered = await safeInterpolateAsync(template, ctx, opts);
+
+  assertEquals(
+    rendered,
+    "A ASYNC-MISS(raw:something ${ deep }) B",
+  );
+});
+
+Deno.test("Safe Interpolator - onRawExpr function still works after API change", () => {
+  const ctx = { x: "Y" };
+
+  const opts: SafeInterpolationOptions = {
+    brackets: [
+      {
+        id: "raw",
+        open: "[[",
+        close: "]]",
+        onRawExpr: (expr, info) => `RAW(${info.bracketID}:${expr})`,
+      },
+    ],
+    escape: (v) => String(v),
+  };
+
+  const template = "K [[ a ${ x } b ]] Z";
+
+  const rendered = safeInterpolate(template, ctx, opts);
+
+  assertEquals(
+    rendered,
+    "K RAW(raw:a ${ x } b) Z",
+  );
+});
