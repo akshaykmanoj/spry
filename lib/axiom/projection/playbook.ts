@@ -22,11 +22,12 @@
  *   - optional injection metadata (glob-based wrapper behavior).
  */
 
-import { Node } from "types/mdast";
+import { Code, Node } from "types/mdast";
 import { visit } from "unist-util-visit";
 import { depsResolver } from "../../universal/depends.ts";
 import { markdownASTs, MarkdownEncountered } from "../io/mod.ts";
 import { dataBag } from "../mdast/data-bag.ts";
+import { NodeIssue, nodeIssues } from "../mdast/node-issues.ts";
 import {
   ExecutableCodeCandidate,
   isExecutableCodeCandidate,
@@ -117,6 +118,10 @@ export type PlaybookProjection = {
   readonly materializables: readonly Materializable[];
   readonly tasks: readonly ExecutableTask[];
   readonly directives: readonly Directive[];
+  readonly issues: readonly (Code & {
+    readonly data: { readonly issues: NodeIssue[] };
+    readonly provenance: MarkdownEncountered;
+  })[];
 };
 
 /**
@@ -144,9 +149,7 @@ export type PlaybookProjection = {
  *   - `onDuplicateRunnable`: callback when two runnables share the same identity.
  *   - `encountered`: callback for each Markdown source as it is parsed.
  */
-export async function playbooksFromFiles<
-  FragmentLocals extends Record<string, unknown> = Record<string, unknown>,
->(
+export async function playbooksFromFiles(
   markdownPaths: Parameters<typeof markdownASTs>[0],
   init?: {
     readonly filter?: (task: Executable) => boolean;
@@ -169,6 +172,10 @@ export async function playbooksFromFiles<
   const executables: Executable[] = [];
   const materializablesById: Record<string, Materializable> = {};
   const materializables: Materializable[] = [];
+  const issues: (Code & {
+    readonly data: { readonly issues: NodeIssue[] };
+    readonly provenance: MarkdownEncountered;
+  })[] = [];
 
   // Discover all runnables and directives across all Markdown sources.
   for await (const src of markdownASTs(markdownPaths)) {
@@ -209,6 +216,10 @@ export async function playbooksFromFiles<
         const { isCodeDirectiveCandidate: _, ...directive } = code;
         directives.push({ ...directive, provenance: src });
       }
+
+      if (nodeIssues.is(code)) {
+        issues.push({ ...code, provenance: src });
+      }
     });
   }
 
@@ -230,6 +241,7 @@ export async function playbooksFromFiles<
     materializablesById,
     tasks,
     directives,
+    issues,
   };
 }
 
