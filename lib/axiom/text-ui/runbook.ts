@@ -52,10 +52,12 @@ import { codeInterpolationStrategy } from "../mdast/code-interpolate.ts";
 import {
   Directive,
   ExecutableTask,
+  PlaybookProjection,
   playbooksFromFiles,
 } from "../projection/playbook.ts";
 import { CaptureSpec } from "../remark/actionable-code-candidates.ts";
 import * as axiomCLI from "./cli.ts";
+import { ansiPrettyNodeIssues } from "../mdast/node-issues.ts";
 
 // deno-lint-ignore no-explicit-any
 type Any = any;
@@ -85,14 +87,19 @@ export function executeTasksFactory<
         // already handled the memoization and we won't run the task
         if (!task.memoizeOnly) {
           const execResult = await sh.auto(rendered.text, undefined, task);
-          if (task.spawnableArgs.capture.length > 0) {
+          if (task.spawnableArgs.capture) {
             // before the task runs, "memoize" in interpolator.renderOne stores
             // the "source" (before execution) and now we need to overwrite that
             // "memoization" with the actual execution's stdout / result
             const output = Array.isArray(execResult)
               ? execResult.map((er) => td.decode(er.stdout)).join("\n")
               : td.decode(execResult.stdout);
-            cis.memory.memoize?.(output, task.spawnableArgs.capture);
+            if (task.spawnableArgs.capture) {
+              cis.memory.memoize?.(output, {
+                identity: task.taskId(),
+                captureSpecs: task.spawnableArgs.capture,
+              });
+            }
           }
         }
         return ok(ctx);
@@ -272,17 +279,34 @@ export class CLI {
     await this.rootCmd().parse(args);
   }
 
-  rootCmd() {
-    return new Command()
-      .name("runbook.ts")
-      .version(() => computeSemVerSync(import.meta.url))
-      .description(`Spry Runbook operator`)
-      .command("help", new HelpCommand())
-      .command("completions", new CompletionsCommand())
-      .command("axiom", this.axiomCLI.rootCmd())
-      .command("ls", this.lsCommand())
-      .command("task", this.taskCommand())
-      .command("run", this.runCommand());
+  rootCmd(subcommand?: string) {
+    const description = "Spry Runbook operator";
+    const compose = subcommand
+      ? new Command().name(subcommand).description(description)
+      : new Command()
+        .name("runbook.ts")
+        .version(() => computeSemVerSync(import.meta.url))
+        .description(description)
+        .command("help", new HelpCommand())
+        .command("completions", new CompletionsCommand());
+
+    for (
+      const c of [
+        this.lsCommand(),
+        this.taskCommand(),
+        this.runCommand(),
+        this.issuesCommand(),
+      ]
+    ) {
+      compose.command(c.getName(), c);
+    }
+
+    if (!subcommand) {
+      const axiomCmd = this.axiomCLI.rootCmd("axiom");
+      compose.command(axiomCmd.getName(), axiomCmd);
+    }
+
+    return compose;
   }
 
   protected baseCommand({ examplesCmd }: { examplesCmd: string }) {
@@ -309,6 +333,16 @@ export class CLI {
       );
   }
 
+  preface(check: Pick<PlaybookProjection, "issues">) {
+    if (check.issues.length) {
+      console.warn(
+        red(
+          `⚠️ ${check.issues.length} nodes issues found, use 'issues' command to list them.`,
+        ),
+      );
+    }
+  }
+
   taskCommand() {
     return new Command()
       .name("task")
@@ -319,9 +353,10 @@ export class CLI {
       .option("--summarize", "Emit summary after execution in JSON")
       .action(
         async (opts, taskId, ...paths: string[]) => {
-          const { tasks, directives } = await playbooksFromFiles(
+          const { tasks, directives, issues } = await playbooksFromFiles(
             paths.length ? paths : this.conf?.defaultFiles ?? [],
           );
+          this.preface({ issues });
           if (tasks.find((t) => t.taskId() == taskId)) {
             const ieb = informationalEventBuses<
               typeof tasks[number],
@@ -365,7 +400,7 @@ export class CLI {
       .option("--visualize <style:visualStyle>", "Visualize the DAG")
       .action(
         async (opts, ...paths: string[]) => {
-          const { tasks, directives } = await playbooksFromFiles(
+          const { tasks, directives, issues } = await playbooksFromFiles(
             paths.length ? paths : this.conf?.defaultFiles ?? [],
             {
               filter: opts.graph?.length
@@ -378,6 +413,7 @@ export class CLI {
                 : ((task) => task.spawnableArgs.graphs?.length ? false : true),
             },
           );
+          this.preface({ issues });
           const plan = executionPlan(tasks);
           if (opts?.visualize) {
             const epv = executionPlanVisuals(plan);
@@ -402,6 +438,25 @@ export class CLI {
       );
   }
 
+  issuesCommand(cmdName = "issues") {
+    return this.baseCommand({ examplesCmd: cmdName }).name(cmdName)
+      .description(
+        "display any issues (errors, warnings, etc.) in the mdast nodes",
+      )
+      .arguments("[paths...:string]")
+      .action(
+        async (_options, ...paths) => {
+          const files = paths.length ? paths : this.conf?.defaultFiles ?? [];
+          const { issues } = await playbooksFromFiles(files);
+          if (issues.length) {
+            console.log(ansiPrettyNodeIssues(issues).join("\n"));
+          } else {
+            console.info("No issues detected in " + files.join(", "));
+          }
+        },
+      );
+  }
+
   // -------------------------------------------------------------------------
   // ls command (tabular "physical" view)
   // -------------------------------------------------------------------------
@@ -416,16 +471,17 @@ export class CLI {
    *   shows a CLASS column with key:value pairs.
    */
   protected lsCommand(cmdName = "ls") {
-    return this.baseCommand({ examplesCmd: cmdName })
+    return this.baseCommand({ examplesCmd: cmdName }).name(cmdName)
       .description(`list code cells (tasks) in markdown documents`)
       .arguments("[paths...:string]")
       .option("--no-color", "Show output without using ANSI colors")
       .action(
         async (options, ...paths: string[]) => {
           const sh = shell();
-          const { tasks } = await playbooksFromFiles(
+          const { tasks, issues } = await playbooksFromFiles(
             paths.length ? paths : this.conf?.defaultFiles ?? [],
           );
+          this.preface({ issues });
           const lsRows = tasks.map((task) => {
             const { spawnableArgs: args } = task;
             return {
@@ -443,9 +499,15 @@ export class CLI {
                 : sh.strategy(task.value),
               flags: {
                 isInterpolated: args.interpolate ? true : false,
-                isCaptured: args.capture.length > 0 ? args.capture[0] : false,
+                isCaptured: args.capture ? args.capture[0] : false,
                 isCaptureOnly: task.memoizeOnly ?? false,
-                isGitIgnored: args.capture[0]?.gitignore ? true : false,
+                isGitIgnored: args.capture && args.capture.filter((c) =>
+                    c.nature === "relFsPath"
+                  ).find((c) =>
+                    c.gitignore
+                  )
+                  ? true
+                  : false,
                 isSilent: args.silent ?? false,
                 hasIssues: false,
               },

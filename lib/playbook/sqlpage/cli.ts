@@ -22,6 +22,8 @@ import {
 import { isMaterializable } from "../../axiom/projection/playbook.ts";
 import { docFrontmatterDataBag } from "../../axiom/remark/doc-frontmatter.ts";
 import { isImportPlaceholder } from "../../axiom/remark/import-placeholders-generator.ts";
+import * as axiomCLI from "../../axiom/text-ui/cli.ts";
+import * as runbookCLI from "../../axiom/text-ui/runbook.ts";
 import { collectAsyncGenerated } from "../../universal/collectable.ts";
 import { doctor } from "../../universal/doctor.ts";
 import { eventBus } from "../../universal/event-bus.ts";
@@ -209,7 +211,21 @@ export async function projectPaths(projectHome = Deno.cwd()) {
 }
 
 export class CLI<Project> {
-  constructor(readonly project: Project) {
+  readonly axiomCLI: axiomCLI.CLI;
+  readonly runbookCLI: runbookCLI.CLI;
+
+  constructor(
+    readonly project: Project,
+    readonly conf?: {
+      readonly defaultFiles?: string[]; // load these markdown files/remotes when no CLI arguments given
+      readonly axiomCLI?: axiomCLI.CLI;
+      readonly runbookCLI?: runbookCLI.CLI;
+    },
+  ) {
+    this.axiomCLI = conf?.axiomCLI ??
+      new axiomCLI.CLI({ defaultFiles: conf?.defaultFiles });
+    this.runbookCLI = conf?.runbookCLI ??
+      new runbookCLI.CLI({ defaultFiles: conf?.defaultFiles });
   }
 
   // wrap this in
@@ -721,6 +737,9 @@ export class CLI<Project> {
       },
     ] as const;
 
+    const axiomCmd = this.axiomCLI.rootCmd("axiom");
+    const runbookCmd = this.runbookCLI.rootCmd("rb");
+
     return new Command()
       .name(name)
       .type("dialect", dialect)
@@ -730,6 +749,8 @@ export class CLI<Project> {
       )
       .command("help", new HelpCommand().global())
       .command("completions", new CompletionsCommand())
+      .command(axiomCmd.getName(), axiomCmd)
+      .command(runbookCmd.getName(), runbookCmd)
       .command(
         "init",
         new Command()

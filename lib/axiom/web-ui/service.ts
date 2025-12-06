@@ -260,7 +260,7 @@ export class CLI {
       .description(`Spry ontology controller`)
       .command("help", new HelpCommand())
       .command("completions", new CompletionsCommand())
-      .command("web-ui", this.docCommand());
+      .command("web-ui", this.webUiCommand());
   }
 
   protected baseCommand({ examplesCmd }: { examplesCmd: string }) {
@@ -286,8 +286,8 @@ export class CLI {
       );
   }
 
-  docCommand(cmdName = "web-ui") {
-    return this.baseCommand({ examplesCmd: cmdName })
+  webUiCommand(cmdName = "web-ui") {
+    return this.baseCommand({ examplesCmd: cmdName }).name(cmdName)
       .description(
         "Serve the markdown mdasts and Spry Ontology Graphs (SOGs)",
       )
