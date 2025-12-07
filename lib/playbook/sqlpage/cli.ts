@@ -725,8 +725,100 @@ export class CLI<Project> {
     await run(opts.watch);
   }
 
-  command(name = "spry.ts") {
+  rootCmd(subcommand?: string) {
+    const description = "Spry SQLPage Playbook operator";
+    const compose = subcommand
+      ? new Command().name(subcommand).description(description)
+      : new Command()
+        .name("spry.ts")
+        .version(() => computeSemVerSync(import.meta.url))
+        .description(description)
+        .command("help", new HelpCommand())
+        .command("completions", new CompletionsCommand())
+        .command("doctor", "Show dependencies and their availability")
+        .action(async () => {
+          const diags = doctor(["deno --version", "sqlpage --version"]);
+          const result = await diags.run();
+          diags.render.cli(result);
+        });
+
+    for (const c of [this.initCommand(), this.sqlPageContentCommand()]) {
+      // deno-lint-ignore no-explicit-any
+      compose.command(c.getName(), c as any);
+    }
+
+    if (!subcommand) {
+      const axiomCmd = this.axiomCLI.rootCmd("axiom");
+      const runbookCmd = this.runbookCLI.rootCmd("rb");
+      compose.command(axiomCmd.getName(), axiomCmd);
+      compose.command(runbookCmd.getName(), runbookCmd);
+    }
+
+    return compose;
+  }
+
+  protected baseCommand({ examplesCmd }: { examplesCmd: string }) {
+    const cmdName = "runbook";
+    const { defaultFiles } = this.conf ?? {};
+    return new Command()
+      .example(
+        `default ${
+          (defaultFiles?.length ?? 0) > 0 ? `(${defaultFiles?.join(", ")})` : ""
+        }`,
+        `${cmdName} ${examplesCmd}`,
+      )
+      .example(
+        "load md from local fs",
+        `${cmdName} ${examplesCmd} ./runbook.md`,
+      )
+      .example(
+        "load md from remote URL",
+        `${cmdName} ${examplesCmd} https://SpryMD.org/runbook.md`,
+      )
+      .example(
+        "load md from multiple",
+        `${cmdName} ${examplesCmd} ./runbook.d https://qualityfolio.dev/runbook.md another.md`,
+      );
+  }
+
+  initCommand() {
     const dialect = new EnumType(SqlPageFilesUpsertDialect);
+    return new Command()
+      .name("init")
+      .description(
+        "Setup Spryfile.md and spry.ts for local dev environment",
+      )
+      .type("dialect", dialect)
+      /* .option("--db-name <file>", "name of SQLite database", {
+            default: "sqlpage.db",
+          }) */
+      .option("--force", "Remove existing and recreate from latest tag", {
+        default: false,
+      })
+      .option(
+        "-d, --dialect <dialect:dialect>",
+        "SQL dialect for package generation (sqlite or postgres)",
+        { default: SqlPageFilesUpsertDialect.SQLite },
+      )
+      .action(async (opts) => {
+        const { created, removed, ignored, gitignore: gi } = await this
+          .init(
+            Deno.cwd(),
+            opts,
+          );
+        removed.forEach((r) => console.warn(`❌ Removed ${r}`));
+        created.forEach((c) => console.info(`📄 Created ${c}`));
+        ignored.forEach((i) => console.info(`🆗 Preserved ${i}`));
+
+        const { added, preserved } = gi;
+        added.forEach((c) => console.info(`📄 Added ${c} to .gitignore`));
+        preserved.forEach((p) =>
+          console.info(`🆗 Preserved ${p} in .gitignore`)
+        );
+      });
+  }
+
+  sqlPageContentCommand() {
     const mdOpt = [
       "-m, --md <mdPath:string>",
       "Use the given Markdown source(s), multiple allowed",
@@ -737,208 +829,152 @@ export class CLI<Project> {
       },
     ] as const;
 
-    const axiomCmd = this.axiomCLI.rootCmd("axiom");
-    const runbookCmd = this.runbookCLI.rootCmd("rb");
-
-    return new Command()
-      .name(name)
+    const dialect = new EnumType(SqlPageFilesUpsertDialect);
+    return new Command() // Emit SQL package (sqlite) to stdout; accepts md path
+      .description("SQLPage Content (spc) CLI")
+      .name("spc")
       .type("dialect", dialect)
-      .version(() => computeSemVerSync(import.meta.url))
-      .description(
-        "SQLPage Markdown Notebook: emit SQL package, write sqlpage.json, or materialize filesystem.",
+      .option(...mdOpt)
+      .option(
+        "-p, --package",
+        "Emit SQL package to stdout from the given markdown path",
+        { conflicts: ["fs"] },
       )
-      .command("help", new HelpCommand().global())
-      .command("completions", new CompletionsCommand())
-      .command(axiomCmd.getName(), axiomCmd)
-      .command(runbookCmd.getName(), runbookCmd)
-      .command(
-        "init",
-        new Command()
-          .description(
-            "Setup Spryfile.md and spry.ts for local dev environment",
-          )
-          .type("dialect", dialect)
-          /* .option("--db-name <file>", "name of SQLite database", {
-            default: "sqlpage.db",
-          }) */
-          .option("--force", "Remove existing and recreate from latest tag", {
-            default: false,
-          })
-          .option(
-            "-d, --dialect <dialect:dialect>",
-            "SQL dialect for package generation (sqlite or postgres)",
-            { default: SqlPageFilesUpsertDialect.SQLite },
-          )
-          .action(async (opts) => {
-            const { created, removed, ignored, gitignore: gi } = await this
-              .init(
-                Deno.cwd(),
-                opts,
-              );
-            removed.forEach((r) => console.warn(`❌ Removed ${r}`));
-            created.forEach((c) => console.info(`📄 Created ${c}`));
-            ignored.forEach((i) => console.info(`🆗 Preserved ${i}`));
-
-            const { added, preserved } = gi;
-            added.forEach((c) => console.info(`📄 Added ${c} to .gitignore`));
-            preserved.forEach((p) =>
-              console.info(`🆗 Preserved ${p} in .gitignore`)
-            );
-          }),
+      .option(
+        "-d, --dialect <dialect:dialect>",
+        "SQL dialect for package generation (sqlite or postgres)",
+        { default: SqlPageFilesUpsertDialect.SQLite },
       )
-      .command("doctor", "Show dependencies and their availability")
-      .action(async () => {
-        const diags = doctor(["deno --version", "sqlpage --version"]);
-        const result = await diags.run();
-        diags.render.cli(result);
-      })
-      .command(
-        "spc",
-        new Command() // Emit SQL package (sqlite) to stdout; accepts md path
-          .description("SQLPage Content (spc) CLI")
-          .type("dialect", dialect)
-          .option(...mdOpt)
-          .option(
-            "-p, --package",
-            "Emit SQL package to stdout from the given markdown path",
-            { conflicts: ["fs"] },
-          )
-          .option(
-            "-d, --dialect <dialect:dialect>",
-            "SQL dialect for package generation (sqlite or postgres)",
-            { default: SqlPageFilesUpsertDialect.SQLite },
-          )
-          // Materialize files to a target directory
-          .option(
-            "--fs <srcHome:string>",
-            "Materialize SQL files under this directory.",
-            { conflicts: ["package"], depends: ["conf"] },
-          )
-          .option(
-            "--destroy-first",
-            "Remove the directory that --fs points to before materializing SQL files",
-            { depends: ["fs"] },
-          )
-          .option(
-            "--watch",
-            "Materialize SQL files under this directory every time the markdown sources change",
-            { depends: ["fs"] },
-          )
-          .option(
-            "--with-sqlpage",
-            "Start a local SQLPage binary in dev mode pointing to the --fs directory",
-            { depends: ["watch"] },
-          )
-          .option(
-            "--sqlpage-bin <bin:string>",
-            "Start a local SQLPage binary in dev mode pointing to the --fs directory",
-            { depends: ["watch"], default: "sqlpage" },
-          )
-          // Write sqlpage.json to the given path
-          .option(
-            "-c, --conf <confPath:string>",
-            "Write sqlpage.json to this path (generated from frontmatter sqlpage-conf).",
-          )
-          .option("--verbose", "Emit information messages")
-          .action(async (opts) => {
-            // If --fs is present, materialize files under that root
-            if (typeof opts.fs === "string" && opts.fs.length > 0) {
-              await this.materializeFsWatch({
-                // not sure why this mapping is needed, Cliffy seems to not type `default` for `collect`ed arrays properly?
-                md: opts.md.map((f) => String(f)),
-                fs: opts.fs,
-                destroyFirst: opts.destroyFirst,
-                verbose: opts.verbose,
-                watch: opts?.watch,
-                withSqlPage: {
-                  enabled: opts.withSqlpage,
-                  sqlPageBin: opts.sqlpageBin,
-                },
-              });
-            }
+      // Materialize files to a target directory
+      .option(
+        "--fs <srcHome:string>",
+        "Materialize SQL files under this directory.",
+        { conflicts: ["package"], depends: ["conf"] },
+      )
+      .option(
+        "--destroy-first",
+        "Remove the directory that --fs points to before materializing SQL files",
+        { depends: ["fs"] },
+      )
+      .option(
+        "--watch",
+        "Materialize SQL files under this directory every time the markdown sources change",
+        { depends: ["fs"] },
+      )
+      .option(
+        "--with-sqlpage",
+        "Start a local SQLPage binary in dev mode pointing to the --fs directory",
+        { depends: ["watch"] },
+      )
+      .option(
+        "--sqlpage-bin <bin:string>",
+        "Start a local SQLPage binary in dev mode pointing to the --fs directory",
+        { depends: ["watch"], default: "sqlpage" },
+      )
+      // Write sqlpage.json to the given path
+      .option(
+        "-c, --conf <confPath:string>",
+        "Write sqlpage.json to this path (generated from frontmatter sqlpage-conf).",
+      )
+      .option("--verbose", "Emit information messages")
+      .action(async (opts) => {
+        // If --fs is present, materialize files under that root
+        if (typeof opts.fs === "string" && opts.fs.length > 0) {
+          await this.materializeFsWatch({
+            // not sure why this mapping is needed, Cliffy seems to not type `default` for `collect`ed arrays properly?
+            md: opts.md.map((f) => String(f)),
+            fs: opts.fs,
+            destroyFirst: opts.destroyFirst,
+            verbose: opts.verbose,
+            watch: opts?.watch,
+            withSqlPage: {
+              enabled: opts.withSqlpage,
+              sqlPageBin: opts.sqlpageBin,
+            },
+          });
+        }
 
-            const spp = await sqlPagePlaybook(opts.md.map((f) => String(f)));
+        const spp = await sqlPagePlaybook(opts.md.map((f) => String(f)));
 
-            // If -p/--package is present (i.e., user requested SQL package), emit to stdout
-            if (opts.package) {
-              for (
-                const chunk of await sqlPageFilesUpsertDML(sqlPageFiles(spp), {
-                  dialect: opts.dialect
-                    ? opts.dialect
-                    : SqlPageFilesUpsertDialect.SQLite,
-                  includeSqlPageFilesTable: true,
-                })
-              ) {
-                console.log(chunk);
-              }
-            }
+        // If -p/--package is present (i.e., user requested SQL package), emit to stdout
+        if (opts.package) {
+          for (
+            const chunk of await sqlPageFilesUpsertDML(sqlPageFiles(spp), {
+              dialect: opts.dialect
+                ? opts.dialect
+                : SqlPageFilesUpsertDialect.SQLite,
+              includeSqlPageFilesTable: true,
+            })
+          ) {
+            console.log(chunk);
+          }
+        }
 
-            // If --conf is present, write sqlpage.json
-            if (opts.conf) {
-              let emitted = 0, encountered = 0;
-              for (const pb of spp.sources) {
-                if (docFrontmatterDataBag.is(pb.mdastRoot)) {
-                  encountered++;
-                  const { fm } = pb.mdastRoot.data.documentFrontmatter.parsed;
-                  if (fm["sqlpage-conf"]) {
-                    const json = sqlPageConf(fm["sqlpage-conf"] as SqlPageConf);
-                    // "web_root" should only be specified for `--fs`
-                    // otherwise the directory won't exist
-                    if (opts.package) delete json["web_root"];
-                    await ensureDir(dirname(opts.conf));
-                    await Deno.writeTextFile(
-                      opts.conf,
-                      JSON.stringify(json, null, 2),
-                    );
-                    if (opts.verbose) {
-                      console.log(opts.conf);
-                    }
-                    emitted++;
-                    break; // only pick from the first file
-                  }
-                }
-              }
-              if (emitted == 0) {
-                console.warn(
-                  `Encountered ${encountered} playbook(s) but no "sqlpage-conf" found in any frontmatter.`,
+        // If --conf is present, write sqlpage.json
+        if (opts.conf) {
+          let emitted = 0, encountered = 0;
+          for (const pb of spp.sources) {
+            if (docFrontmatterDataBag.is(pb.mdastRoot)) {
+              encountered++;
+              const { fm } = pb.mdastRoot.data.documentFrontmatter.parsed;
+              if (fm["sqlpage-conf"]) {
+                const json = sqlPageConf(fm["sqlpage-conf"] as SqlPageConf);
+                // "web_root" should only be specified for `--fs`
+                // otherwise the directory won't exist
+                if (opts.package) delete json["web_root"];
+                await ensureDir(dirname(opts.conf));
+                await Deno.writeTextFile(
+                  opts.conf,
+                  JSON.stringify(json, null, 2),
                 );
+                if (opts.verbose) {
+                  console.log(opts.conf);
+                }
+                emitted++;
+                break; // only pick from the first file
               }
             }
-          })
-          .command("ls", "List SQLPage file entries")
-          .option(...mdOpt)
-          .option(
-            "-i, --pi",
-            "Show just the cell names and INFO lines for each cell",
-          )
-          .option(
-            "-I, --pi-attrs",
-            "Show just the cell names and INFO and attributes for each cell",
-          )
-          .option("-t, --tree", "Show as tree")
-          .action((opts) =>
-            this.ls({
-              ...opts,
-              md: opts.md.map((f) => String(f)),
-            })
-          )
-          .command("cat", "Concatenate SQLPage file contents")
-          .option(...mdOpt)
-          .option("-g, --glob <path:string>", "Path glob(s) to target", {
-            required: true,
-            collect: true,
-          })
-          .action((opts) =>
-            this.cat({
-              ...opts,
-              md: opts.md.map((f) => String(f)),
-            })
-          ),
+          }
+          if (emitted == 0) {
+            console.warn(
+              `Encountered ${encountered} playbook(s) but no "sqlpage-conf" found in any frontmatter.`,
+            );
+          }
+        }
+      })
+      .command("ls", "List SQLPage file entries")
+      .option(...mdOpt)
+      .option(
+        "-i, --pi",
+        "Show just the cell names and INFO lines for each cell",
+      )
+      .option(
+        "-I, --pi-attrs",
+        "Show just the cell names and INFO and attributes for each cell",
+      )
+      .option("-t, --tree", "Show as tree")
+      .action((opts) =>
+        this.ls({
+          ...opts,
+          md: opts.md.map((f) => String(f)),
+        })
+      )
+      .command("cat", "Concatenate SQLPage file contents")
+      .option(...mdOpt)
+      .option("-g, --glob <path:string>", "Path glob(s) to target", {
+        required: true,
+        collect: true,
+      })
+      .action((opts) =>
+        this.cat({
+          ...opts,
+          md: opts.md.map((f) => String(f)),
+        })
       );
   }
 
-  async run(argv: string[] = Deno.args, name = "spry.ts") {
-    await this.command(name).parse(argv);
+  async run(argv: string[] = Deno.args) {
+    await this.rootCmd().parse(argv);
   }
 
   static instance<Project>(project: Project = {} as Project) {
