@@ -16,13 +16,13 @@ import {
 } from "@std/fmt/colors";
 import { relative } from "@std/path";
 import { Code } from "types/mdast";
-import { MarkdownDoc } from "../../markdown/fluent-doc.ts";
-import { markdownShellEventBus } from "../../task/mdbus.ts";
 import { languageRegistry, LanguageSpec } from "../../universal/code.ts";
+import { MarkdownDoc } from "../../universal/fluent-md.ts";
 import {
   ColumnDef,
   ListerBuilder,
 } from "../../universal/lister-tabular-tui.ts";
+import { markdownShellEventBus } from "../../universal/shell-mdbus.ts";
 import {
   errorOnlyShellEventBus,
   ShellBusEvents,
@@ -49,6 +49,7 @@ import {
   ExecutionPlanVisualStyle,
 } from "../../universal/task-visuals.ts";
 import { codeInterpolationStrategy } from "../mdast/code-interpolate.ts";
+import { ansiPrettyNodeIssues } from "../mdast/node-issues.ts";
 import {
   Directive,
   ExecutableTask,
@@ -57,7 +58,6 @@ import {
 } from "../projection/playbook.ts";
 import { CaptureSpec } from "../remark/actionable-code-candidates.ts";
 import * as axiomCLI from "./cli.ts";
-import { ansiPrettyNodeIssues } from "../mdast/node-issues.ts";
 
 // deno-lint-ignore no-explicit-any
 type Any = any;
@@ -81,7 +81,9 @@ export function executeTasksFactory<
 
   const execute = async (plan: TaskExecutionPlan<T>) =>
     await executeDAG(plan, async (task, ctx) => {
-      const rendered = await interpolator.renderOne(task);
+      const rendered = await interpolator.renderOne(task, {
+        locals: (_, supplied) => ({ ...supplied, TASK: task }),
+      });
       if (!rendered.error) {
         // if the task is a "memoize only" (no execution) then the interpolator
         // already handled the memoization and we won't run the task

@@ -1,6 +1,6 @@
-import { MarkdownDoc } from "../markdown/fluent-doc.ts";
-import { eventBus } from "../universal/event-bus.ts";
-import { ShellBusEvents } from "../universal/shell.ts";
+import { MarkdownDoc } from "./fluent-md.ts";
+import { eventBus } from "./event-bus.ts";
+import { ShellBusEvents } from "./shell.ts";
 
 /**
  * markdownShellEventBus
