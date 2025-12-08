@@ -155,7 +155,7 @@ export async function projectPaths(projectHome = Deno.cwd()) {
 
   if (isRemote) {
     const CANONICAL =
-      "https://raw.githubusercontent.com/programmablemd/spry/refs/heads/main/lib/sqlpage/cli.ts";
+      "https://raw.githubusercontent.com/programmablemd/spry/refs/tags/v0.100.7/bin/spry.ts";
 
     const headers: Record<string, string> = {
       "Accept": "application/vnd.github+json",
@@ -380,7 +380,7 @@ export class CLI<Project> {
       );
       sfMD.codeTag(
         `bash prepare-sqlpage-dev --descr "Generate the dev-src.auto directory to work in ${init?.dialect} dev mode"`,
-      )`./spry.ts spc --fs dev-src.auto --destroy-first --conf sqlpage/sqlpage.json`;
+      )`./spry.ts sp spc --fs dev-src.auto --destroy-first --conf sqlpage/sqlpage.json`;
       sfMD.codeTag(
         `bash clean --descr "Clean up the project directory's generated artifacts"`,
       )`rm -rf dev-src.auto`;
@@ -389,7 +389,7 @@ export class CLI<Project> {
       );
       sfMD.codeTag(
         `bash`,
-      )`./spry.ts spc --fs dev-src.auto --destroy-first --conf sqlpage/sqlpage.json --watch --with-sqlpage`;
+      )`./spry.ts sp spc --fs dev-src.auto --destroy-first --conf sqlpage/sqlpage.json --watch --with-sqlpage`;
       sfMD.ul(
         "--watch` turns on watching all `--md` files passed in (defaults to `Spryfile.md`)",
       );
@@ -400,14 +400,14 @@ export class CLI<Project> {
       sfMD.p("If you're running SQLPage in another terminal window, use:");
       sfMD.codeTag(
         `bash`,
-      )`./spry.ts spc --fs dev-src.auto --destroy-first --conf sqlpage/sqlpage.json --watch`;
+      )`./spry.ts sp spc --fs dev-src.auto --destroy-first --conf sqlpage/sqlpage.json --watch`;
       sfMD.title(2, "SQLPage single database deployment mode");
       sfMD.p(
         "After development is complete, the `dev-src.auto` can be removed and single-database deployment can be used:",
       );
       sfMD.codeTag(
         `bash deploy --descr "Generate sqlpage_files table upsert SQL and push them to ${init?.dialect}"`,
-      )`rm -rf dev-src.auto\n./spry.ts spc --package ${
+      )`rm -rf dev-src.auto\n./spry.ts sp spc --package ${
         init?.dialect ? `--dialect ${init?.dialect}` : ``
       } --conf sqlpage/sqlpage.json | ${
         init?.dialect === "postgres" ? `psql` : `sqlite3`
