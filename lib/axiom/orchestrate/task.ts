@@ -276,7 +276,7 @@ export function exectutionReport<
         task.origin.lang = "text",
         task.origin.value = content;
     });
-  const shellEventBus = textInfoShellEventBus({ style: "plain" });
+  const shellEventBus = textInfoShellEventBus({ style: "rich" });
   const tasksEventBus = textInfoTaskEventBus<T, Context>({ style: "rich" });
 
   const cis = codeInterpolationStrategy(opts?.directives ?? [], {
