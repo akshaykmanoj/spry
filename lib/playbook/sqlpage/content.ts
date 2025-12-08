@@ -230,6 +230,33 @@ export async function sqlPageFilesUpsertDML(
   }
 
   const esc = (s: string) => s.replaceAll("'", "''");
+
+  const asText = async (
+    s: string | Uint8Array | ReadableStream<Uint8Array>,
+  ): Promise<string> => {
+    if (typeof s === "string") return s;
+    if (s instanceof Uint8Array) {
+      return new TextDecoder().decode(s);
+    }
+
+    // Treat as ReadableStream<Uint8Array>
+    const reader = s.getReader();
+    const chunks: Uint8Array[] = [];
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) chunks.push(value);
+    }
+    const totalLength = chunks.reduce((n, c) => n + c.length, 0);
+    const bytes = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const c of chunks) {
+      bytes.set(c, offset);
+      offset += c.length;
+    }
+    return new TextDecoder().decode(bytes);
+  };
+
   const quoted = async (
     s: string | Uint8Array | ReadableStream<Uint8Array>,
   ): Promise<string> => {
@@ -260,11 +287,16 @@ export async function sqlPageFilesUpsertDML(
 
   const list = await Array.fromAsync(normalizeSPC(spcStream));
 
-  const headSql = list.filter((e) => e.kind === "head_sql").map((spf) =>
-    spf.contents
+  const headSql = await Promise.all(
+    list
+      .filter((e) => e.kind === "head_sql")
+      .map((spf) => asText(spf.contents)),
   );
-  const tailSql = list.filter((e) => e.kind === "tail_sql").map((spf) =>
-    spf.contents
+
+  const tailSql = await Promise.all(
+    list
+      .filter((e) => e.kind === "tail_sql")
+      .map((spf) => asText(spf.contents)),
   );
 
   const upserts = await Promise.all(
