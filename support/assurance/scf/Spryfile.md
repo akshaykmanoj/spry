@@ -94,7 +94,7 @@ Quick troubleshooting
 While you're developing, Spry's `dev-src.auto` generator should be used:
 
 ```bash prepare-sqlpage-dev --descr "Generate the dev-src.auto directory to work in SQLPage dev mode"
-./spry.ts spc --fs dev-src.auto --destroy-first --conf sqlpage/sqlpage.json
+./spry.ts sp spc --fs dev-src.auto --destroy-first --conf sqlpage/sqlpage.json
 ```
 
 ```bash clean --descr "Clean up the project directory's generated artifacts"
@@ -106,7 +106,7 @@ whenever you update `Spryfile.md`, it regenerates the SQLPage `dev-src.auto`,
 which is then picked up automatically by the SQLPage server:
 
 ```bash
-./spry.ts spc --fs dev-src.auto --destroy-first --conf sqlpage/sqlpage.json --watch --with-sqlpage
+./spry.ts sp spc --fs dev-src.auto --destroy-first --conf sqlpage/sqlpage.json --watch --with-sqlpage
 ```
 
 - `--watch` turns on watching all `--md` files passed in (defaults to
@@ -121,7 +121,7 @@ window.
 If you're running SQLPage in another terminal window, use:
 
 ```bash
-./spry.ts spc --fs dev-src.auto --destroy-first --conf sqlpage/sqlpage.json --watch
+./spry.ts sp spc --fs dev-src.auto --destroy-first --conf sqlpage/sqlpage.json --watch
 ```
 
 ## SQLPage single database deployment mode
@@ -131,7 +131,7 @@ single-database deployment can be used:
 
 ```bash deploy -C --descr "Generate sqlpage_files table upsert SQL and push them to SQLite"
 rm -rf dev-src.auto
-./spry.ts spc --package --conf sqlpage/sqlpage.json | sqlite3 scf-2025.3.sqlite.db
+./spry.ts sp spc --package --conf sqlpage/sqlpage.json | sqlite3 scf-2025.3.sqlite.db
 ```
 
 ## Raw SQL
