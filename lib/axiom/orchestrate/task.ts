@@ -151,7 +151,11 @@ export function tasksRunbook<
   const execute = async (plan: TaskExecutionPlan<T>) =>
     await executeDAG(plan, async (task, ctx) => {
       const rendered = await interpolator.renderOne(task, {
-        locals: (_, supplied) => ({ ...supplied, TASK: task }),
+        locals: (_, supplied) => ({
+          ...supplied,
+          TASK: task,
+          resolveRelPath: task.provenance.resolveRelPath,
+        }),
       });
       if (!rendered.error) {
         // if the task is a "memoize only" (no execution) then the interpolator
@@ -289,7 +293,11 @@ export function exectutionReport<
   const execute = async (plan: TaskExecutionPlan<T>) =>
     await executeDAG(plan, async (task, ctx) => {
       const rendered = await interpolator.renderOne(task, {
-        locals: (_, supplied) => ({ ...supplied, TASK: task }),
+        locals: (_, supplied) => ({
+          ...supplied,
+          TASK: task,
+          resolveRelPath: task.provenance.resolveRelPath,
+        }),
       });
       if (!rendered.error) {
         // if the task is a "memoize only" (no execution) then the interpolator

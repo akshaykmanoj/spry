@@ -31,6 +31,9 @@ $!{await partial("test-partial", { newLocal: "passed from task-3"})}
 # already capture/memoized: $!{Object.keys(captured).join(", ")}
 # keys available in current TASK: $!{Object.keys(TASK).join(", ")}
 
+# this should resolve relative to CWD properly whether local or remote
+# relative file: $!{resolveRelPath("../qualityfolio/Qualityfolio.md")}
+
 echo "task: ${TASK.spawnableIdentity}"
 
 # partial 1 (error): $!{await partial("non-existent")}
