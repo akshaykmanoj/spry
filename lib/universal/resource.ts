@@ -72,7 +72,8 @@ const isTextMime = (mime?: MimeType): boolean => {
     m === "application/json" ||
     m.endsWith("+json") ||
     m === "application/xml" ||
-    m.endsWith("+xml")
+    m.endsWith("+xml") ||
+    m === "application/sql"
   );
 };
 
