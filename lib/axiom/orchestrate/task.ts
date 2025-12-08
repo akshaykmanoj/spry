@@ -56,6 +56,7 @@ import {
   executeDAG,
   fail,
   ok,
+  Task,
   TaskExecEventMap,
   TaskExecutionPlan,
   textInfoTaskEventBus,
@@ -260,8 +261,21 @@ export function exectutionReport<
   T extends ExecutableTask,
   Context extends { readonly runId: string },
 >(
-  opts?: { directives: readonly Directive[] },
+  opts?: {
+    readonly directives: readonly Directive[];
+    readonly replaceContents?: (
+      task: Task,
+      content: string,
+      nature: "execution-result" | "render-result",
+    ) => void | Promise<void>;
+  },
 ) {
+  const replaceContents = opts?.replaceContents ??
+    ((task: T, content: string) => {
+      task.origin.meta = `--origin '${task.origin.lang} ${task.origin.meta}'`,
+        task.origin.lang = "text",
+        task.origin.value = content;
+    });
   const shellEventBus = textInfoShellEventBus({ style: "plain" });
   const tasksEventBus = textInfoTaskEventBus<T, Context>({ style: "rich" });
 
@@ -296,10 +310,10 @@ export function exectutionReport<
               });
             }
             // mutate the code cell value with the results of the output
-            task.origin.value = output;
+            replaceContents(task, output, "execution-result");
           } else {
             // even if the task was not run, mutate the interpolated code cell value
-            task.origin.value = rendered.text;
+            replaceContents(task, rendered.text, "render-result");
           }
         }
         return ok(ctx);

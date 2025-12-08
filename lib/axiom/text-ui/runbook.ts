@@ -15,7 +15,10 @@ import {
   yellow,
 } from "@std/fmt/colors";
 import { relative } from "@std/path";
+import { toMarkdown } from "mdast-util-to-markdown";
 import { Code } from "types/mdast";
+import { select } from "unist-util-select";
+
 import { languageRegistry, LanguageSpec } from "../../universal/code.ts";
 import { MarkdownDoc } from "../../universal/fluent-md.ts";
 import {
@@ -25,9 +28,14 @@ import {
 import { markdownShellEventBus } from "../../universal/shell-mdbus.ts";
 import {
   errorOnlyShellEventBus,
+  shell,
   ShellBusEvents,
   verboseInfoShellEventBus,
 } from "../../universal/shell.ts";
+import {
+  executionPlanVisuals,
+  ExecutionPlanVisualStyle,
+} from "../../universal/task-visuals.ts";
 import {
   errorOnlyTaskEventBus,
   executionPlan,
@@ -35,12 +43,6 @@ import {
   verboseInfoTaskEventBus,
 } from "../../universal/task.ts";
 import { computeSemVerSync } from "../../universal/version.ts";
-
-import { shell } from "../../universal/shell.ts";
-import {
-  executionPlanVisuals,
-  ExecutionPlanVisualStyle,
-} from "../../universal/task-visuals.ts";
 import { ansiPrettyNodeIssues } from "../mdast/node-issues.ts";
 import { exectutionReport, tasksRunbook } from "../orchestrate/task.ts";
 import {
@@ -50,8 +52,6 @@ import {
 } from "../projection/playbook.ts";
 import { CaptureSpec } from "../remark/actionable-code-candidates.ts";
 import * as axiomCLI from "./cli.ts";
-import { toMarkdown } from "mdast-util-to-markdown";
-import { select } from "unist-util-select";
 
 // deno-lint-ignore no-explicit-any
 type Any = any;
@@ -422,8 +422,9 @@ export class CLI {
             const logNode = select(
               `code[lang="spry"][meta="exectutionReportLog"]`,
               src.mdastRoot,
-            );
+            ) as Code;
             if (logNode) {
+              logNode.lang = "text";
               logNode.value = er.shellEventBus.lines.join("\n");
               logNode.value += "\n----" + er.tasksEventBus.lines.join("\n");
             }
