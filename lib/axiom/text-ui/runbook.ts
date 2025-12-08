@@ -30,88 +30,31 @@ import {
 } from "../../universal/shell.ts";
 import {
   errorOnlyTaskEventBus,
-  executeDAG,
   executionPlan,
   executionSubplan,
-  fail,
-  ok,
-  TaskExecEventMap,
-  TaskExecutionPlan,
   verboseInfoTaskEventBus,
 } from "../../universal/task.ts";
 import { computeSemVerSync } from "../../universal/version.ts";
 
-import { eventBus } from "../../universal/event-bus.ts";
-import { renderer } from "../../universal/render.ts";
 import { shell } from "../../universal/shell.ts";
 import {
   executionPlanVisuals,
   ExecutionPlanVisualStyle,
 } from "../../universal/task-visuals.ts";
-import { codeInterpolationStrategy } from "../mdast/code-interpolate.ts";
 import { ansiPrettyNodeIssues } from "../mdast/node-issues.ts";
+import { exectutionReport, tasksRunbook } from "../orchestrate/task.ts";
 import {
-  Directive,
   ExecutableTask,
   PlaybookProjection,
   playbooksFromFiles,
 } from "../projection/playbook.ts";
 import { CaptureSpec } from "../remark/actionable-code-candidates.ts";
 import * as axiomCLI from "./cli.ts";
+import { toMarkdown } from "mdast-util-to-markdown";
+import { select } from "unist-util-select";
 
 // deno-lint-ignore no-explicit-any
 type Any = any;
-
-export function executeTasksFactory<
-  T extends ExecutableTask,
-  Context extends { readonly runId: string },
->(
-  opts?: {
-    directives: readonly Directive[];
-    shellBus?: ReturnType<typeof eventBus<ShellBusEvents>>;
-    tasksBus?: ReturnType<typeof eventBus<TaskExecEventMap<T, Context>>>;
-  },
-) {
-  const cis = codeInterpolationStrategy(opts?.directives ?? [], {
-    approach: "safety-first",
-  });
-  const interpolator = renderer(cis);
-  const sh = shell({ bus: opts?.shellBus });
-  const td = new TextDecoder();
-
-  const execute = async (plan: TaskExecutionPlan<T>) =>
-    await executeDAG(plan, async (task, ctx) => {
-      const rendered = await interpolator.renderOne(task, {
-        locals: (_, supplied) => ({ ...supplied, TASK: task }),
-      });
-      if (!rendered.error) {
-        // if the task is a "memoize only" (no execution) then the interpolator
-        // already handled the memoization and we won't run the task
-        if (!task.memoizeOnly) {
-          const execResult = await sh.auto(rendered.text, undefined, task);
-          if (task.spawnableArgs.capture) {
-            // before the task runs, "memoize" in interpolator.renderOne stores
-            // the "source" (before execution) and now we need to overwrite that
-            // "memoization" with the actual execution's stdout / result
-            const output = Array.isArray(execResult)
-              ? execResult.map((er) => td.decode(er.stdout)).join("\n")
-              : td.decode(execResult.stdout);
-            if (task.spawnableArgs.capture) {
-              cis.memory.memoize?.(output, {
-                identity: task.taskId(),
-                captureSpecs: task.spawnableArgs.capture,
-              });
-            }
-          }
-        }
-        return ok(ctx);
-      } else {
-        return fail(ctx, rendered.error);
-      }
-    }, { eventBus: opts?.tasksBus });
-
-  return { execute, sh, cis, interpolator };
-}
 
 export type LsTaskRow = {
   code: Code;
@@ -298,6 +241,7 @@ export class CLI {
         this.taskCommand(),
         this.runCommand(),
         this.issuesCommand(),
+        this.reportCommand(),
       ]
     ) {
       compose.command(c.getName(), c);
@@ -364,17 +308,17 @@ export class CLI {
               typeof tasks[number],
               { runId: string }
             >(opts?.verbose);
-            const etf = executeTasksFactory({
+            const runbook = tasksRunbook({
               directives,
               shellBus: ieb.shellEventBus,
               tasksBus: ieb.tasksEventBus,
             });
-            const runbook = await etf.execute(
+            const rbResults = await runbook.execute(
               executionSubplan(executionPlan(tasks), [taskId]),
             );
             if (ieb.emit) ieb.emit();
             if (opts.summarize) {
-              console.log(runbook);
+              console.log(rbResults);
             }
           } else {
             console.warn(`Task '${taskId}' not found.`);
@@ -425,16 +369,65 @@ export class CLI {
               typeof tasks[number],
               { runId: string }
             >(opts?.verbose);
-            const etf = executeTasksFactory({
+            const runbook = tasksRunbook({
               directives,
               shellBus: ieb.shellEventBus,
               tasksBus: ieb.tasksEventBus,
             });
-            const runbook = await etf.execute(plan);
+            const rbResults = await runbook.execute(plan);
             if (ieb.emit) ieb.emit();
             if (opts.summarize) {
-              console.log(runbook);
+              console.log(rbResults);
             }
+          }
+        },
+      );
+  }
+
+  reportCommand() {
+    return new Command()
+      .name("report")
+      .description(`execute all code cells and return as new markdown`)
+      .arguments("[paths...:string]")
+      .option(
+        "--graph <name:string>",
+        "Run only the nodes in provided graph(s)",
+        {
+          collect: true,
+        },
+      )
+      .action(
+        async (opts, ...paths: string[]) => {
+          const { tasks, directives, issues, sources } =
+            await playbooksFromFiles(
+              paths.length ? paths : this.conf?.defaultFiles ?? [],
+              {
+                filter: opts.graph?.length
+                  ? ((task) =>
+                    task.spawnableArgs.graphs?.some((g) =>
+                        opts.graph!.includes(g)
+                      )
+                      ? true
+                      : false)
+                  : ((task) =>
+                    task.spawnableArgs.graphs?.length ? false : true),
+              },
+            );
+          this.preface({ issues });
+          const plan = executionPlan(tasks);
+          // create a runbook that will mutate the original markdown with output
+          const er = exectutionReport({ directives });
+          await er.execute(plan); // the results all go back into the mdast code cells
+          for (const src of sources) {
+            const logNode = select(
+              `code[lang="spry"][meta="exectutionReportLog"]`,
+              src.mdastRoot,
+            );
+            if (logNode) {
+              logNode.value = er.shellEventBus.lines.join("\n");
+              logNode.value += "\n----" + er.tasksEventBus.lines.join("\n");
+            }
+            console.log(toMarkdown(src.mdastRoot));
           }
         },
       );
