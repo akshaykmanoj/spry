@@ -1,10 +1,10 @@
-// lib/universal/data-movement.ts
+// lib/universal/protocol.ts
 //
 // Spry Data Movement Protocol (DataMP) and DataMove Engine.
 //
 // - "Data Movement Protocol (DataMP)" = protocol + message model (wire + typed).
 // - "DataMove Engine" = runner that executes DataMove pipelines.
-// - Singer is treated as one *profile* of DataMP.
+// - Profiles (Singer, Airbyte, etc.) live in separate modules.
 // - Zod 4 is the core validation + transform layer; TS types are z.infer<>.
 
 import { z, type ZodObject, ZodType } from "@zod/zod";
@@ -24,78 +24,6 @@ export const dataMoveProtocolIdSchema = z.union([
   z.string().regex(/^[a-z0-9._-]+$/),
 ]);
 export type DataMoveProtocolId = z.infer<typeof dataMoveProtocolIdSchema>;
-
-/* -------------------------------------------------------------------------- */
-/*                         Singer Profile – Wire Messages                     */
-/* -------------------------------------------------------------------------- */
-
-// Singer message "type" discriminator (Singer profile of DataMP).
-export const singerMessageTypeSchema = z.union([
-  z.literal("SCHEMA"),
-  z.literal("RECORD"),
-  z.literal("STATE"),
-  z.literal("ACTIVATE_VERSION"),
-]);
-export type SingerMessageType = z.infer<typeof singerMessageTypeSchema>;
-
-// Singer SCHEMA wire message (DataMP Singer profile).
-export const singerSchemaWireSchema = z
-  .object({
-    type: z.literal("SCHEMA"),
-    stream: z.string(),
-    schema: z.record(z.string(), z.unknown()),
-    key_properties: z.array(z.string()).optional(),
-    bookmark_properties: z.array(z.string()).optional(),
-  })
-  .catchall(z.unknown());
-
-export type SingerSchemaWire = z.infer<typeof singerSchemaWireSchema>;
-
-// Singer RECORD wire message (DataMP Singer profile).
-export const singerRecordWireSchema = z
-  .object({
-    type: z.literal("RECORD"),
-    stream: z.string(),
-    record: z.record(z.string(), z.unknown()),
-    time_extracted: z.string().optional(),
-    version: z.number().optional(),
-  })
-  .catchall(z.unknown());
-
-export type SingerRecordWire = z.infer<typeof singerRecordWireSchema>;
-
-// Singer STATE wire message (DataMP Singer profile).
-export const singerStateWireSchema = z
-  .object({
-    type: z.literal("STATE"),
-    value: z.record(z.string(), z.unknown()),
-  })
-  .catchall(z.unknown());
-
-export type SingerStateWire = z.infer<typeof singerStateWireSchema>;
-
-// Singer ACTIVATE_VERSION wire message (DataMP Singer profile).
-export const singerActivateVersionWireSchema = z
-  .object({
-    type: z.literal("ACTIVATE_VERSION"),
-    stream: z.string(),
-    version: z.number(),
-  })
-  .catchall(z.unknown());
-
-export type SingerActivateVersionWire = z.infer<
-  typeof singerActivateVersionWireSchema
->;
-
-// Union of all Singer profile wire messages.
-export const singerWireMessageSchema = z.discriminatedUnion("type", [
-  singerSchemaWireSchema,
-  singerRecordWireSchema,
-  singerStateWireSchema,
-  singerActivateVersionWireSchema,
-]);
-
-export type SingerWireMessage = z.infer<typeof singerWireMessageSchema>;
 
 /* -------------------------------------------------------------------------- */
 /*                    Spry Superset – Control / Diagnostics                   */
@@ -159,18 +87,6 @@ export type DataMoveErrorMessage = z.infer<typeof dmErrorMessageSchema>;
 export type DataMoveBarrierMessage = z.infer<typeof dmBarrierMessageSchema>;
 export type DataMoveMetricsMessage = z.infer<typeof dmMetricsMessageSchema>;
 export type DataMoveSupersetMessage = z.infer<typeof dataMoveMessageSchema>;
-
-/* -------------------------------------------------------------------------- */
-/*                 Unified Wire-Level DataMove (All Profiles)                 */
-/* -------------------------------------------------------------------------- */
-
-// Unified wire-level message schema (Singer profile + Spry extensions).
-export const dataMoveWireMessageSchema = z.union([
-  singerWireMessageSchema,
-  dataMoveMessageSchema,
-]);
-
-export type DataMoveWireMessage = z.infer<typeof dataMoveWireMessageSchema>;
 
 /* -------------------------------------------------------------------------- */
 /*                         Zod Stream Schema Layer (DataMove)                 */
@@ -311,72 +227,6 @@ export type DataMoveTypedMessage<
   | DataMoveSupersetMessage;
 
 /* -------------------------------------------------------------------------- */
-/*     Zod Transforms: Typed DataMove Messages -> Singer Profile (Wire)       */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Build a Zod transform schema that turns a typed DataMove RECORD message
- * into a Singer profile RECORD wire message.
- */
-export function dataMoveTypedRecordToSingerRecordWireSchema<
-  TSchemas extends StreamSchemaMap,
-  TStream extends keyof TSchemas & string,
->(
-  streamName: TStream,
-  streamSchema: TSchemas[TStream],
-) {
-  return dataMoveTypedRecordMessageSchema<TSchemas, TStream>(
-    streamName,
-    streamSchema,
-  ).transform(
-    (msg): SingerRecordWire => ({
-      type: "RECORD",
-      stream: streamName,
-      record: (msg as { record: unknown }).record as Record<string, unknown>,
-      time_extracted: (msg as { timeExtracted?: Date }).timeExtracted
-        ?.toISOString(),
-    }),
-  );
-}
-
-/**
- * Build a Zod transform schema that turns a typed DataMove STATE message into
- * a Singer profile STATE wire message. State remains opaque JSON.
- */
-export function dataMoveTypedStateToSingerStateWireSchema<
-  TState extends object,
->() {
-  return dataMoveTypedStateMessageSchema<TState>().transform(
-    (msg): SingerStateWire => ({
-      type: "STATE",
-      value: (msg as { state: unknown }).state as Record<string, unknown>,
-    }),
-  );
-}
-
-/**
- * Build a Zod schema for Singer SCHEMA wire messages from metadata plus
- * an externally provided JSON Schema. We intentionally avoid introspecting
- * Zod; upstream tooling can use zod-to-json-schema and feed that JSON here.
- */
-export const dataMoveSingerSchemaWireFromMetaSchema = z
-  .object({
-    stream: z.string(),
-    jsonSchema: z.record(z.string(), z.unknown()),
-    keyProperties: z.array(z.string()).optional(),
-    bookmarkProperties: z.array(z.string()).optional(),
-  })
-  .transform(
-    (meta): SingerSchemaWire => ({
-      type: "SCHEMA",
-      stream: meta.stream,
-      schema: meta.jsonSchema,
-      key_properties: meta.keyProperties,
-      bookmark_properties: meta.bookmarkProperties,
-    }),
-  );
-
-/* -------------------------------------------------------------------------- */
 /*     DataMove Engine – Taps, Targets, Transforms, and Pipelines             */
 /* -------------------------------------------------------------------------- */
 
@@ -449,7 +299,7 @@ export interface DataMoveMessageTransform<
 
 /**
  * DataMovePipelineOptions: describes a DataMove pipeline to be executed
- * by the DataMove Engine. The pipeline is profile-neutral (Singer is a profile).
+ * by the DataMove Engine. The pipeline is profile-neutral.
  */
 export interface DataMovePipelineOptions<
   TSchemas extends StreamSchemaMap,
@@ -619,22 +469,6 @@ export function dataMoveSingleStreamRecordMessageSchema<
   schema: ZodObject<Record<string, ZodType>>,
 ) {
   return dataMoveTypedRecordMessageSchema<
-    { [K in TStreamName]: ZodObject<Record<string, ZodType>> },
-    TStreamName
-  >(streamName, schema);
-}
-
-/**
- * Convenience: build a Zod transform that turns a typed single-stream
- * DataMove RECORD message into a Singer profile RECORD wire message.
- */
-export function dataMoveSingleStreamRecordToSingerWireSchema<
-  TStreamName extends string,
->(
-  streamName: TStreamName,
-  schema: ZodObject<Record<string, ZodType>>,
-) {
-  return dataMoveTypedRecordToSingerRecordWireSchema<
     { [K in TStreamName]: ZodObject<Record<string, ZodType>> },
     TStreamName
   >(streamName, schema);

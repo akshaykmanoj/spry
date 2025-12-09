@@ -9,8 +9,9 @@ It has three main goals:
    concept in Spry, not just ad-hoc scripts.
 2. Provide a small, composable TypeScript API that can be used directly in Deno,
    but is generic enough to be wrapped by Spry markdown playbooks and notebooks.
-3. Make Singer a “first-class citizen” of the Spry world, while still being a
-   profile within a more general Data Movement Protocol (DataMP).
+3. Make Singer and Airbyte “first-class citizens” of the Spry world, while still
+   treating them as profiles within a more general Data Movement Protocol
+   (DataMP).
 
 In other words: Courier is the infrastructure layer; Spry playbooks, pipelines,
 and markdown notebooks are the orchestration and UX layers on top.
@@ -23,43 +24,61 @@ Courier starts by defining a protocol model, called the Data Movement Protocol
 - A protocol id (`DataMoveProtocolId`) identifies which profile is in use, e.g.:
 
   - `"singer"` for Singer-style JSON messages.
+  - `"airbyte"` for Airbyte-style JSON messages.
   - `"data-move-protocol"` for Spry’s own control/diagnostics envelopes.
   - Other lowercase strings for additional profiles (CDC, logs, metrics, etc.).
 
 - A “profile” is a concrete shape and behavior for messages on the wire. Singer
-  is one such profile.
+  is one such profile, and Airbyte is another.
 
 This lets Courier unify:
 
 - Singer-style taps/targets that already speak the Singer JSON protocol.
+- Airbyte-style sources/destinations that already speak the Airbyte JSON
+  protocol.
 - Spry-native taps/targets that speak typed DataMP messages and may be adapted
-  into Singer or other profiles.
+  into Singer, Airbyte, or other profiles.
 - Future profiles (e.g., bespoke CDC streams or observability feeds) without
   redesigning the system.
 
 ## What `protocol.ts` defines
 
-`protocol.ts` is the foundational module for Courier. It provides:
+`protocol.ts` is the foundational module for Courier. It provides all
+profile-agnostic DataMP types and the Spry control/diagnostics layer.
+Profile-specific wire details for Singer and Airbyte live alongside it in
+`singer.ts` and `airbyte.ts`.
 
-3.1 Wire-level Singer schemas
+### Profile wire schemas (Singer and Airbyte)
 
-Type-safe Zod schemas for canonical Singer messages:
+Singer and Airbyte are implemented as DataMP profiles with their own Zod schemas
+and adapters:
 
-- `SingerMessageType` – discriminator: "SCHEMA", "RECORD", "STATE",
-  "ACTIVATE_VERSION".
-- `singerSchemaWireSchema` – Singer SCHEMA messages (stream, JSON Schema, key
-  and bookmark properties).
-- `singerRecordWireSchema` – Singer RECORD messages (stream, record object,
-  extracted time, version).
-- `singerStateWireSchema` – Singer STATE messages (opaque state JSON).
-- `singerActivateVersionWireSchema` – Singer ACTIVATE_VERSION messages (stream +
-  version).
-- `singerWireMessageSchema` – discriminated union of all Singer wire messages.
+- `singer.ts` defines:
 
-These provide a typed, validated surface for interacting with existing Singer
-taps and targets.
+  - `SingerMessageType` – discriminator: "SCHEMA", "RECORD", "STATE",
+    "ACTIVATE_VERSION".
+  - `singerSchemaWireSchema` – Singer SCHEMA messages (stream, JSON Schema, key
+    and bookmark properties).
+  - `singerRecordWireSchema` – Singer RECORD messages (stream, record object,
+    extracted time, version).
+  - `singerStateWireSchema` – Singer STATE messages (opaque state JSON).
+  - `singerActivateVersionWireSchema` – Singer ACTIVATE_VERSION messages (stream
 
-3.2 Spry superset messages (Data Move Superset)
+    - version).
+  - `singerWireMessageSchema` – discriminated union of all Singer wire messages.
+
+- `airbyte.ts` defines equivalent Airbyte profile wire shapes, e.g.:
+
+  - Configured catalog and stream metadata types.
+  - RECORD messages with Airbyte’s `record` envelope.
+  - STATE messages using Airbyte’s state format.
+  - LOG/TRACE and other control messages as per the Airbyte spec.
+  - A discriminated union of all Airbyte wire messages.
+
+These provide typed, validated surfaces for interacting with existing Singer
+taps/targets and Airbyte sources/destinations.
+
+### Spry superset messages (Data Move Superset)
 
 A small Spry-specific envelope layer for control and diagnostics:
 
@@ -84,21 +103,26 @@ All of these are combined in `dataMoveMessageSchema`, the discriminated union on
 `nature`.
 
 This gives Courier a standard way to carry logs, errors, metrics, and pipeline
-barriers alongside data records.
+barriers alongside data records, regardless of whether the records are flowing
+via Singer, Airbyte, or a Spry-native profile.
 
-3.3 Unified wire message union
+### Unified wire message union
 
 `dataMoveWireMessageSchema` is the top-level of the wire side:
 
-- Union of `singerWireMessageSchema` + `dataMoveMessageSchema`.
+- Union of:
+
+  - Singer wire messages (`singerWireMessageSchema`),
+  - Airbyte wire messages (from `airbyte.ts`),
+  - and `dataMoveMessageSchema`.
 
 This is the “everything that can appear on the wire” union for initial profiles.
-It allows a single stream or log to carry both Singer data and Spry control
-messages.
+It allows a single stream or log to carry Singer data, Airbyte data, and Spry
+control messages together.
 
-3.4 Typed Zod layer for Data Move streams
+### Typed Zod layer for Data Move streams
 
-On top of the wire format, Courier defines a typed layer for actual data:
+On top of the wire formats, Courier defines a typed layer for actual data:
 
 - `StreamSchemaMap` – map from stream name to Zod object schema.
 - `InferStreamRecord` – infers the TypeScript type of records for a given stream
@@ -113,9 +137,10 @@ On top of the wire format, Courier defines a typed layer for actual data:
 This is the bridge between:
 
 - Strongly typed data models (per stream, using Zod).
-- Profile-specific representations on the wire (Singer, Spry superset, etc.).
+- Profile-specific representations on the wire (Singer, Airbyte, Spry superset,
+  etc.).
 
-3.5 Typed Data Move messages
+### Typed Data Move messages
 
 Typed typed-level abstractions:
 
@@ -136,46 +161,59 @@ A generic union function:
   - and Data Move superset messages (TRACE/ERROR/BARRIER/METRICS).
 
 These define how the Data Move Engine sees messages internally: as typed,
-Zod-validated objects rather than raw JSON.
+Zod-validated objects rather than raw JSON, regardless of whether they will
+eventually be emitted as Singer or Airbyte messages.
 
-3.6 Transforms between typed and Singer wire
+### Transforms between typed and profile wire (Singer, Airbyte)
 
-Zod transforms are used to adapt typed messages into Singer profile messages:
+Zod transforms are used to adapt typed messages into profile-specific wire
+messages:
 
-- `dataMoveTypedRecordToSingerRecordWireSchema(streamName, streamSchema)`
+- In `singer.ts`:
 
-  - Typed RECORD → Singer RECORD wire shape.
-- `dataMoveTypedStateToSingerStateWireSchema<TState>()`
+  - `dataMoveTypedRecordToSingerRecordWireSchema(streamName, streamSchema)`
 
-  - Typed STATE → Singer STATE wire shape (opaque JSON).
-- `dataMoveSingerSchemaWireFromMetaSchema`
+    - Typed RECORD → Singer RECORD wire shape.
+  - `dataMoveTypedStateToSingerStateWireSchema<TState>()`
 
-  - Takes metadata (stream name, JSON Schema, key/bookmark properties) and
-    generates a Singer SCHEMA wire message.
+    - Typed STATE → Singer STATE wire shape (opaque JSON).
+  - `dataMoveSingerSchemaWireFromMetaSchema`
 
-These are the primary adaptation points for using typed pipelines with Singer
-tools.
+    - Takes metadata (stream name, JSON Schema, key/bookmark properties) and
+      generates a Singer SCHEMA wire message.
 
-3.7 Data Move Engine (taps, targets, transforms, pipeline)
+- In `airbyte.ts`:
+
+  - Equivalent helpers that map typed RECORD/STATE and stream metadata into
+    Airbyte’s RECORD, STATE, and catalog messages.
+
+These are the primary adaptation points for using typed pipelines with both
+Singer and Airbyte ecosystems.
+
+### Data Move Engine (taps, targets, transforms, pipeline)
 
 Defines the core runtime plumbing:
 
 - `DataMoveTapContext<TState>` – context for taps, including initial state.
+
 - `DataMoveTap<TSchemas, TState>` – a source of messages:
 
   - `id`
   - `streams` – map of stream definitions
   - `read(ctx)` – async iterator of `DataMoveTypedMessage`.
+
 - `DataMoveTarget<TSchemas, TState>` – a sink:
 
   - `id`
   - optional `init()`
   - `handleMessage(msg)`
   - optional `finalize()`
+
 - `DataMoveMessageTransform<TSchemas, TState>` – mid-pipeline transform/filter:
 
   - `name`
   - `apply(msg)` returns one, many, or zero messages (sync or async).
+
 - `DataMovePipelineOptions<TSchemas, TState>` – describes a pipeline:
 
   - `tap`
@@ -196,9 +234,10 @@ The pipeline runner:
   - Calls `target.finalize()` at the end.
 
 This is the “engine block” of Courier: taps + transforms + target wired together
-in a standard way.
+in a standard way, independent of whether the tap/target are Singer-based,
+Airbyte-based, or Spry-native.
 
-3.8 Single-stream convenience helpers
+### Single-stream convenience helpers
 
 For simple or early use cases, Courier provides helpers for single-stream
 scenarios:
@@ -209,93 +248,104 @@ scenarios:
   `DataMoveStreamDef`.
 - `dataMoveSingleStreamRecordMessageSchema(streamName, schema)` – typed RECORD
   schema for single-stream pipelines.
-- `dataMoveSingleStreamRecordToSingerWireSchema(streamName, schema)` – direct
-  transform from typed single-stream RECORD to Singer RECORD wire message.
+- Profile adapters such as:
+
+  - `dataMoveSingleStreamRecordToSingerWireSchema(streamName, schema)` – direct
+    transform from typed single-stream RECORD to Singer RECORD wire message.
+  - Airbyte equivalents for transforming single-stream typed messages into
+    Airbyte RECORDs.
 
 These helpers make it easy to use Courier in small utilities or prototypes
-without committing to multi-stream complexity.
+without committing to multi-stream complexity, while still being able to emit
+either Singer or Airbyte messages.
 
-## What mod_test.ts does
+## What the tests do
 
-`mod_test.ts` for Courier is designed as both a correctness suite and a living
-spec for how to use `protocol.ts`.
+The Courier tests are designed as both correctness suites and living specs for
+how to use `protocol.ts` plus the profile modules:
 
-At a high level it:
+- `protocol_test.ts` focuses on:
 
-1. Validates the Singer schemas
+  - Typed DataMP abstractions (streams, typed messages, and the union).
+  - Single-stream helpers.
+  - The Data Move Engine with synthetic taps/targets and superset diagnostics
+    messages.
 
-   - Uses canonical-looking SCHEMA, RECORD, STATE, and ACTIVATE_VERSION messages
-     (inspired by Singer docs).
-   - Ensures `singer*WireSchema` and `singerWireMessageSchema` accept and
-     preserve these messages.
-   - Confirms `dataMoveWireMessageSchema` can accept a Singer RECORD as part of
-     its union.
+- `singer_test.ts` focuses on:
 
-2. Exercises typed ↔ Singer transforms
+  - Canonical Singer wire messages (SCHEMA, RECORD, STATE, ACTIVATE_VERSION).
+  - The Singer discriminated union.
+  - Typed ↔ Singer transforms and single-stream helpers that emit Singer
+    messages.
 
-   - Builds a simple `users` stream schema with Zod.
-   - Verifies:
+- `airbyte_test.ts` focuses on:
+
+  - Canonical Airbyte messages (e.g., RECORD, STATE, LOG, catalog).
+  - The Airbyte discriminated union.
+  - Typed ↔ Airbyte transforms and single-stream helpers that emit Airbyte
+    messages.
+
+Together, they:
+
+1. Validate profile schemas
+
+   - Use canonical-looking Singer and Airbyte examples (inspired by their
+     official docs).
+   - Ensure the wire schemas and profile unions accept and preserve these
+     messages.
+   - Confirm `dataMoveWireMessageSchema` can accept both Singer and Airbyte
+     messages as part of its union.
+
+2. Exercise typed ↔ profile transforms
+
+   - Build simple `users` stream schemas with Zod.
+   - Verify:
 
      - Typed RECORD messages round-trip through
        `dataMoveTypedRecordMessageSchema`.
-     - Typed → Singer transform for RECORD and STATE behave as expected.
-     - The metadata-driven SCHEMA builder
-       (`dataMoveSingerSchemaWireFromMetaSchema`) produces a valid Singer
-       SCHEMA.
+     - Typed → Singer and typed → Airbyte transforms for RECORD and STATE behave
+       as expected.
+     - The metadata-driven SCHEMA/catalog builders produce valid Singer and
+       Airbyte messages.
 
-3. Demonstrates the typed union
+3. Demonstrate the typed union
 
-   - Uses `dataMoveTypedMessageSchema` to:
+   - Use `dataMoveTypedMessageSchema` to parse:
 
-     - Parse a typed SCHEMA message.
-     - Parse a typed STATE message.
-     - Parse a typed RECORD message.
-     - Parse a TRACE message from the Spry superset.
-   - Documented via tests as examples of the union’s behavior and how to safely
-     cast/narrow variants.
+     - typed SCHEMA messages,
+     - typed STATE messages,
+     - typed RECORD messages,
+     - and superset TRACE/ERROR/BARRIER/METRICS messages.
 
-4. Covers single-stream helpers
+   - The tests show how to narrow and work with these variants in TypeScript.
 
-   - Shows how to:
+4. Exercise the Data Move Engine end-to-end
 
-     - Create a single-stream schema map.
-     - Create a single-stream `DataMoveStreamDef`.
-     - Build a single-stream RECORD schema.
-     - Transform a single-stream typed RECORD into a Singer RECORD wire message.
-
-5. Exercises the Data Move Engine end-to-end
-
-   - Defines a synthetic `users` tap emitting:
+   - Use synthetic taps emitting:
 
      - A typed SCHEMA message.
      - A sequence of typed RECORD messages.
      - A typed STATE message that increments a cursor/offset.
      - A BARRIER message using the superset schema.
-   - Defines an in-memory target that:
 
-     - Tracks `init()` and `finalize()` calls.
-     - Collects every message it receives.
-   - Runs pipelines in three modes:
+   - Use in-memory targets that:
 
-     - Simple tap → target (no transforms) with state handling.
-     - With transforms that:
+     - Track `init()` and `finalize()` calls.
+     - Collect every message they receive.
+     - Fail on purpose to test logging and error propagation.
 
-       - Filter out certain records.
-       - Duplicate others.
-     - With a “failing” target to confirm error logging and propagation.
+5. Validate the superset diagnostics
 
-6. Validates the superset diagnostics
-
-   - Creates examples of TRACE, ERROR, BARRIER, and METRICS messages.
-   - Ensures `dataMoveMessageSchema` correctly discriminates and preserves their
+   - Create examples of TRACE, ERROR, BARRIER, and METRICS messages.
+   - Ensure `dataMoveMessageSchema` correctly discriminates and preserves their
      fields.
 
-Together, these tests serve as:
+These tests serve as:
 
-- A spec for how Courier is supposed to behave today.
-- A set of concrete, copy-pastable patterns for future modules (other profiles,
-  more complex taps/targets, etc.).
-- A safety net for refactors in `protocol.ts` and future Courier modules.
+- Specs for how Courier is supposed to behave today.
+- Concrete, copy-pastable patterns for future profiles and transports.
+- A safety net for refactors in `protocol.ts`, `singer.ts`, `airbyte.ts`, and
+  future Courier modules.
 
 ## Future evolution of Courier
 
@@ -304,9 +354,10 @@ namespace:
 
 - New profiles
 
-  - Additional `DataMoveProtocolId` values for non-Singer integrations (CDC, log
-    shipping, observability data, etc.).
-  - Profile-specific adapters similar to the current Singer transforms.
+  - Additional `DataMoveProtocolId` values for non-Singer / non-Airbyte
+    integrations (CDC, log shipping, observability data, etc.).
+  - Profile-specific adapters similar to the existing Singer and Airbyte
+    adapters.
 
 - Transports
 
@@ -318,7 +369,7 @@ namespace:
   - Utilities for wiring Courier pipelines from Spry markdown playbooks and
     notebooks.
   - Prebuilt taps and targets for common data sources (e.g., CSV, SQLite, HTTP
-    APIs, etc.).
+    APIs, etc.), emitting Singer or Airbyte protocol messages as needed.
 
 The design principle: Courier stays focused on typed data movement and
 protocol-level concerns; Spry layers on orchestration, UX, and markdown-native
@@ -329,16 +380,24 @@ workflows.
 - `courier` is the Spry library for typed, protocol-aware data movement.
 
 - `protocol.ts` defines the DataMP core:
-  - Singer wire schemas,
+
   - Spry superset diagnostics,
-  - typed Zod schemas,
+  - typed Zod schemas for streams and messages,
   - and the Data Move Engine.
 
-- `mod_test.ts` is both verification and documentation:
-  - It demonstrates typical usage of the schemas, transforms, and pipeline
+- `singer.ts` and `airbyte.ts` define first-class profile adapters:
+
+  - Singer wire schemas and transforms.
+  - Airbyte wire schemas and transforms.
+
+- The tests (`protocol_test.ts`, `singer_test.ts`, `airbyte_test.ts`) are both
+  verification and documentation:
+
+  - They demonstrate typical usage of the schemas, transforms, and pipeline
     engine.
-  - It validates behavior end-to-end with synthetic Singer-style taps and
-    targets.
+  - They validate behavior end-to-end with synthetic Singer- and Airbyte-style
+    taps and targets.
 
 This gives Spry a solid, test-driven foundation to build richer orchestration
-and “data courier” behavior on top of DataMP.
+and “data courier” behavior on top of DataMP, with both Singer and Airbyte
+treated as first-class ecosystems.
