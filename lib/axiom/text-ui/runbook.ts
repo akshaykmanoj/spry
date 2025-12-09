@@ -16,7 +16,7 @@ import {
 } from "@std/fmt/colors";
 import { relative } from "@std/path";
 import { toMarkdown } from "mdast-util-to-markdown";
-import { Code } from "types/mdast";
+import { Code, Node, Root } from "types/mdast";
 import { select } from "unist-util-select";
 
 import { languageRegistry, LanguageSpec } from "../../universal/code.ts";
@@ -385,6 +385,27 @@ export class CLI {
   }
 
   reportCommand() {
+    function sanitizeMdastForToMarkdown(node: Node) {
+      if (!node || typeof node !== "object") return node;
+
+      const result = { ...node };
+
+      if ("children" in result && Array.isArray(result.children)) {
+        result.children = result.children
+          .filter(
+            (child) =>
+              child &&
+              typeof child.type === "string" &&
+              child.type !== "yaml" &&
+              child.type !== "toml" &&
+              child.type !== "decorator",
+          )
+          .map((child) => sanitizeMdastForToMarkdown(child));
+      }
+
+      return result;
+    }
+
     return new Command()
       .name("report")
       .description(`execute all code cells and return as new markdown`)
@@ -428,7 +449,9 @@ export class CLI {
               logNode.value = er.shellEventBus.lines.join("\n");
               logNode.value += "\n----" + er.tasksEventBus.lines.join("\n");
             }
-            console.log(toMarkdown(src.mdastRoot));
+            console.log(
+              toMarkdown(sanitizeMdastForToMarkdown(src.mdastRoot) as Root),
+            );
           }
         },
       );
