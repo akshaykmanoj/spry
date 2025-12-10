@@ -1,8 +1,8 @@
-# Qualityfolio.md — Flexible Authoring Guide (works with Spry's Axiom pattern)
+# Qualityfolio.md - Flexible Authoring Guide (works with Spry's Axiom pattern)
 
 > Goal: Author plain, human-friendly Markdown for tests that can be parsed into
 > structure later.\
-> Principle: All headings are optional — use as few or as many levels as you
+> Principle: All headings are optional - use as few or as many levels as you
 > need. The parser (**Spry's Axiom pattern**) is schema-free at parse time and schema-driven
 > at query time.
 
@@ -18,7 +18,7 @@
 
 ## Why headings are optional
 
-Teams start simple and grow complexity over time. `folio.ts` supports all of
+Teams start simple and grow complexity over time. **Spry's Axiom pattern** supports all of
 these equally:
 
 | Project size | Typical content you write                                   | Example mapping (later at query time)                                    |
@@ -312,7 +312,7 @@ objective: Lockout policy & reset email
 }
 ```
 
-> Annotations do not inherit to children — add where you want them to apply.
+> Annotations do not inherit to children - add where you want them to apply.
 
 ## Steps & expectations (GFM tasks)
 
