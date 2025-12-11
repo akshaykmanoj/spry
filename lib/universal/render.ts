@@ -108,6 +108,15 @@ export interface InjectionProvider<S> {
   inject(
     context: InjectionContext<S>,
   ): string | undefined | Promise<string | undefined>;
+  injectionDiagnostics(
+    context: InjectionContext<S>,
+    diags: {
+      readonly target: string;
+      readonly inject: boolean;
+      readonly why: string;
+      readonly how: string;
+    }[],
+  ): void | Promise<void>;
 }
 
 /**
@@ -422,5 +431,38 @@ export function renderer<
     return { results };
   }
 
-  return { renderOne, renderAll };
+  async function diagnostics(
+    sources: Iterable<S> | AsyncIterable<S>,
+    overrides?: Parameters<typeof renderOne>[1],
+  ) {
+    const injectDiags: Parameters<
+      InjectionProvider<S>["injectionDiagnostics"]
+    >[1] = [];
+    const iterable = toAsyncIterable(sources as AsyncIterable<S> | Iterable<S>);
+    for await (const source of iterable) {
+      const path = content.path?.(source);
+      const injectable = content.isInjectable?.(path, source) ?? false;
+      if (!injectable) continue;
+      if (!memory.injectables) continue;
+
+      const listResult = memory.injectables();
+      const asyncList = toAsyncIterable(listResult);
+
+      const rawBodyInput = await overrides?.body?.(source) ??
+        await content.body(source);
+      const rawBody = await bodyToString(rawBodyInput);
+
+      for await (const [_, value] of asyncList) {
+        // Any memory value that implements InjectionProvider<S> participates.
+        if (!isInjectionProviderForSource<S, MemoryValue>(value)) continue;
+        value.injectionDiagnostics(
+          { path, source, body: rawBody },
+          injectDiags,
+        );
+      }
+    }
+    return { injectDiags };
+  }
+
+  return { renderOne, renderAll, diagnostics };
 }

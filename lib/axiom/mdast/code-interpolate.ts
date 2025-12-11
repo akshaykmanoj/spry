@@ -40,28 +40,51 @@ export const partialTmplPiFlagsSchema = z.object({
   append: z.boolean().optional(),
 }).transform((raw) => {
   const inject = mergeFlexibleText(raw.inject);
-  let regExes: RegExp[] = [];
+  let injectRules: {
+    readonly nature: "regex" | "regex-negative" | "glob" | "auto";
+    readonly regExp: RegExp;
+  }[] = [];
   let injectAll: boolean = false;
   if (inject.length == 1 && (inject[0] == "**/*" || inject[0] == "*")) {
     injectAll = true;
   } else {
-    regExes = inject.map((glob) => {
+    injectRules = inject.map((glob) => {
+      if (
+        (glob.startsWith("/") || glob.startsWith("!/")) && glob.endsWith("/")
+      ) {
+        const regExp = new RegExp(glob);
+        if (glob.startsWith("!/")) return { nature: "regex-negative", regExp };
+        return { nature: "regex-negative", regExp };
+      }
       if (!isGlob(glob)) {
         const exact = normalize(glob).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        return new RegExp(`^${exact}$`);
+        return { nature: "auto", regExp: new RegExp(`^${exact}$`) };
       }
-      return globToRegExp(glob, {
-        extended: true,
-        globstar: true,
-        caseInsensitive: false,
-      });
+      return {
+        nature: "glob",
+        regExp: globToRegExp(glob, {
+          extended: true,
+          globstar: true,
+          caseInsensitive: false,
+        }),
+      };
     });
   }
   return {
     description: raw.descr,
     inject: inject.length > 0 ? inject : false as const,
     injectAll,
-    regExes: inject.length > 0 ? regExes : false as const,
+    injectRegExes: inject.length > 0
+      ? injectRules.filter((ir) => ir.nature !== "regex-negative").map((ir) =>
+        ir.regExp
+      )
+      : false as const,
+    donotInjectRegExes: inject.length > 0
+      ? injectRules.filter((ir) => ir.nature === "regex-negative").map((ir) =>
+        ir.regExp
+      )
+      : false as const,
+    injectRules,
     prepend: raw.prepend ?? false,
     append: raw.append ?? false,
   };
@@ -98,18 +121,78 @@ export function partialTmpl(identity: string, code: Code): PartialTmpl | false {
   if (parsedPiFlags.success) {
     const { data: piFlags } = parsedPiFlags;
     let inject: PartialTmpl["inject"] = undefined;
-    if (piFlags.injectAll || piFlags.regExes) {
-      const { injectAll, regExes, append } = piFlags;
+    let injectionDiagnostics: PartialTmpl["injectionDiagnostics"] = undefined;
+
+    if (piFlags.injectAll || piFlags.injectRegExes) {
+      const {
+        injectAll,
+        injectRules,
+        injectRegExes,
+        donotInjectRegExes,
+        append,
+      } = piFlags;
       inject = injectAll
         ? ((ctx) =>
           append ? `${ctx.body}\n${code.value}` : `${code.value}\n${ctx.body}`)
         : (ctx) => {
-          if (ctx.path && regExes) {
-            for (const re of regExes) {
+          if (ctx.path && donotInjectRegExes) {
+            for (const re of donotInjectRegExes) {
+              if (re.test(ctx.path)) {
+                // check for negations first and bail early if we shouldn't inject
+                return undefined;
+              }
+            }
+          }
+
+          if (ctx.path && injectRegExes) {
+            for (const re of injectRegExes) {
               if (re.test(ctx.path)) {
                 return append
                   ? `${ctx.body}\n${code.value}`
                   : `${code.value}\n${ctx.body}`;
+              }
+            }
+          }
+        };
+      injectionDiagnostics = injectAll
+        ? ((ctx, diags) => {
+          if (ctx.path) {
+            diags.push({
+              target: ctx.path,
+              inject: true,
+              why: `PARTIAL ${identity}: matches injectAll`,
+              how: append ? "append" : "prepend",
+            });
+          }
+        })
+        : (ctx, diags) => {
+          if (ctx.path && injectRules) {
+            for (
+              const ir of injectRules.filter((ir) =>
+                ir.nature === "regex-negative"
+              )
+            ) {
+              if (ir.regExp.test(ctx.path)) {
+                diags.push({
+                  target: ctx.path,
+                  inject: false,
+                  why: `PARTIAL ${identity}: ${ir.regExp} (${ir.nature})`,
+                  how: append ? "append" : "prepend",
+                });
+              }
+            }
+            for (
+              const ir of injectRules.filter((ir) =>
+                ir.nature !== "regex-negative"
+              )
+            ) {
+              if (ir.regExp.test(ctx.path)) {
+                diags.push({
+                  target: ctx.path,
+                  inject: true,
+                  why: `PARTIAL ${identity}: ${ir.regExp} (${ir.nature})`,
+                  how: append ? "append" : "prepend",
+                });
               }
             }
           }
@@ -132,6 +215,7 @@ export function partialTmpl(identity: string, code: Code): PartialTmpl | false {
       identity,
       piFlags,
       inject,
+      injectionDiagnostics,
       argsSchema,
       render,
     };
@@ -172,7 +256,7 @@ export function flexibleMemory(
   const memoizedFsPaths: FlexibleMemory["memoizedFsPaths"] = [];
   const injectables = {
     all: [] as [string, PartialTmpl][],
-    regExes: [] as [string, PartialTmpl][],
+    injectRegExes: [] as [string, PartialTmpl][],
   };
   const partials: Record<string, PartialTmpl> = {};
 
@@ -183,8 +267,8 @@ export function flexibleMemory(
         partials[ptc.identity] = partial;
         if (partial.piFlags.injectAll) {
           injectables.all.push([ptc.identity, partial]);
-        } else if (partial.piFlags.regExes) {
-          injectables.regExes.push([ptc.identity, partial]);
+        } else if (partial.piFlags.injectRegExes) {
+          injectables.injectRegExes.push([ptc.identity, partial]);
         }
       }
     }
@@ -229,9 +313,9 @@ export function flexibleMemory(
 
   return {
     get: (name) => partials[name],
-    // the more specific (regExes ones) come first because "all" is higher precendence;
+    // the more specific (injectRegExes ones) come first because "all" is higher precendence;
     // injectables are "wrapping" inward to outward
-    injectables: () => [...injectables.regExes, ...injectables.all],
+    injectables: () => [...injectables.injectRegExes, ...injectables.all],
     memoize,
     partials,
     memoizedFsPaths,
