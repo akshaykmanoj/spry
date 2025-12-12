@@ -7,8 +7,8 @@ docFM:
 
 This fixture tests SQL PARTIALs with various injection patterns.
 
-```sql PARTIAL global-layout.sql --inject **/!(*api|*sqlpage)/**
--- BEGIN: PARTIAL global-layout.sql
+```sql PARTIAL global-layout.sql --inject **/* --inject !/^api/ --inject !/.handlebars$/ --weight 0
+-- BEGIN: PARTIAL global-layout.sql 
 SELECT 'shell' AS component,
        'Spry' AS title;
 
@@ -33,16 +33,17 @@ select
 
 ```sql index.sql { route: { caption: "Welcome" } }
 -- @route.description "Welcome to UI."
-
 ```
 
 ## api
 
 ```sql api/ambulatory-glucose-profile/index.sql
-
 ```
 
-```sql ../sqlpage/templates/gri_component.handlebars
+```sql ./sqlpage/templates/gri_component.handlebars
 <gri-chart></gri-chart>
 ```
 
+```sql ./sqlpage/templates/dgp_component.handlebars
+<dgp-chart></dgp-chart>
+```
