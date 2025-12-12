@@ -95,14 +95,28 @@ final interpolation for injected content will occur in the destination cell.
 This means if you use `${...}` type variable replacements they will be done
 after injection.
 
-```md PARTIAL global-layout --inject **/*
+`--inject` can be a glob, strict reg ex, or strict negative reg ex. A glob is a
+normal shell glob, a strict reg ex starts and ends with slash like `/.../` and a
+negated strict reg ex is `!/.../`.
+
+When inject string starts with `!/` and ends with `/` like `--inject !/.../` it
+means "strict" regEx that indicates which cells to NOT inject in.
+
+`weight` means how to order multiple PARTIALs injection -- lower weight means
+"lighter" so it should appear before the "heavier".
+
+The `global-layout` example below means "inject into all cells except those that
+start with `api` and those that end with `.handlebars` and set the weight to 0"
+which means it will be rendered before anything with higher weight.
+
+```md PARTIAL global-layout --inject **/* --inject !/^api/ --inject !/.handlebars$/ --weight 0
 # global layout (injected for any path)
 ```
 
 The following partial is injected only for admin paths and overrides the global
 layout when it matches.
 
-```md PARTIAL admin-layout --inject admin/**
+```md PARTIAL admin-layout --inject /^admin/ --weight 100
 ## admin layout (injected for any admin/* paths)
 ```
 
@@ -140,6 +154,35 @@ ${captured.sampleCap1}
 ====
 ${memoized.sampleCap1}
 ====
+```
+
+When inject string starts and ends with `/` like `--inject /.../` it means
+"strict" regEx (not a glob).
+
+```sql PARTIAL api-head.sql --inject /^api/
+-- BEGIN: PARTIAL api-head.sql
+select
+   'http_header' as component,
+   'application/json' as "Content-Type";
+-- END: PARTIAL api-head.sql
+```
+
+```sql PARTIAL handlebars.sql --inject ./sqlpage/**
+{{!-- BEGIN: PARTIAL handlebars.sql 
+-- END: PARTIAL handlebars.sql--}}
+```
+
+```sql index.sql { route: { caption: "Welcome" } }
+-- @route.description "Welcome to UI."
+```
+
+## api
+
+```sql api/ambulatory-glucose-profile/index.sql
+```
+
+```sql ../sqlpage/templates/gri_component.handlebars
+<gri-chart></gri-chart>
 ```
 
 ## Outro

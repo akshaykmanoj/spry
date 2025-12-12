@@ -38,11 +38,17 @@ export const partialTmplPiFlagsSchema = z.object({
   inject: flexibleTextSchema.optional(),
   prepend: z.boolean().optional(),
   append: z.boolean().optional(),
+  weight: z.union([z.number(), z.string()]).optional().default(99),
 }).transform((raw) => {
   const inject = mergeFlexibleText(raw.inject);
+  const weight = typeof raw.weight === "string"
+    ? Number(raw.weight)
+    : raw.weight;
   let injectRules: {
     readonly nature: "regex" | "regex-negative" | "glob" | "auto";
     readonly regExp: RegExp;
+    readonly from: string;
+    readonly weight: number;
   }[] = [];
   let injectAll: boolean = false;
   if (inject.length == 1 && (inject[0] == "**/*" || inject[0] == "*")) {
@@ -52,13 +58,27 @@ export const partialTmplPiFlagsSchema = z.object({
       if (
         (glob.startsWith("/") || glob.startsWith("!/")) && glob.endsWith("/")
       ) {
-        const regExp = new RegExp(glob);
-        if (glob.startsWith("!/")) return { nature: "regex-negative", regExp };
-        return { nature: "regex-negative", regExp };
+        const strictRegEx = glob.slice(0, glob.length - 1); // strip the slash
+        if (glob.startsWith("!/")) {
+          const regExp = new RegExp(strictRegEx.slice(2));
+          return {
+            nature: "regex-negative",
+            regExp,
+            from: glob,
+            weight,
+          };
+        }
+        const regExp = new RegExp(strictRegEx.slice(1));
+        return { nature: "regex", regExp, from: glob, weight };
       }
       if (!isGlob(glob)) {
         const exact = normalize(glob).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        return { nature: "auto", regExp: new RegExp(`^${exact}$`) };
+        return {
+          nature: "auto",
+          regExp: new RegExp(`^${exact}$`),
+          from: glob,
+          weight,
+        };
       }
       return {
         nature: "glob",
@@ -67,6 +87,8 @@ export const partialTmplPiFlagsSchema = z.object({
           globstar: true,
           caseInsensitive: false,
         }),
+        from: glob,
+        weight,
       };
     });
   }
@@ -87,6 +109,7 @@ export const partialTmplPiFlagsSchema = z.object({
     injectRules,
     prepend: raw.prepend ?? false,
     append: raw.append ?? false,
+    weight,
   };
 });
 
@@ -123,7 +146,9 @@ export function partialTmpl(identity: string, code: Code): PartialTmpl | false {
     let inject: PartialTmpl["inject"] = undefined;
     let injectionDiagnostics: PartialTmpl["injectionDiagnostics"] = undefined;
 
-    if (piFlags.injectAll || piFlags.injectRegExes) {
+    if (
+      piFlags.injectAll || piFlags.injectRegExes || piFlags.donotInjectRegExes
+    ) {
       const {
         injectAll,
         injectRules,
@@ -176,9 +201,12 @@ export function partialTmpl(identity: string, code: Code): PartialTmpl | false {
                 diags.push({
                   target: ctx.path,
                   inject: false,
-                  why: `PARTIAL ${identity}: ${ir.regExp} (${ir.nature})`,
+                  why:
+                    `PARTIAL ${identity}: ${ir.regExp} (${ir.nature}: ${ir.from})`,
                   how: append ? "append" : "prepend",
+                  weight: ir.weight,
                 });
+                return;
               }
             }
             for (
@@ -190,8 +218,10 @@ export function partialTmpl(identity: string, code: Code): PartialTmpl | false {
                 diags.push({
                   target: ctx.path,
                   inject: true,
-                  why: `PARTIAL ${identity}: ${ir.regExp} (${ir.nature})`,
+                  why:
+                    `PARTIAL ${identity}: ${ir.regExp} (${ir.nature}: ${ir.from})`,
                   how: append ? "append" : "prepend",
+                  weight: ir.weight,
                 });
               }
             }
@@ -255,8 +285,9 @@ export function flexibleMemory(
 ): FlexibleMemory {
   const memoizedFsPaths: FlexibleMemory["memoizedFsPaths"] = [];
   const injectables = {
-    all: [] as [string, PartialTmpl][],
+    donotInjectRegExes: [] as [string, PartialTmpl][],
     injectRegExes: [] as [string, PartialTmpl][],
+    all: [] as [string, PartialTmpl][],
   };
   const partials: Record<string, PartialTmpl> = {};
 
@@ -267,12 +298,22 @@ export function flexibleMemory(
         partials[ptc.identity] = partial;
         if (partial.piFlags.injectAll) {
           injectables.all.push([ptc.identity, partial]);
+        } else if (partial.piFlags.donotInjectRegExes) {
+          injectables.donotInjectRegExes.push([ptc.identity, partial]);
         } else if (partial.piFlags.injectRegExes) {
           injectables.injectRegExes.push([ptc.identity, partial]);
         }
       }
     }
   }
+  // lower weight is more important
+  injectables.donotInjectRegExes.sort((a, b) =>
+    b[1].piFlags.weight - a[1].piFlags.weight
+  );
+  injectables.injectRegExes.sort((a, b) =>
+    b[1].piFlags.weight - a[1].piFlags.weight
+  );
+  injectables.all.sort((a, b) => b[1].piFlags.weight - a[1].piFlags.weight);
 
   const memoize: Memory<
     FlexibleMemoryValue,
@@ -315,7 +356,11 @@ export function flexibleMemory(
     get: (name) => partials[name],
     // the more specific (injectRegExes ones) come first because "all" is higher precendence;
     // injectables are "wrapping" inward to outward
-    injectables: () => [...injectables.injectRegExes, ...injectables.all],
+    injectables: () => [
+      ...injectables.donotInjectRegExes,
+      ...injectables.injectRegExes,
+      ...injectables.all,
+    ],
     memoize,
     partials,
     memoizedFsPaths,
