@@ -180,7 +180,7 @@ Verify that all CMMC Level 1 and Level 2 self-assessment sections are correctly 
 
 ```yaml HFM
 doc-classify:
-cycle: 1.1
+cycle: 3.0
 severity: high
 assignee: Nancy
 status: passed
@@ -498,7 +498,7 @@ Login functionality implementation with Zitadel
 @id test-plan
 
 ```yaml
-owner: Nancy.cb@netspective.in
+owner: Nancy.cb@example.in
 priority: High
 tags:
   - Opsfolio
@@ -743,7 +743,7 @@ status: open
 @id test-plan-automation
 
 ```yaml
-owner: arun@netspective.in
+owner: james@example.in
 test_type: Automated
 priority: High
 tags:
@@ -928,3 +928,57 @@ status: passed
 
 - [Results JSON](./evidence/TC-LOGIN-0103/1.1/result.auto.json)
 - [Run MD](./evidence/TC-LOGIN-0103/1.1/run.auto.md)
+
+##### Verify error handling for invalid credentials via automation New Test Case
+
+@id TC-LOGIN-0104
+
+```yaml
+FII: TC-LOGIN-0104
+requirementID: REQ-LOGIN-001
+Priority: High
+Tags: [Opsfolio, UI, Login, Negative, Regression]
+Scenario Type: Negative Path
+automation_tool: Playwright
+execution_env: QA
+```
+
+**Description**
+
+Automated validation of proper error message display and security behavior for invalid login attempts.
+
+**Preconditions**
+
+- [x] Application online and accessible.
+- [x] Invalid credentials available for testing.
+- [x] Error message element selector known.
+
+**Steps**
+
+- Open the Opsfolio login page.
+- Enter invalid username and password.
+- Click the **Login** button.
+- Observe the displayed error message.
+- Capture screenshot and console logs.
+
+**Expected**
+
+- [x] “Invalid username or password” message displayed.
+- [x] User remains on login page (no redirect).
+- [x] HTTP status != 200 for `/login` request.
+- [x] No sensitive details shown in response or UI.
+
+###### Evidence
+
+@id TC-LOGIN-0104
+
+```yaml HFM
+doc-classify:
+cycle: 1.1
+severity: high
+assignee: Sandy Jose
+status: passed
+```
+
+- [Results JSON](./evidence/TC-LOGIN-0104/1.1/result.auto.json)
+- [Run MD](./evidence/TC-LOGIN-0104/1.1/run.auto.md)
