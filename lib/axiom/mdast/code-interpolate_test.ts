@@ -103,12 +103,14 @@ Deno.test(
           inject: true,
           why:
             "PARTIAL global-layout: /^(?:[^/]*(?:\\/|$)+)*[^/]*\\/*$/ (glob: **/*)",
+          weight: 0,
           how: "prepend",
         },
         {
           target: "admin/name.txt",
           inject: true,
           why: "PARTIAL admin-layout: /^admin/ (regex: /^admin/)",
+          weight: 100,
           how: "prepend",
         },
         {
@@ -116,12 +118,14 @@ Deno.test(
           inject: true,
           why:
             "PARTIAL global-layout: /^(?:[^/]*(?:\\/|$)+)*[^/]*\\/*$/ (glob: **/*)",
+          weight: 0,
           how: "prepend",
         },
         {
           target: "admin/name.md",
           inject: true,
           why: "PARTIAL admin-layout: /^admin/ (regex: /^admin/)",
+          weight: 100,
           how: "prepend",
         },
         {
@@ -129,12 +133,14 @@ Deno.test(
           inject: true,
           why:
             "PARTIAL global-layout: /^(?:[^/]*(?:\\/|$)+)*[^/]*\\/*$/ (glob: **/*)",
+          weight: 0,
           how: "prepend",
         },
         {
           target: "admin/home.txt",
           inject: true,
           why: "PARTIAL admin-layout: /^admin/ (regex: /^admin/)",
+          weight: 100,
           how: "prepend",
         },
         {
@@ -142,6 +148,7 @@ Deno.test(
           inject: true,
           why:
             "PARTIAL global-layout: /^(?:[^/]*(?:\\/|$)+)*[^/]*\\/*$/ (glob: **/*)",
+          weight: 0,
           how: "prepend",
         },
         {
@@ -149,6 +156,7 @@ Deno.test(
           inject: true,
           why:
             "PARTIAL global-layout: /^(?:[^/]*(?:\\/|$)+)*[^/]*\\/*$/ (glob: **/*)",
+          weight: 0,
           how: "prepend",
         },
         {
@@ -156,18 +164,21 @@ Deno.test(
           inject: true,
           why:
             "PARTIAL global-layout: /^(?:[^/]*(?:\\/|$)+)*[^/]*\\/*$/ (glob: **/*)",
+          weight: 0,
           how: "prepend",
         },
         {
           target: "api/ambulatory-glucose-profile/index.sql",
           inject: true,
           why: "PARTIAL api-head.sql: /^api/ (regex: /^api/)",
+          weight: 99,
           how: "prepend",
         },
         {
           target: "api/ambulatory-glucose-profile/index.sql",
           inject: false,
           why: "PARTIAL global-layout: /^api/ (regex-negative: !/^api/)",
+          weight: 0,
           how: "prepend",
         },
         {
@@ -175,6 +186,7 @@ Deno.test(
           inject: false,
           why:
             "PARTIAL global-layout: /.handlebars$/ (regex-negative: !/.handlebars$/)",
+          weight: 0,
           how: "prepend",
         },
       ]);

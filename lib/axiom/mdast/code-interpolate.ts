@@ -80,9 +80,13 @@ export const partialTmplPiFlagsSchema = z.object({
           weight,
         };
       }
+      let adjustedGlob = glob;
+      if (adjustedGlob.startsWith("./")) {
+        adjustedGlob = adjustedGlob.slice(2);
+      }
       return {
         nature: "glob",
-        regExp: globToRegExp(glob, {
+        regExp: globToRegExp(adjustedGlob, {
           extended: true,
           globstar: true,
           caseInsensitive: false,
