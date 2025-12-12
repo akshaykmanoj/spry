@@ -80,6 +80,64 @@ Deno.test(
         (await Array.fromAsync(injectables!)).map(([key]) => key),
         [...injectableIDs],
       );
+      assertEquals(
+        await r.diagnostics(Object.values(pbff.materializablesById)),
+        {
+          injectDiags: [
+            {
+              target: "path1/name.txt",
+              inject: true,
+              why: "PARTIAL global-layout: matches injectAll",
+              how: "prepend",
+            },
+            {
+              target: "admin/name.txt",
+              inject: true,
+              why:
+                "PARTIAL admin-layout: /^admin\\/+(?:[^/]*(?:\\/|$)+)*$/ (glob)",
+              how: "prepend",
+            },
+            {
+              target: "admin/name.txt",
+              inject: true,
+              why: "PARTIAL global-layout: matches injectAll",
+              how: "prepend",
+            },
+            {
+              target: "admin/name.md",
+              inject: true,
+              why:
+                "PARTIAL admin-layout: /^admin\\/+(?:[^/]*(?:\\/|$)+)*$/ (glob)",
+              how: "prepend",
+            },
+            {
+              target: "admin/name.md",
+              inject: true,
+              why: "PARTIAL global-layout: matches injectAll",
+              how: "prepend",
+            },
+            {
+              target: "admin/home.txt",
+              inject: true,
+              why:
+                "PARTIAL admin-layout: /^admin\\/+(?:[^/]*(?:\\/|$)+)*$/ (glob)",
+              how: "prepend",
+            },
+            {
+              target: "admin/home.txt",
+              inject: true,
+              why: "PARTIAL global-layout: matches injectAll",
+              how: "prepend",
+            },
+            {
+              target: "debug.txt",
+              inject: true,
+              why: "PARTIAL global-layout: matches injectAll",
+              how: "prepend",
+            },
+          ],
+        },
+      );
     });
 
     await t.step("expected partials from directives", async () => {

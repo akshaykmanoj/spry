@@ -52,6 +52,7 @@ import {
   SqlPageConf,
   sqlPageConf,
   sqlPageFiles,
+  sqlPageInterpolator,
   sqlPagePlaybook,
 } from "./orchestrate.ts";
 
@@ -609,6 +610,23 @@ export class CLI<Project> {
     }
   }
 
+  async injections(opts: { md: string[]; glob: string[] }) {
+    const spp = await sqlPagePlaybook(opts.md);
+    const spi = sqlPageInterpolator(spp, spp.directives);
+    const injectDiags =
+      (await spi.interpolator.diagnostics(spp.materializables)).injectDiags;
+    await new ListerBuilder<typeof injectDiags[number]>()
+      .declareColumns("target", "inject", "how", "why")
+      .from(injectDiags)
+      .field("target", "target", { header: "TARGET" })
+      .field("inject", "inject", { header: "INJ?" })
+      .field("how", "how", { header: "HOW" })
+      .field("why", "why", { header: "WHY" })
+      .sortBy("target").sortDir("asc")
+      .build()
+      .ls(true);
+  }
+
   async cat(
     opts: { md: string[]; glob: string[] },
   ) {
@@ -942,6 +960,14 @@ export class CLI<Project> {
           }
         }
       })
+      .command("injections", "List SQLPage file injections")
+      .option(...mdOpt)
+      .action((opts) =>
+        this.injections({
+          ...opts,
+          md: opts.md.map((f) => String(f)),
+        })
+      )
       .command("ls", "List SQLPage file entries")
       .option(...mdOpt)
       .option(
