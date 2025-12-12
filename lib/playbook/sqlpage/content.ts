@@ -18,7 +18,7 @@ import {
 } from "../../universal/resource.ts";
 import {
   isRouteSupplier,
-  muateRoutePaths,
+  mutateRoutePaths,
   PageRoute,
   pageRouteSchema,
   RouteSupplier,
@@ -347,15 +347,11 @@ export function mutateRouteInCellAttrs(
   };
 
   // if no route was supplied in the cell attributes, use what's in annotations
-  if (!isRouteSupplier(cell.materializationAttrs)) {
-    if (candidateAnns) {
-      (cell.materializationAttrs ?? {}).route = candidateAnns;
-      const mrp = muateRoutePaths(
-        (cell.materializationAttrs ?? {}).route as PageRoute,
-        identity,
-      );
-      return mrp || validated(cell.materializationAttrs?.route);
-    }
+  if (!isRouteSupplier(cell.materializationAttrs) && candidateAnns) {
+    const attrs = (cell.materializationAttrs ??= {});
+    attrs.route = candidateAnns;
+    const mrp = mutateRoutePaths(attrs.route as PageRoute, identity);
+    return mrp ?? validated(attrs.route);
   }
 
   // if route was supplied in the cell attributes, merge with annotations with
@@ -366,7 +362,7 @@ export function mutateRouteInCellAttrs(
       ...cell.materializationAttrs.route,
       ...candidateAnns,
     };
-    const mrp = muateRoutePaths(
+    const mrp = mutateRoutePaths(
       cell.materializationAttrs.route as PageRoute,
       identity,
     );

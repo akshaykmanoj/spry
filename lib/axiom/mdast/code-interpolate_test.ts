@@ -1,6 +1,6 @@
 import { assertEquals } from "@std/assert";
 import { renderer } from "../../universal/render.ts";
-import { codeInterpolationStrategy } from "../mdast/code-interpolate.ts";
+import { codeInterpolationStrategy } from "./code-interpolate.ts";
 import {
   Executable,
   Materializable,
@@ -17,13 +17,27 @@ const materializableIDs = [
   "admin/name.md",
   "admin/home.txt",
   "debug.txt",
+  "index.sql",
+  "api/ambulatory-glucose-profile/index.sql",
+  "../sqlpage/templates/gri_component.handlebars",
 ] as const;
 type MaterializableID = typeof materializableIDs[number];
 
-const injectableIDs = ["admin-layout", "global-layout"] as const;
+const injectableIDs = [
+  "admin-layout",
+  "api-head.sql",
+  "handlebars.sql",
+  "global-layout",
+] as const;
 type InjectableID = typeof injectableIDs[number];
 
-const partialIDs = ["greet-user", "global-layout", "admin-layout"] as const;
+const partialIDs = [
+  "greet-user",
+  "global-layout",
+  "admin-layout",
+  "api-head.sql",
+  "handlebars.sql",
+] as const;
 type PartialID = typeof partialIDs[number];
 
 Deno.test(
@@ -69,6 +83,8 @@ Deno.test(
           "md PARTIAL:greet-user",
           "md PARTIAL:global-layout",
           "md PARTIAL:admin-layout",
+          "sql PARTIAL:api-head.sql",
+          "sql PARTIAL:handlebars.sql",
           "text TAIL:0000",
         ],
       );
@@ -80,64 +96,94 @@ Deno.test(
         (await Array.fromAsync(injectables!)).map(([key]) => key),
         [...injectableIDs],
       );
-      assertEquals(
-        await r.diagnostics(Object.values(pbff.materializablesById)),
+      const d = await r.diagnostics(Object.values(pbff.materializablesById));
+      assertEquals(d.injectDiags, [
         {
-          injectDiags: [
-            {
-              target: "path1/name.txt",
-              inject: true,
-              why: "PARTIAL global-layout: matches injectAll",
-              how: "prepend",
-            },
-            {
-              target: "admin/name.txt",
-              inject: true,
-              why:
-                "PARTIAL admin-layout: /^admin\\/+(?:[^/]*(?:\\/|$)+)*$/ (glob)",
-              how: "prepend",
-            },
-            {
-              target: "admin/name.txt",
-              inject: true,
-              why: "PARTIAL global-layout: matches injectAll",
-              how: "prepend",
-            },
-            {
-              target: "admin/name.md",
-              inject: true,
-              why:
-                "PARTIAL admin-layout: /^admin\\/+(?:[^/]*(?:\\/|$)+)*$/ (glob)",
-              how: "prepend",
-            },
-            {
-              target: "admin/name.md",
-              inject: true,
-              why: "PARTIAL global-layout: matches injectAll",
-              how: "prepend",
-            },
-            {
-              target: "admin/home.txt",
-              inject: true,
-              why:
-                "PARTIAL admin-layout: /^admin\\/+(?:[^/]*(?:\\/|$)+)*$/ (glob)",
-              how: "prepend",
-            },
-            {
-              target: "admin/home.txt",
-              inject: true,
-              why: "PARTIAL global-layout: matches injectAll",
-              how: "prepend",
-            },
-            {
-              target: "debug.txt",
-              inject: true,
-              why: "PARTIAL global-layout: matches injectAll",
-              how: "prepend",
-            },
-          ],
+          target: "path1/name.txt",
+          inject: true,
+          why:
+            "PARTIAL global-layout: /^(?:[^/]*(?:\\/|$)+)*[^/]*\\/*$/ (glob: **/*)",
+          how: "prepend",
         },
-      );
+        {
+          target: "admin/name.txt",
+          inject: true,
+          why: "PARTIAL admin-layout: /^admin/ (regex: /^admin/)",
+          how: "prepend",
+        },
+        {
+          target: "admin/name.txt",
+          inject: true,
+          why:
+            "PARTIAL global-layout: /^(?:[^/]*(?:\\/|$)+)*[^/]*\\/*$/ (glob: **/*)",
+          how: "prepend",
+        },
+        {
+          target: "admin/name.md",
+          inject: true,
+          why: "PARTIAL admin-layout: /^admin/ (regex: /^admin/)",
+          how: "prepend",
+        },
+        {
+          target: "admin/name.md",
+          inject: true,
+          why:
+            "PARTIAL global-layout: /^(?:[^/]*(?:\\/|$)+)*[^/]*\\/*$/ (glob: **/*)",
+          how: "prepend",
+        },
+        {
+          target: "admin/home.txt",
+          inject: true,
+          why: "PARTIAL admin-layout: /^admin/ (regex: /^admin/)",
+          how: "prepend",
+        },
+        {
+          target: "admin/home.txt",
+          inject: true,
+          why:
+            "PARTIAL global-layout: /^(?:[^/]*(?:\\/|$)+)*[^/]*\\/*$/ (glob: **/*)",
+          how: "prepend",
+        },
+        {
+          target: "debug.txt",
+          inject: true,
+          why:
+            "PARTIAL global-layout: /^(?:[^/]*(?:\\/|$)+)*[^/]*\\/*$/ (glob: **/*)",
+          how: "prepend",
+        },
+        {
+          target: "index.sql",
+          inject: true,
+          why:
+            "PARTIAL global-layout: /^(?:[^/]*(?:\\/|$)+)*[^/]*\\/*$/ (glob: **/*)",
+          how: "prepend",
+        },
+        {
+          target: "api/ambulatory-glucose-profile/index.sql",
+          inject: true,
+          why: "PARTIAL api-head.sql: /^api/ (regex: /^api/)",
+          how: "prepend",
+        },
+        {
+          target: "api/ambulatory-glucose-profile/index.sql",
+          inject: false,
+          why: "PARTIAL global-layout: /^api/ (regex-negative: !/^api/)",
+          how: "prepend",
+        },
+        {
+          target: "../sqlpage/templates/gri_component.handlebars",
+          inject: false,
+          why:
+            "PARTIAL global-layout: /.handlebars$/ (regex-negative: !/.handlebars$/)",
+          how: "prepend",
+        },
+      ]);
+      assertEquals(d.injectables?.map((i) => i[0]), [
+        "admin-layout",
+        "api-head.sql",
+        "handlebars.sql",
+        "global-layout",
+      ]);
     });
 
     await t.step("expected partials from directives", async () => {
@@ -240,7 +286,7 @@ markdown link: [demo](https://example.com) (comes from "safeFunctions")
 siteName: Synthetic1 (comes from "globals")
 
 - missing partial:
-partial "non-existent" not found (available: 'greet-user', 'global-layout', 'admin-layout')
+partial "non-existent" not found (available: 'greet-user', 'global-layout', 'admin-layout', 'api-head.sql', 'handlebars.sql')
 
 - greet-user with wrong args:
 partial "greet-user" arguments invalid: ✖ Invalid input: expected string, received undefined

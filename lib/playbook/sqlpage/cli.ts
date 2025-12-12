@@ -19,7 +19,11 @@ import {
   join,
   relative,
 } from "@std/path";
-import { isMaterializable } from "../../axiom/projection/playbook.ts";
+import {
+  Executable,
+  isMaterializable,
+  Materializable,
+} from "../../axiom/projection/playbook.ts";
 import { docFrontmatterDataBag } from "../../axiom/remark/doc-frontmatter.ts";
 import { isImportPlaceholder } from "../../axiom/remark/import-placeholders-generator.ts";
 import * as axiomCLI from "../../axiom/text-ui/cli.ts";
@@ -610,17 +614,30 @@ export class CLI<Project> {
     }
   }
 
-  async injections(opts: { md: string[]; glob: string[] }) {
+  async injections(opts: { md: string[] }) {
     const spp = await sqlPagePlaybook(opts.md);
     const spi = sqlPageInterpolator(spp, spp.directives);
-    const injectDiags =
-      (await spi.interpolator.diagnostics(spp.materializables)).injectDiags;
-    await new ListerBuilder<typeof injectDiags[number]>()
-      .declareColumns("target", "inject", "how", "why")
-      .from(injectDiags)
+    const d = await spi.interpolator.diagnostics(spp.materializables);
+    if (d.injectables) {
+      const injectables =
+        (d.injectables as [string, Executable | Materializable][]).map((
+          [_, v],
+        ) => v);
+      await new ListerBuilder<typeof injectables[number]>()
+        .declareColumns("meta")
+        .from(injectables)
+        .field("meta", "meta", { header: "META" })
+        .build()
+        .ls(true);
+      console.log();
+    }
+    await new ListerBuilder<typeof d.injectDiags[number]>()
+      .declareColumns("target", "inject", "how", "why", "weight")
+      .from(d.injectDiags)
       .field("target", "target", { header: "TARGET" })
       .field("inject", "inject", { header: "INJ?" })
       .field("how", "how", { header: "HOW" })
+      .field("weight", "weight", { header: "WEIGHT" })
       .field("why", "why", { header: "WHY" })
       .sortBy("target").sortDir("asc")
       .build()
