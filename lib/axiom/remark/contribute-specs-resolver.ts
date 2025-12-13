@@ -1,12 +1,23 @@
 /**
  * contribute-specs-resolver.ts
  *
+ * Thin wrapper around `resourceContributions()` for ```contribute blocks.
+ *
  * ```contribute <target> [PI flags...]
- * <path|glob|url> <destPrefix> [flags...]
+ * <candidate> [<destPrefix>] [flags...]
  * ...
  * ```
+ *
+ * Block PI flags:
+ * - --base / -B         => fromBase
+ * - --dest              => destPrefix
+ * - --labeled           => labeled
+ * - --interpolate / -I  => interpolate spec body before parsing
+ *
+ * This plugin:
+ * - parses fence PI + interpolates block body (optional)
+ * - attaches `contributables()` to the Code node, returning the contributions factory
  */
-import { join, normalize, relative } from "@std/path";
 import z from "@zod/zod";
 import type { Code, Root } from "types/mdast";
 import type { Plugin } from "unified";
@@ -16,19 +27,12 @@ import { VFile } from "vfile";
 import { safeInterpolate } from "../../universal/flexible-interpolator.ts";
 import {
   flexibleTextSchema,
-  instructionsFromText,
-  type InstructionsResult,
   mergeFlexibleText,
-  type PosixPIQuery,
   queryPosixPI,
 } from "../../universal/posix-pi.ts";
 import {
-  detectMimeFromPath,
-  type ResourceProvenance,
-  type ResourceStrategy,
-  strategyDecisions,
-  tryParseHttpUrl,
-} from "../../universal/resource.ts";
+  resourceContributions,
+} from "../../universal/resource-contributions.ts";
 
 import {
   type CodeFrontmatter,
@@ -36,35 +40,23 @@ import {
 } from "../mdast/code-frontmatter.ts";
 import { addIssue } from "../mdast/node-issues.ts";
 
-// Keep URL→fs-path normalization consistent with imports.
-import { relativeUrlAsFsPath } from "./import-specs-resolver.ts";
-
 export const contributePiFlagsSchema = z.object({
   base: flexibleTextSchema.optional(),
+  dest: z.string().optional(),
+  labeled: z.boolean().optional(),
   interpolate: z.boolean().optional(),
 
   // shortcuts
   /* base */ B: flexibleTextSchema.optional(),
   /* interpolate */ I: z.boolean().optional(),
-}).transform((raw) => {
-  return {
-    base: mergeFlexibleText(raw.base, raw.B),
-    interpolate: raw.I ?? raw.interpolate,
-  };
-});
+}).transform((raw) => ({
+  base: mergeFlexibleText(raw.base, raw.B),
+  dest: raw.dest,
+  labeled: raw.labeled,
+  interpolate: raw.I ?? raw.interpolate,
+}));
 
 export type ContributePiFlags = z.infer<typeof contributePiFlagsSchema>;
-
-export type ContributionSpecProvenance = ResourceProvenance & {
-  readonly base: string;
-  readonly target: string; // e.g. "sqlpage_files"
-  readonly candidatePath: string; // raw path|glob|url from line
-  readonly destPrefix: string; // logical destination root/prefix
-  readonly rawInstructions: string;
-  readonly ir: InstructionsResult;
-  readonly ppiq: PosixPIQuery;
-  readonly lineNumInRawInstructions: number;
-};
 
 export type ContributeSpec = Code & {
   identity?: string;
@@ -74,9 +66,17 @@ export type ContributeSpec = Code & {
     ReturnType<typeof queryPosixPI<ContributePiFlags>>["safeFlags"]
   >;
   contributeTarget: string;
-  contributables: (
-    opts?: { resolveBasePath?: (path: string) => string; allowUrls?: boolean },
-  ) => ReturnType<typeof contributionProvenanceFromCode>;
+
+  contributables: (opts?: {
+    resolveBasePath?: (path: string) => string;
+    allowUrls?: boolean;
+    /** Default destPrefix for lines that omit it. */
+    destPrefix?: string;
+    /** Enable labeled grammar in the spec body. */
+    labeled?: boolean;
+    /** Optional line transform before parsing spec body. */
+    transform?: (line: string, lineNum: number) => string | false;
+  }) => ReturnType<typeof resourceContributions>;
 };
 
 export function isContributeSpec(code: Code): code is ContributeSpec {
@@ -84,29 +84,27 @@ export function isContributeSpec(code: Code): code is ContributeSpec {
   return !!(
     c &&
     typeof c === "object" &&
-    "contributeFM" in c &&
-    !!c.contributeFM &&
-    "contributeQPI" in c &&
-    !!c.contributeQPI &&
-    "contributeSF" in c &&
-    !!c.contributeSF &&
-    "contributeTarget" in c &&
     typeof c.contributeTarget === "string" &&
-    "contributables" in c &&
-    typeof c.contributables === "function"
+    typeof c.contributables === "function" &&
+    !!c.contributeFM &&
+    !!c.contributeQPI &&
+    !!c.contributeSF
   );
 }
 
 export interface ContributeOptions {
   readonly isSpecBlock?: (node: Code) => boolean;
-
   readonly interpolationCtx?: (
     tree: Root,
     file: VFile,
   ) => Record<string, unknown>;
 }
 
-export function contributeSpecs(
+function defaultIsSpecBlock(code: Code) {
+  return code.lang === "contribute";
+}
+
+function contributeSpecs(
   code: Code,
   contributeFM: CodeFrontmatter,
   interpolationCtx?: Record<string, unknown>,
@@ -141,140 +139,12 @@ export function contributeSpecs(
     });
   }
 
-  const lines = specsSrc.split(/\r\n|\r|\n/);
   return {
     contributeFM,
     contributeQPI,
     contributeSF,
-    specLines: lines.at(-1) === "" ? lines.slice(0, -1) : lines,
+    specsSrc,
   };
-}
-
-export function* contributionProvenanceFromCode(
-  code: Code,
-  cs: ReturnType<typeof contributeSpecs>,
-  target: string,
-  opts?: { resolveBasePath?: (path: string) => string; allowUrls?: boolean },
-) {
-  if (!cs || !cs.contributeSF.success) return;
-
-  const { resolveBasePath } = opts ?? {};
-  const { contributeSF, specLines } = cs;
-  const codeStartLine = code.position?.start.line ?? 0;
-  const { base: blockBases } = contributeSF.data;
-
-  let lineNum = 0;
-  for (const line of specLines) {
-    lineNum++;
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-
-    const ir = instructionsFromText(trimmed);
-    const ppiq = queryPosixPI(ir.pi);
-
-    if (ir.pi.args.length < 2) {
-      addIssue(code, {
-        severity: "error",
-        message: `Contribute spec \`${trimmed}\` on line ${
-          codeStartLine + lineNum
-        } is not valid (must have "<path|glob|url> <destPrefix> ..."), skipping.`,
-      });
-      continue;
-    }
-
-    const [candidatePath, destPrefix] = ir.pi.args;
-
-    const common: Pick<
-      ContributionSpecProvenance,
-      | "rawInstructions"
-      | "ir"
-      | "ppiq"
-      | "candidatePath"
-      | "destPrefix"
-      | "target"
-      | "lineNumInRawInstructions"
-    > = {
-      rawInstructions: trimmed,
-      ir,
-      ppiq,
-      candidatePath,
-      destPrefix,
-      target,
-      lineNumInRawInstructions: lineNum,
-    };
-
-    const specBases = ppiq.getTextFlagValues("base");
-    let bases = specBases.length > 0 ? specBases : blockBases;
-    if (resolveBasePath) bases = bases.map((b) => resolveBasePath(b));
-
-    if (tryParseHttpUrl(candidatePath)) {
-      if (!opts?.allowUrls) {
-        addIssue(code, {
-          severity: "error",
-          message: `Contribute spec \`${trimmed}\` on line ${
-            codeStartLine + lineNum
-          } is a URL, but URL contributions are disabled (enable allowUrls in plugin options). Skipping.`,
-        });
-        continue;
-      }
-
-      const mime = detectMimeFromPath(candidatePath);
-      yield {
-        base: bases.length > 0 ? bases[0] : "",
-        path: candidatePath,
-        ...(mime ? { mimeType: mime } : null),
-        ...common,
-      } satisfies ContributionSpecProvenance;
-    } else {
-      for (const base of bases) {
-        const mime = detectMimeFromPath(candidatePath);
-        const path = join(base, candidatePath);
-        yield {
-          base,
-          path,
-          ...(mime ? { mimeType: mime } : null),
-          ...common,
-        } satisfies ContributionSpecProvenance;
-      }
-    }
-  }
-}
-
-export type PreparedContribution = {
-  readonly target: string;
-  readonly destPrefix: string;
-  readonly destPath: string;
-  readonly provenance: ContributionSpecProvenance;
-  readonly strategy: ResourceStrategy;
-};
-
-export function* contributions(
-  specs: ContributeSpec,
-  opts?: Parameters<ContributeSpec["contributables"]>[0],
-) {
-  const contribs = Array.from(specs.contributables(opts));
-  for (const sd of strategyDecisions(contribs)) {
-    const { provenance, strategy } = sd;
-    const { path, base, destPrefix, target } = provenance;
-
-    const rel = strategy.target === "local-fs"
-      ? relative(base, path)
-      : relativeUrlAsFsPath(base, strategy.url?.toString() ?? path);
-
-    const destPath = normalize(join(destPrefix, rel)).replace(/\\/g, "/");
-
-    yield {
-      target,
-      destPrefix,
-      destPath,
-      provenance,
-      strategy,
-    } satisfies PreparedContribution;
-  }
-}
-
-function defaultIsSpecBlock(code: Code) {
-  return code.lang === "contribute";
 }
 
 export const resolveContributeSpecs: Plugin<[ContributeOptions?], Root> = (
@@ -302,29 +172,47 @@ export const resolveContributeSpecs: Plugin<[ContributeOptions?], Root> = (
 
       if (!contributeFM) return;
 
-      // ```contribute sqlpage_files
       const target = contributeFM.pi.pos[0];
       if (!target) {
         addIssue(code, {
           severity: "error",
           message:
-            "Contribute spec block is missing a target identity in fence meta (expected ```contribute <target>).",
+            "Contribute spec block is missing a target identity (expected ```contribute <target>).",
         });
         return;
       }
 
       const cs = contributeSpecs(code, contributeFM, iCtx);
 
-      const contributeNode = code as ContributeSpec;
-      contributeNode.identity = target;
-      contributeNode.contributeTarget = target;
+      const node = code as ContributeSpec;
+      node.identity = target;
+      node.contributeTarget = target;
+      node.contributeFM = cs.contributeFM;
+      node.contributeQPI = cs.contributeQPI;
+      node.contributeSF = cs.contributeSF;
 
-      contributeNode.contributeFM = contributeFM;
-      contributeNode.contributeQPI = cs.contributeQPI;
-      contributeNode.contributeSF = cs.contributeSF;
+      node.contributables = (opts) => {
+        if (!cs.contributeSF.success) {
+          addIssue(node, {
+            message:
+              `Invalid codeFM ${node.lang} ${node.meta} (line ${node.position?.start.line})`,
+            severity: "error",
+            error: cs.contributeSF.error,
+          });
+          return [] as unknown as ReturnType<
+            ContributeSpec["contributables"]
+          >;
+        }
 
-      contributeNode.contributables = (opts) =>
-        contributionProvenanceFromCode(code, cs, target, opts);
+        return resourceContributions(cs.specsSrc, {
+          labeled: opts?.labeled ?? cs.contributeSF.data.labeled ?? false,
+          fromBase: cs.contributeSF.data.base,
+          destPrefix: opts?.destPrefix ?? cs.contributeSF.data.dest,
+          allowUrls: opts?.allowUrls ?? false,
+          resolveBasePath: opts?.resolveBasePath,
+          transform: opts?.transform,
+        });
+      };
     });
   };
 };

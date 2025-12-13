@@ -7,10 +7,7 @@ import { graphEdgesTree, headingsTreeText } from "./edge/mod.ts";
 import { fixturesFactory } from "./fixture/mod.ts";
 import { graph, GraphEdge, graphToDot, MarkdownEncountered } from "./mod.ts";
 import { flexibleProjectionFromFiles } from "./projection/flexible.ts";
-import {
-  contributions,
-  isContributeSpec,
-} from "./remark/contribute-specs-resolver.ts";
+import { isContributeSpec } from "./remark/contribute-specs-resolver.ts";
 
 // deno-lint-ignore no-explicit-any
 type Any = any;
@@ -261,15 +258,17 @@ Deno.test(`Axiom regression / smoke test`, async (t) => {
       (n) => (n as Code).lang === "contribute",
     ) as Code[];
 
-    assertEquals(contributeCodeBlocks.length, 1);
-    const [contrib] = contributeCodeBlocks;
-    assert(isContributeSpec(contrib));
+    assertEquals(contributeCodeBlocks.length, 2);
+    const [firstNode, secondNode] = contributeCodeBlocks;
+    assert(isContributeSpec(firstNode));
+    assert(isContributeSpec(secondNode));
 
-    const resources = Array.from(contributions(contrib, {
+    const first = firstNode.contributables({
       resolveBasePath: (base) =>
         resolve(dirname(fixtures.contrib1MdPath), base),
-    }));
-    assertEquals(resources.map((r) => r.destPath), [
+    });
+    const firstRes = Array.from(first.prepared());
+    assertEquals(firstRes.map((r) => r.destPath), [
       "SUNDRY/comma-separated-values.csv",
       "SUNDRY/group1-allergies.csv",
       "SUNDRY/group1-care-plans.csv",
@@ -300,6 +299,21 @@ Deno.test(`Axiom regression / smoke test`, async (t) => {
       "SUNDRY/synthetic.yml",
       "SUNDRY/tab-separated-values.tsv",
       "SUNDRY/unknown-extension.xyz",
+    ]);
+
+    const second = secondNode.contributables({
+      resolveBasePath: (base) =>
+        resolve(dirname(fixtures.contrib1MdPath), base),
+    });
+    const secondRes = Array.from(second.prepared());
+    assertEquals(secondRes.map((r) => [r.provenance.label, r.destPath]), [
+      ["CSV", "SUNDRY/comma-separated-values.csv"],
+      ["CSV", "SUNDRY/group1-allergies.csv"],
+      ["CSV", "SUNDRY/group1-care-plans.csv"],
+      ["CSV", "SUNDRY/group1-patients.csv"],
+      ["PDF", "SUNDRY/synthetic-01.pdf"],
+      ["PDF", "SUNDRY/synthetic-02.pdf"],
+      ["zip", "ARCHIVE/real-test.zip"],
     ]);
   });
 });
