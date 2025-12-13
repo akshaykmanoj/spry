@@ -35,6 +35,7 @@ import { dataBag } from "../mdast/data-bag.ts";
 import { nodeSrcText } from "../mdast/node-src-text.ts";
 import actionableCodeCandidates from "../remark/actionable-code-candidates.ts";
 import codeDirectiveCandidates from "../remark/code-directive-candidates.ts";
+import resolveContributionSpecs from "../remark/contribute-specs-resolver.ts";
 import insertImportPlaceholders from "../remark/import-placeholders-generator.ts";
 import resolveImportSpecs from "../remark/import-specs-resolver.ts";
 import nodeDecorator from "../remark/node-decorator.ts";
@@ -57,20 +58,21 @@ export type Yielded<T> = T extends Generator<infer Y> ? Y
 // ---------------------------------------------------------------------------
 
 export function mardownParserPipeline() {
+  const interpolationCtx = (_root: Root, vfile: VFile) => ({
+    cwd: Deno.cwd(),
+    env: Deno.env.toObject(),
+    mdSrcAbsPath: resolve(vfile.path),
+    mdSrcDirname: dirname(resolve(vfile.path)),
+  });
+
   return unified()
     .use(remarkParse)
     .use(remarkFrontmatter, ["yaml"]) // extracts to YAML node but does not parse
     .use(remarkDirective) // creates directives from :[x] ::[x] and :::x
     .use(docFrontmatter, { interpolate: true }) // parses extracted YAML and stores at md AST root
     .use(remarkGfm) // support GitHub flavored markdown
-    .use(resolveImportSpecs, { // find code cells which want to be imported from local/remote files
-      interpolationCtx: (_root, vfile) => ({
-        cwd: Deno.cwd(),
-        env: Deno.env.toObject(),
-        mdSrcAbsPath: resolve(vfile.path),
-        mdSrcDirname: dirname(resolve(vfile.path)),
-      }),
-    })
+    .use(resolveImportSpecs, { interpolationCtx }) // find code cells which want to be imported from local/remote files
+    .use(resolveContributionSpecs, { interpolationCtx }) // find code cells which want to be "contributed" from local/remote files
     .use(insertImportPlaceholders, { // generate code cells found by resolveImportSpecs
       consumeEdges: (edges, vfile) => {
         if (graphEdgesVFileDataBag.is(vfile)) {

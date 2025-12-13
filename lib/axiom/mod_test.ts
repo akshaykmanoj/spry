@@ -1,9 +1,16 @@
 import { assert, assertEquals } from "@std/assert";
+import { dirname, resolve } from "@std/path";
+import { Code } from "types/mdast";
 import { inspect } from "unist-util-inspect";
+import { selectAll } from "unist-util-select";
 import { graphEdgesTree, headingsTreeText } from "./edge/mod.ts";
 import { fixturesFactory } from "./fixture/mod.ts";
 import { graph, GraphEdge, graphToDot, MarkdownEncountered } from "./mod.ts";
 import { flexibleProjectionFromFiles } from "./projection/flexible.ts";
+import {
+  contributions,
+  isContributeSpec,
+} from "./remark/contribute-specs-resolver.ts";
 
 // deno-lint-ignore no-explicit-any
 type Any = any;
@@ -16,6 +23,7 @@ const fixtures = {
   runbook2MdPath: ff.pmdPath("runbook-02.md"),
   runbook3MdPath: ff.pmdPath("runbook-03.md"),
   runbook4MdPath: ff.pmdPath("runbook-04.md"),
+  contrib1MdPath: ff.pmdPath("contribute-01.md"),
 };
 
 Deno.test(`Axiom regression / smoke test`, async (t) => {
@@ -35,6 +43,7 @@ Deno.test(`Axiom regression / smoke test`, async (t) => {
       fixtures.runbook2MdPath,
       fixtures.runbook3MdPath,
       fixtures.runbook4MdPath,
+      fixtures.contrib1MdPath,
     ],
     (encountered) => me.push(encountered),
   );
@@ -240,6 +249,58 @@ Deno.test(`Axiom regression / smoke test`, async (t) => {
       isActionableCodeCandidate: 6,
       isTask: 6,
     });
+  });
+
+  await t.step(ff.relToCWD(fixtures.contrib1MdPath), () => {
+    const [_, _runbook1, _runbook2, _runbook3, _runbook4, contrib1] = me;
+
+    assert(contrib1);
+    const { mdastRoot: root } = contrib1;
+
+    const contributeCodeBlocks = selectAll("code", root).filter(
+      (n) => (n as Code).lang === "contribute",
+    ) as Code[];
+
+    assertEquals(contributeCodeBlocks.length, 1);
+    const [contrib] = contributeCodeBlocks;
+    assert(isContributeSpec(contrib));
+
+    const resources = Array.from(contributions(contrib, {
+      resolveBasePath: (base) =>
+        resolve(dirname(fixtures.contrib1MdPath), base),
+    }));
+    assertEquals(resources.map((r) => r.destPath), [
+      "SUNDRY/comma-separated-values.csv",
+      "SUNDRY/group1-allergies.csv",
+      "SUNDRY/group1-care-plans.csv",
+      "SUNDRY/group1-patients.csv",
+      "SUNDRY/pipe-separated-values.psv",
+      "SUNDRY/plain-text.txt",
+      "SUNDRY/plain.html",
+      "SUNDRY/plain.png",
+      "SUNDRY/plain.text",
+      "SUNDRY/real-test.zip",
+      "SUNDRY/security-test.tap",
+      "SUNDRY/space-separated-values.ssv",
+      "SUNDRY/synthetic-01.md",
+      "SUNDRY/synthetic-01.pdf",
+      "SUNDRY/synthetic-02.md",
+      "SUNDRY/synthetic-02.pdf",
+      "SUNDRY/synthetic-with-frontmatter.md",
+      "SUNDRY/synthetic-with-unicode.jsonl",
+      "SUNDRY/synthetic.bash",
+      "SUNDRY/synthetic.doc",
+      "SUNDRY/synthetic.docx",
+      "SUNDRY/synthetic.json",
+      "SUNDRY/synthetic.jsonl",
+      "SUNDRY/synthetic.ppt",
+      "SUNDRY/synthetic.sh",
+      "SUNDRY/synthetic.xls",
+      "SUNDRY/synthetic.xlsx",
+      "SUNDRY/synthetic.yml",
+      "SUNDRY/tab-separated-values.tsv",
+      "SUNDRY/unknown-extension.xyz",
+    ]);
   });
 });
 
