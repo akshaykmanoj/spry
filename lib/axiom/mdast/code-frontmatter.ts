@@ -1,5 +1,5 @@
 // code-frontmatter.ts
-import { globToRegExp } from "@std/path/glob-to-regexp";
+import { globToRegExp } from "@std/path";
 import { Code, Node } from "types/mdast";
 import {
   getLanguageByIdOrAlias,

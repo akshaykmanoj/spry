@@ -1,5 +1,5 @@
 // flexible-pattern.ts
-import { globToRegExp } from "@std/path/glob-to-regexp";
+import { globToRegExp } from "@std/path";
 
 export type FlexiblePattern =
   | { readonly kind: "all" }
