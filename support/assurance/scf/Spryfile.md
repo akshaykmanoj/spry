@@ -16,6 +16,19 @@ into a structured SQLite database.
 - Uses Spry to manage tasks and generate the SQLPage presentation layer.
 - Uses DuckDB with its built-in `excel` and `sqlite` extensions.
 
+## Spry Axiom configuration
+
+`code DEFAULTS` is a special directive use by Spry's Axiom library to supply
+default flags to specific code blocks like `sql`, `text`, etc. allowing them to
+be interpolatable (`${...}`) and injectable (using `PARTIAL`s) by default
+instead of having to pass `--interpolate` and `--injectable` into each code
+cell.
+
+```code DEFAULTS
+sql * --interpolate --injectable
+envrc * --interpolate --injectable
+```
+
 ## Setup
 
 Download the SCF Excel workbook from the GitHub repo and place it into the same
