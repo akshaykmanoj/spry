@@ -15,6 +15,7 @@ import { RenderResult } from "../../universal/render.ts";
 import {
   provenanceResource,
   ResourceProvenance,
+  strategyFromProvenance,
 } from "../../universal/resource.ts";
 import {
   isRouteSupplier,
@@ -402,7 +403,10 @@ export function contentSuppliers() {
   const contentsFromResource = async (rp: ResourceProvenance) => {
     let contents: SqlPageFileUpsert["contents"];
     let isBinary: SqlPageFileUpsert["isBinary"];
-    const resource = provenanceResource(rp);
+    const resource = provenanceResource({
+      provenance: rp,
+      strategy: strategyFromProvenance(rp),
+    });
     if (resource.strategy.encoding === "utf8-binary") {
       contents = await resource.stream();
       isBinary = contents;

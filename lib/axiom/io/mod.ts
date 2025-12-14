@@ -134,7 +134,7 @@ export async function* markdownASTs<
   P extends ResourceProvenance = MarkdownProvenance,
   S extends ResourceStrategy = ResourceStrategy,
 >(
-  provenances: readonly string[] | Iterable<P> | AsyncIterable<P>,
+  provenances: readonly string[] | Iterable<P>,
   options: MarkdownASTsOptions<P, S> = {},
 ) {
   const pipeline = options.pipeline ?? mardownParserPipeline();
@@ -144,19 +144,19 @@ export async function* markdownASTs<
   // Normalize input → provenance iterable
   // ---------------------------------------------------------------------------
 
-  let provenanceIter: Iterable<P> | AsyncIterable<P>;
+  let provenanceIter: Iterable<P>;
 
   if (
     Array.isArray(provenances) &&
     provenances.every((x) => typeof x === "string")
   ) {
     // Only treat as paths when it's really string[]
-    provenanceIter = provenanceFromPaths(provenances as string[]) as
-      | Iterable<P>
-      | AsyncIterable<P>;
+    provenanceIter = provenanceFromPaths(provenances as string[]) as Iterable<
+      P
+    >;
   } else {
     // Anything else (including P[]) is treated as Iterable<P> / AsyncIterable<P>
-    provenanceIter = provenances as Iterable<P> | AsyncIterable<P>;
+    provenanceIter = provenances as Iterable<P>;
   }
 
   // ---------------------------------------------------------------------------

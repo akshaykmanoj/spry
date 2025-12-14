@@ -270,7 +270,7 @@ Deno.test(`Axiom regression / smoke test`, async (t) => {
       resolveBasePath: (base) =>
         resolve(dirname(fixtures.contrib1MdPath), base),
     });
-    const firstRes = Array.from(first.prepared());
+    const firstRes = Array.from(first.provenance());
     assertEquals(firstRes.map((r) => r.destPath), [
       "SUNDRY/comma-separated-values.csv",
       "SUNDRY/group1-allergies.csv",
@@ -308,7 +308,7 @@ Deno.test(`Axiom regression / smoke test`, async (t) => {
       resolveBasePath: (base) =>
         resolve(dirname(fixtures.contrib1MdPath), base),
     });
-    const secondRes = Array.from(second.prepared());
+    const secondRes = Array.from(second.provenance());
     assertEquals(secondRes.map((r) => [r.origin.label, r.destPath]), [
       ["CSV", "SUNDRY/comma-separated-values.csv"],
       ["CSV", "SUNDRY/group1-allergies.csv"],

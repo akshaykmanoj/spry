@@ -33,7 +33,7 @@ Deno.test("resourceContributions() factory", async (t) => {
         ].join("\n");
 
         const rc = resourceContributions(src, { fromBase: tmp });
-        const got = Array.from(rc.prepared());
+        const got = Array.from(rc.provenance());
 
         assertEquals(rc.issues.length, 0);
         assertEquals(got.length, 2);
@@ -62,7 +62,7 @@ Deno.test("resourceContributions() factory", async (t) => {
         destPrefix: "out",
       });
 
-      const got = Array.from(rc.prepared());
+      const got = Array.from(rc.provenance());
 
       assertEquals(rc.issues.length, 0);
       assertEquals(got.length, 2);
@@ -78,7 +78,7 @@ Deno.test("resourceContributions() factory", async (t) => {
         await ensureFile(join(tmp, "a.sql"), "a");
 
         const rc = resourceContributions("a.sql", { fromBase: tmp });
-        const got = Array.from(rc.prepared());
+        const got = Array.from(rc.provenance());
 
         assertEquals(got.length, 0);
         assertEquals(rc.issues.length, 1);
@@ -101,7 +101,7 @@ Deno.test("resourceContributions() factory", async (t) => {
           fromBase: [baseA, baseB],
         });
 
-        const got = Array.from(rc.prepared());
+        const got = Array.from(rc.provenance());
 
         assertEquals(rc.issues.length, 0);
         assertEquals(got.length, 2);
@@ -126,7 +126,7 @@ Deno.test("resourceContributions() factory", async (t) => {
         { fromBase: [baseA, baseB] },
       );
 
-      const got = Array.from(rc.prepared());
+      const got = Array.from(rc.provenance());
 
       assertEquals(rc.issues.length, 0);
       assertEquals(got.length, 1);
@@ -154,7 +154,7 @@ Deno.test("resourceContributions() factory", async (t) => {
           resolveBasePath: (b) => join(tmp, "ROOT", b),
         });
 
-        const got = Array.from(rc.prepared());
+        const got = Array.from(rc.provenance());
 
         assertEquals(rc.issues.length, 0);
         assertEquals(got.length, 2);
@@ -168,7 +168,7 @@ Deno.test("resourceContributions() factory", async (t) => {
     "URL candidates: disallowed by default => issue + skipped",
     () => {
       const rc = resourceContributions("https://example.com/dir/a.sql out");
-      const got = Array.from(rc.prepared());
+      const got = Array.from(rc.provenance());
 
       assertEquals(got.length, 0);
       assertEquals(rc.issues.length, 1);
@@ -186,7 +186,7 @@ Deno.test("resourceContributions() factory", async (t) => {
         fromBase: "https://example.com/dir/",
       });
 
-      const got = Array.from(rc.prepared());
+      const got = Array.from(rc.provenance());
 
       assertEquals(rc.issues.length, 0);
       assertEquals(got.length, 1);
@@ -215,7 +215,7 @@ Deno.test("resourceContributions() factory", async (t) => {
         },
       });
 
-      const got = Array.from(rc.prepared());
+      const got = Array.from(rc.provenance());
 
       assertEquals(rc.issues.length, 0);
       assertEquals(got.length, 2);
@@ -231,7 +231,7 @@ Deno.test("resourceContributions() factory", async (t) => {
         await ensureFile(join(tmp, "a.sql"), "a");
 
         const rc = resourceContributions("a.sql out\n", { fromBase: tmp });
-        const got = Array.from(rc.prepared());
+        const got = Array.from(rc.provenance());
 
         assertEquals(rc.issues.length, 0);
         assertEquals(got.length, 1);
@@ -255,7 +255,7 @@ Deno.test("resourceContributions() factory", async (t) => {
           }),
         });
 
-        const got = Array.from(rc.prepared());
+        const got = Array.from(rc.provenance());
 
         assertEquals(rc.issues.length, 0);
         assertEquals(got.length, 1);
@@ -284,7 +284,7 @@ Deno.test("resourceContributions() factory", async (t) => {
           destPrefix: "DEFAULT",
         });
 
-        const got = Array.from(rc.prepared());
+        const got = Array.from(rc.provenance());
 
         assertEquals(rc.issues.length, 0);
         assertEquals(got.length, 2);
@@ -310,7 +310,7 @@ Deno.test("resourceContributions() factory", async (t) => {
           fromBase: tmp,
         });
 
-        const got = Array.from(rc.prepared());
+        const got = Array.from(rc.provenance());
 
         assertEquals(got.length, 0);
         assertEquals(rc.issues.length, 1);

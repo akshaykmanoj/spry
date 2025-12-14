@@ -1,5 +1,60 @@
-// resource-contributions.ts
-
+/**
+ * @module resource-contributions
+ *
+ * Parse a plain-text “contribution spec” into a stream of resolved resource contributions,
+ * suitable for ingestion/materialization pipelines that need:
+ * - consistent destination paths (destPrefix + relative path)
+ * - provenance metadata per contribution (line number, raw spec line, parsed instruction record)
+ * - a resource access strategy decision (local filesystem vs remote URL, plus related hints)
+ *
+ * This module is intentionally “two-stage”:
+ * 1) `origins()` yields validated spec lines (including parsed args) and records any issues.
+ * 2) `prepared()` expands each origin across one or more bases, runs `strategyDecisions(...)`,
+ *    and yields concrete contribution objects with computed `destPath`.
+ *
+ * Spec grammar
+ * - Unlabeled (default): `<candidate> [<destPrefix>] ...`
+ * - Labeled (when `args.labeled` is true): `<label> <candidate> [<destPrefix>] ...`
+ *
+ * Each line is processed through:
+ * - optional `transform(line, lineNum)` hook; return `false` to skip the line
+ * - `instructionsFromText(...)` and `queryPosixPI(...)` so flags like `--base=...` can be read
+ *
+ * Base resolution
+ * - `args.fromBase` defines default bases for the entire block (string or string[]).
+ * - A line may override bases using `--base <value>` flags (read via Posix PI parsing).
+ * - `args.resolveBasePath(base)` may rewrite base strings (e.g., normalize, map aliases).
+ *
+ * Destination prefix
+ * - A contribution must have a destination prefix.
+ * - It is taken from the line’s optional `[<destPrefix>]` argument when provided, otherwise
+ *   from `args.destPrefix`. If neither is present, an error issue is recorded and that line
+ *   yields no contributions.
+ *
+ * URL handling
+ * - If a candidate parses as HTTP/HTTPS and `args.allowUrls` is not true, an error issue is
+ *   recorded and the line is skipped.
+ * - For URL candidates, `prepared()` uses the first effective base only (bases[0]) when
+ *   constructing the strategy decision input.
+ * - When a remote URL is selected, `destPath` is computed using `relativeUrlAsFsPath(...)`
+ *   to create a deterministic, filesystem-safe relative path from the URL.
+ *
+ * Issues reporting
+ * - This module does not throw on bad lines by default; it accumulates `issues[]` entries with
+ *   severity and line context. Callers should inspect `issues` after iteration.
+ *
+ * Generic typing
+ * - `resourceContributions(...)` is generic over the parsed line “shape” and the resulting
+ *   contribution type.
+ * - Use `args.toContribution(...)` to enrich/extend the emitted contribution objects while
+ *   preserving type information.
+ *
+ * Primary exports
+ * - `resourceContributions(text, args)`:
+ *   returns `{ blockBases, issues, origins, prepared }`.
+ * - `relativeUrlAsFsPath(base, url)`:
+ *   converts a URL into a stable filesystem-relative path segment for destination mapping.
+ */
 import { join, normalize, relative } from "@std/path";
 import z from "@zod/zod";
 import {
@@ -10,6 +65,10 @@ import {
 } from "./posix-pi.ts";
 import {
   detectMimeFromPath,
+  provenanceResource,
+  Resource,
+  ResourceLabel,
+  ResourcePath,
   ResourceProvenance,
   type ResourceStrategy,
   strategyDecisions,
@@ -126,8 +185,22 @@ export type ResourceContributionsResult<
 > = Readonly<{
   blockBases: readonly string[];
   issues: readonly ResourceContributionsIssue[];
-  origins: () => Generator<SpecLine>;
-  prepared: () => Generator<Contribution>;
+  specs: () => Generator<SpecLine>;
+  provenance: () => Generator<Contribution>;
+  resources: () => Generator<
+    Resource<
+      {
+        mimeType: string | undefined;
+        destPath: string;
+        spec: SpecLine;
+        path: ResourcePath;
+        label?: ResourceLabel;
+      },
+      ResourceStrategy
+    >,
+    void,
+    unknown
+  >;
 }>;
 
 type LabeledShape<
@@ -220,7 +293,7 @@ export function resourceContributions<
     schema: () => schema,
   });
 
-  function* provenance(): Generator<SpecLine> {
+  function* specs(): Generator<SpecLine> {
     for (const line of specLines) {
       if (!line.parsedArgs) continue;
 
@@ -251,8 +324,8 @@ export function resourceContributions<
     }
   }
 
-  function* prepared(): Generator<Contribution> {
-    const inputs = Array.from(provenance()).flatMap((line) => {
+  function* provenance(): Generator<Contribution> {
+    const inputs = Array.from(specs()).flatMap((line) => {
       const parsed = line.parsedArgs!;
       const lineDestPrefix = parsed.success
         ? parsed.data.destPrefix
@@ -340,7 +413,22 @@ export function resourceContributions<
     }
   }
 
-  return { blockBases, issues, origins: provenance, prepared } as const;
+  function* resources() {
+    for (const p of provenance()) {
+      const { ppiq } = p.origin;
+      yield provenanceResource({
+        provenance: {
+          ...p.provenance,
+          mimeType: ppiq.getTextFlag("mime") ?? p.provenance.mimeType,
+          destPath: p.destPath,
+          spec: p.origin,
+        },
+        strategy: p.strategy,
+      });
+    }
+  }
+
+  return { blockBases, issues, specs, provenance, resources } as const;
 }
 
 /**
