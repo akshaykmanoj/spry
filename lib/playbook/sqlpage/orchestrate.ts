@@ -361,7 +361,7 @@ export async function* sqlPageFiles(
   for (const c of contribSPFs) {
     // TODO: do we need to use resolveBasePath?
     // TODO: should we interpolate? or allow injections?
-    const contribs = c.contributables();
+    const contribs = c.contributables({ allowUrls: true });
     const contribModes = c.contributeQPI.getTextFlagValues("mode");
 
     const resources = Array.from(contribs.prepared());

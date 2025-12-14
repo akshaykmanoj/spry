@@ -22,7 +22,8 @@ into a structured SQLite database.
 default flags to specific code blocks like `sql`, `text`, etc. allowing them to
 be interpolatable (`${...}`) and injectable (using `PARTIAL`s) by default
 instead of having to pass `--interpolate` and `--injectable` into each code
-cell.
+cell. 💡 `code DEFAULTS` is necessary in Spry SQLPage playbooks to tell Axiom
+how to treat `sql` code fenced blocks.
 
 ```code DEFAULTS
 sql * --interpolate --injectable
@@ -31,20 +32,23 @@ envrc * --interpolate --injectable
 
 The following example shows how arbitrary files can be "contributed" to
 `sqlpage_files`. `--base` should be relative to the current working directory
-(CWD):
+(CWD). 💡 It's included just as an examplar and is not required:
 
 ```contribute sqlpage_files --base ../../../lib/axiom/fixture/sundry
 **/* SUNDRY
 ```
 
 The following example shows how template files can be "contributed" to
-`sqlpage_files` but only when `--package` is being used. Pick them up from
+`sqlpage_files` but only when `--package` is being used. Spry picks them up from
 `../sqlpage/templates/*` and store them in `templates/*` path in `sqlpage_files`
-table:
+table only during `--package` operation:
 
 ```contribute sqlpage_files --base sqlpage/templates --mode package
 **/* templates --mime text/plain
 ```
+
+💡 You should use the above technique if you ever create custom
+`sqlplage/templates` files that you want included in the database.
 
 ## Setup
 
@@ -217,14 +221,12 @@ ${ctx.breadcrumbs()}
 ```
 
 Get the brand assets and store them into the SQLPage content stream. They will
-be stored as `assets/brand/*` because the `--base` is
-`https://www.surveilr.com/`. The `--spc` reminds Spry to include it as part of
-the SQLPage content since by default utf8 and other file types don't get
-inserted into the stream.
+be stored as `assets/brand/*` because `--base` is `https://www.surveilr.com/`
+and destination is set to `.`.
 
-```import --base https://www.surveilr.com/
-utf8 https://www.surveilr.com/assets/brand/content-assembler.ico --spc
-utf8 https://www.surveilr.com/assets/brand/compliance-explorer.png --spc
+```contribute sqlpage_files --base https://www.surveilr.com/
+https://www.surveilr.com/assets/brand/content-assembler.ico .
+https://www.surveilr.com/assets/brand/compliance-explorer.png .
 ```
 
 ## SCF Home Page
