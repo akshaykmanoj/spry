@@ -10,6 +10,7 @@ import {
 } from "./posix-pi.ts";
 import {
   detectMimeFromPath,
+  ResourceProvenance,
   type ResourceStrategy,
   strategyDecisions,
   tryParseHttpUrl,
@@ -106,7 +107,8 @@ function* textContributions<Shape = unknown>(
 export type ResourceContribution<SpecLine extends ContributeSpecLine> = {
   readonly destPrefix: string;
   readonly destPath: string;
-  readonly provenance: SpecLine;
+  readonly origin: SpecLine;
+  readonly provenance: ResourceProvenance;
   readonly strategy: ResourceStrategy;
 };
 
@@ -124,7 +126,7 @@ export type ResourceContributionsResult<
 > = Readonly<{
   blockBases: readonly string[];
   issues: readonly ResourceContributionsIssue[];
-  provenance: () => Generator<SpecLine>;
+  origins: () => Generator<SpecLine>;
   prepared: () => Generator<Contribution>;
 }>;
 
@@ -195,7 +197,8 @@ export function resourceContributions<
     readonly toContribution?: (base: {
       destPrefix: string;
       destPath: string;
-      provenance: SpecLine;
+      origin: SpecLine;
+      provenance: ResourceProvenance;
       strategy: ResourceStrategy;
     }) => Contribution;
   },
@@ -305,6 +308,7 @@ export function resourceContributions<
       )
     ) {
       const p = sd.provenance as typeof inputs[number];
+
       const strategy = sd.strategy;
 
       const rel = strategy.target === "local-fs"
@@ -320,9 +324,15 @@ export function resourceContributions<
       const baseOut = {
         destPrefix: p.__destPrefix as string,
         destPath,
-        provenance: p.__line as SpecLine,
+        origin: p.__line as SpecLine,
+        provenance: sd.provenance,
         strategy,
       };
+
+      // deno-lint-ignore no-explicit-any
+      const pMutate = p as any;
+      delete pMutate["__destPrefix"];
+      delete pMutate["__line"];
 
       yield args?.toContribution
         ? args.toContribution(baseOut)
@@ -330,7 +340,7 @@ export function resourceContributions<
     }
   }
 
-  return { blockBases, issues, provenance, prepared } as const;
+  return { blockBases, issues, origins: provenance, prepared } as const;
 }
 
 /**

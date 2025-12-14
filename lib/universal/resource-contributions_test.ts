@@ -251,7 +251,7 @@ Deno.test("resourceContributions() factory", async (t) => {
           toContribution: (base) => ({
             ...base,
             kind: "rc" as const,
-            raw: base.provenance.rawInstructions,
+            raw: base.origin.rawInstructions,
           }),
         });
 
@@ -290,10 +290,10 @@ Deno.test("resourceContributions() factory", async (t) => {
         assertEquals(got.length, 2);
 
         assertEquals(got[0].destPath, "out/a.sql");
-        assertEquals(got[0].provenance.label, "core");
+        assertEquals(got[0].origin.label, "core");
 
         assertEquals(got[1].destPath, "DEFAULT/b.sql");
-        assertEquals(got[1].provenance.label, "aux");
+        assertEquals(got[1].origin.label, "aux");
       });
     },
   );
