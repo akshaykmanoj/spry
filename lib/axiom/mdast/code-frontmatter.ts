@@ -31,7 +31,7 @@ import { dataBag } from "./data-bag.ts";
  * - `pi` (processing instructions: flags + positional tokens)
  * - `attrs` (JSON5-like `{ ... }` tail)
  */
-export interface CodeFrontmatter {
+export interface CodeFrontmatter extends InstructionsResult {
   /** The language of the code fence (e.g. "ts", "bash"). */
   readonly lang?: string;
   /** The specification of the language code fence. */
