@@ -507,7 +507,7 @@ export class CLI<Project> {
     },
   ) {
     const spp = await sqlPagePlaybook(opts.md);
-    const { items } = await collectAsyncGenerated(sqlPageFiles(spp));
+    const { items } = await collectAsyncGenerated(sqlPageFiles(spp, "typical"));
     let spfe = items.map((spf) => ({
       ...spf,
       name: basename(spf.path),
@@ -653,7 +653,7 @@ export class CLI<Project> {
       );
 
     const spp = await sqlPagePlaybook(opts.md);
-    const { items } = await collectAsyncGenerated(sqlPageFiles(spp));
+    const { items } = await collectAsyncGenerated(sqlPageFiles(spp, "typical"));
 
     for (const spf of items) {
       if (matchesAnyGlob(spf.path)) {
@@ -683,7 +683,7 @@ export class CLI<Project> {
 
     const spp = await sqlPagePlaybook(opts.md);
     for await (
-      const spf of normalizeSPC(sqlPageFiles(spp))
+      const spf of normalizeSPC(sqlPageFiles(spp, "typical"))
     ) {
       const absPath = join(fs, spf.path);
       await ensureDir(dirname(absPath));
@@ -934,12 +934,15 @@ export class CLI<Project> {
         // If -p/--package is present (i.e., user requested SQL package), emit to stdout
         if (opts.package) {
           for (
-            const chunk of await sqlPageFilesUpsertDML(sqlPageFiles(spp), {
-              dialect: opts.dialect
-                ? opts.dialect
-                : SqlPageFilesUpsertDialect.SQLite,
-              includeSqlPageFilesTable: true,
-            })
+            const chunk of await sqlPageFilesUpsertDML(
+              sqlPageFiles(spp, "package"),
+              {
+                dialect: opts.dialect
+                  ? opts.dialect
+                  : SqlPageFilesUpsertDialect.SQLite,
+                includeSqlPageFilesTable: true,
+              },
+            )
           ) {
             console.log(chunk);
           }

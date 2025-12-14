@@ -29,6 +29,23 @@ sql * --interpolate --injectable
 envrc * --interpolate --injectable
 ```
 
+The following example shows how arbitrary files can be "contributed" to
+`sqlpage_files`. `--base` should be relative to the current working directory
+(CWD):
+
+```contribute sqlpage_files --base ../../../lib/axiom/fixture/sundry
+**/* SUNDRY
+```
+
+The following example shows how template files can be "contributed" to
+`sqlpage_files` but only when `--package` is being used. Pick them up from
+`../sqlpage/templates/*` and store them in `templates/*` path in `sqlpage_files`
+table:
+
+```contribute sqlpage_files --base sqlpage/templates --mode package
+**/* templates --mime text/plain
+```
+
 ## Setup
 
 Download the SCF Excel workbook from the GitHub repo and place it into the same
