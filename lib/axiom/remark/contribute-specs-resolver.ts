@@ -27,6 +27,7 @@ import { VFile } from "vfile";
 import { safeInterpolate } from "../../universal/flexible-interpolator.ts";
 import {
   flexibleTextSchema,
+  InstructionsResult,
   mergeFlexibleText,
   queryPosixPI,
 } from "../../universal/posix-pi.ts";
@@ -34,11 +35,16 @@ import {
   resourceContributions,
 } from "../../universal/resource-contributions.ts";
 
+import { assert } from "@std/assert/assert";
 import {
   type CodeFrontmatter,
   codeFrontmatter,
 } from "../mdast/code-frontmatter.ts";
 import { addIssue } from "../mdast/node-issues.ts";
+import {
+  CodeDirectiveCandidate,
+  isCodeDirectiveCandidate,
+} from "./code-directive-candidates.ts";
 
 export const contributePiFlagsSchema = z.object({
   base: flexibleTextSchema.optional(),
@@ -65,8 +71,6 @@ export type ContributeSpec = Code & {
   contributeSF: ReturnType<
     ReturnType<typeof queryPosixPI<ContributePiFlags>>["safeFlags"]
   >;
-  contributeTarget: string;
-
   contributables: (opts?: {
     resolveBasePath?: (path: string) => string;
     allowUrls?: boolean;
@@ -84,7 +88,6 @@ export function isContributeSpec(code: Code): code is ContributeSpec {
   return !!(
     c &&
     typeof c === "object" &&
-    typeof c.contributeTarget === "string" &&
     typeof c.contributables === "function" &&
     !!c.contributeFM &&
     !!c.contributeQPI &&
@@ -100,8 +103,10 @@ export interface ContributeOptions {
   ) => Record<string, unknown>;
 }
 
+export const contributeKeyword = "contribute" as const;
+
 function defaultIsSpecBlock(code: Code) {
-  return code.lang === "contribute";
+  return code.lang === contributeKeyword;
 }
 
 function contributeSpecs(
@@ -183,10 +188,18 @@ export const resolveContributeSpecs: Plugin<[ContributeOptions?], Root> = (
       }
 
       const cs = contributeSpecs(code, contributeFM, iCtx);
+      const directive = code as CodeDirectiveCandidate<
+        string,
+        typeof contributeKeyword
+      >;
+      directive.isCodeDirectiveCandidate = true;
+      directive.directive = contributeKeyword;
+      directive.identity = target;
+      directive.instructions = contributeFM as unknown as InstructionsResult;
+      assert(isCodeDirectiveCandidate(directive));
 
       const node = code as ContributeSpec;
-      node.identity = target;
-      node.contributeTarget = target;
+      node.identity = target; // same as above, it's the same instance
       node.contributeFM = cs.contributeFM;
       node.contributeQPI = cs.contributeQPI;
       node.contributeSF = cs.contributeSF;
