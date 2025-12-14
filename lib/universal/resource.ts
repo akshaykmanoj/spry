@@ -332,6 +332,9 @@ export function* strategyDecisions<
             path: entry.path as ResourcePath,
           };
           const childProv = normalizeProvenance(childProvRaw);
+          (childProv as { mimeType?: string }).mimeType = detectMimeFromPath(
+            childProv.path,
+          );
           const childStrategy = strategyFromProvenance(childProv) as S;
           yield { provenance: childProv, strategy: childStrategy };
         }
@@ -378,6 +381,9 @@ export async function* strategies<
             ...prov,
             path: entry.path as ResourcePath,
           };
+          (childProvRaw as { mimeType?: string }).mimeType = detectMimeFromPath(
+            childProvRaw.path,
+          );
           const childProv = normalizeProvenance(childProvRaw);
           yield provenanceResource<P, S>(childProv);
         }
