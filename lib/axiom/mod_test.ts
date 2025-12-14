@@ -7,7 +7,10 @@ import { graphEdgesTree, headingsTreeText } from "./edge/mod.ts";
 import { fixturesFactory } from "./fixture/mod.ts";
 import { graph, GraphEdge, graphToDot, MarkdownEncountered } from "./mod.ts";
 import { flexibleProjectionFromFiles } from "./projection/flexible.ts";
-import { isContributeSpec } from "./remark/contribute-specs-resolver.ts";
+import {
+  contributeKeyword,
+  isContributeSpec,
+} from "./remark/contribute-specs-resolver.ts";
 
 // deno-lint-ignore no-explicit-any
 type Any = any;
@@ -255,7 +258,7 @@ Deno.test(`Axiom regression / smoke test`, async (t) => {
     const { mdastRoot: root } = contrib1;
 
     const contributeCodeBlocks = selectAll("code", root).filter(
-      (n) => (n as Code).lang === "contribute",
+      (n) => (n as Code).lang === contributeKeyword,
     ) as Code[];
 
     assertEquals(contributeCodeBlocks.length, 2);
@@ -306,7 +309,7 @@ Deno.test(`Axiom regression / smoke test`, async (t) => {
         resolve(dirname(fixtures.contrib1MdPath), base),
     });
     const secondRes = Array.from(second.prepared());
-    assertEquals(secondRes.map((r) => [r.provenance.label, r.destPath]), [
+    assertEquals(secondRes.map((r) => [r.origin.label, r.destPath]), [
       ["CSV", "SUNDRY/comma-separated-values.csv"],
       ["CSV", "SUNDRY/group1-allergies.csv"],
       ["CSV", "SUNDRY/group1-care-plans.csv"],
