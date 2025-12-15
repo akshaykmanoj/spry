@@ -10,8 +10,9 @@ import remarkDirective from "remark-directive";
 import remarkFrontmatter from "remark-frontmatter";
 import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
-import type { Root, RootContent } from "types/mdast";
+import type { Node, Root, RootContent } from "types/mdast";
 import { unified } from "unified";
+import { selectAll } from "unist-util-select";
 
 import docFrontmatter from "../remark/doc-frontmatter.ts";
 
@@ -35,7 +36,11 @@ import { dataBag } from "../mdast/data-bag.ts";
 import { nodeSrcText } from "../mdast/node-src-text.ts";
 import actionableCodeCandidates from "../remark/actionable-code-candidates.ts";
 import codeDirectiveCandidates from "../remark/code-directive-candidates.ts";
-import resolveContributionSpecs from "../remark/contribute-specs-resolver.ts";
+import {
+  isIncludesSpec,
+  prepareContributionSpecs,
+  prepareIncludedNodes,
+} from "../remark/contribute-specs-resolver.ts";
 import insertImportPlaceholders from "../remark/import-placeholders-generator.ts";
 import resolveImportSpecs from "../remark/import-specs-resolver.ts";
 import nodeDecorator from "../remark/node-decorator.ts";
@@ -64,6 +69,18 @@ export function mardownParserPipeline() {
     mdSrcAbsPath: resolve(vfile.path),
     mdSrcDirname: dirname(resolve(vfile.path)),
   });
+  const consumeEdges = (
+    edges: { generatedBy: Node; placeholder: Node }[],
+    vfile: VFile,
+  ) => {
+    if (graphEdgesVFileDataBag.is(vfile)) {
+      vfile.data.edges.push(...edges.map((e) => ({
+        rel: "isImportPlaceholder",
+        from: e.generatedBy,
+        to: e.placeholder,
+      } satisfies GraphEdge<"isImportPlaceholder">)));
+    }
+  };
 
   return unified()
     .use(remarkParse)
@@ -72,18 +89,22 @@ export function mardownParserPipeline() {
     .use(docFrontmatter, { interpolate: true }) // parses extracted YAML and stores at md AST root
     .use(remarkGfm) // support GitHub flavored markdown
     .use(resolveImportSpecs, { interpolationCtx }) // find code cells which want to be imported from local/remote files
-    .use(resolveContributionSpecs, { interpolationCtx }) // find code cells which want to be "contributed" from local/remote files
-    .use(insertImportPlaceholders, { // generate code cells found by resolveImportSpecs
-      consumeEdges: (edges, vfile) => {
-        if (graphEdgesVFileDataBag.is(vfile)) {
-          vfile.data.edges.push(...edges.map((e) => ({
-            rel: "isImportPlaceholder",
-            from: e.generatedBy,
-            to: e.placeholder,
-          } satisfies GraphEdge<"isImportPlaceholder">)));
+    .use(prepareContributionSpecs, { interpolationCtx }) // find code cells which want to be "contributed" from local/remote files
+    .use(prepareIncludedNodes, {
+      consumeEdges,
+      isSpecBlock: (spec, vfile) => {
+        if (
+          spec.identity === "include" ||
+          spec.contributeQPI.getFlag("I", "include")
+        ) {
+          return {
+            resolveBasePath: (base) => resolve(vfile.dirname!, base),
+          };
         }
+        return false;
       },
-    })
+    }) // find code cells which want to be "contributed" from local/remote files
+    .use(insertImportPlaceholders, { consumeEdges }) // generate code cells found by resolveImportSpecs
     .use(nodeDecorator) // look for @id and transform to node.type == "decorator"
     .use(codeDirectiveCandidates) // be sure this comes before actionableCodeCandidates
     .use(actionableCodeCandidates);
@@ -108,6 +129,11 @@ export interface MarkdownASTsOptions<
    * If omitted, `vfileResourcesFactory()` is used with its defaults.
    */
   readonly factory?: ReturnType<typeof vfileResourcesFactory<P, S>>;
+
+  /**
+   * Find isIncludedNode content and inject it into the node;
+   */
+  readonly resolveIncludesContent?: boolean;
 }
 
 /**
@@ -139,6 +165,7 @@ export async function* markdownASTs<
 ) {
   const pipeline = options.pipeline ?? mardownParserPipeline();
   const rf = options.factory ?? vfileResourcesFactory<P, S>({});
+  const resolveIncludes = options.resolveIncludesContent ?? true;
 
   // ---------------------------------------------------------------------------
   // Normalize input → provenance iterable
@@ -179,6 +206,16 @@ export async function* markdownASTs<
 
     const nst = nodeSrcText(mdastRoot, text);
     const relTo = relativeTo(resource);
+
+    if (resolveIncludes) {
+      // "includes" are "unresolved" during parsing and content acquisition is
+      // required asynchronously (for remotes, etc.)
+      for (const code of selectAll("code", mdastRoot)) {
+        if (isIncludesSpec(code)) {
+          await code.resolveIncludes();
+        }
+      }
+    }
 
     yield {
       resource,

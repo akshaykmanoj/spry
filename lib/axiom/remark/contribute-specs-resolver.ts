@@ -19,7 +19,7 @@
  * - attaches `contributables()` to the Code node, returning the contributions factory
  */
 import z from "@zod/zod";
-import type { Code, Root } from "types/mdast";
+import type { Code, Node, Root } from "types/mdast";
 import type { Plugin } from "unified";
 import { visit } from "unist-util-visit";
 import { VFile } from "vfile";
@@ -32,15 +32,18 @@ import {
   queryPosixPI,
 } from "../../universal/posix-pi.ts";
 import {
+  ContributeSpecLine,
+  ResourceContribution,
   resourceContributions,
 } from "../../universal/resource-contributions.ts";
 
 import { assert } from "@std/assert/assert";
+import { provenanceResource } from "../../universal/resource.ts";
 import {
   type CodeFrontmatter,
   codeFrontmatter,
 } from "../mdast/code-frontmatter.ts";
-import { addIssue } from "../mdast/node-issues.ts";
+import { addIssue, addIssues } from "../mdast/node-issues.ts";
 import {
   CodeDirectiveCandidate,
   isCodeDirectiveCandidate,
@@ -152,7 +155,7 @@ function contributeSpecs(
   };
 }
 
-export const resolveContributeSpecs: Plugin<[ContributeOptions?], Root> = (
+export const prepareContributionSpecs: Plugin<[ContributeOptions?], Root> = (
   options,
 ) => {
   const isSpecBlock = options?.isSpecBlock ?? defaultIsSpecBlock;
@@ -230,4 +233,159 @@ export const resolveContributeSpecs: Plugin<[ContributeOptions?], Root> = (
   };
 };
 
-export default resolveContributeSpecs;
+export type IncludesSpec = Code & {
+  includables: Iterable<Node>;
+  resolveIncludes: () => Promise<void>;
+};
+
+export function isIncludesSpec(code: Node): code is IncludesSpec {
+  const c = code as unknown as Partial<IncludesSpec>;
+  return !!(c && typeof c === "object" && Array.isArray(c.includables));
+}
+
+export type IncludedNode<N extends Node> = N & {
+  readonly include: ResourceContribution<ContributeSpecLine>;
+  readonly acquireContent: () => Promise<void>;
+};
+
+export function isIncludedNode<N extends Node>(
+  node: Node,
+): node is IncludedNode<N> {
+  return node && "include" in node && node.include ? true : false;
+}
+
+export interface IncludeNodeInsertOptions {
+  readonly isSpecBlock: (
+    node: ContributeSpec,
+    vfile: VFile,
+    root: Root,
+  ) => false | Parameters<ContributeSpec["contributables"]>[0];
+  readonly generatedNode?: (
+    ctx: {
+      readonly rc: ResourceContribution<ContributeSpecLine>;
+      readonly specs: ContributeSpec;
+    },
+  ) => IncludedNode<Node>;
+  readonly retainAfterInjections?: (node: Node) => boolean;
+  readonly consumeEdges?: (
+    edges: { generatedBy: Node; placeholder: Node }[],
+    vfile: VFile,
+    tree: Root,
+  ) => void;
+}
+
+const generatedCodeNode: IncludeNodeInsertOptions["generatedNode"] = (ctx) => {
+  const {
+    rc: {
+      origin: { label: lang, lineNumInRawInstructions: pathLine, restArgs },
+      provenance,
+    },
+    specs,
+  } = ctx;
+  const position = specs.position
+    ? {
+      line: specs.position.start.line + pathLine,
+      column: 1,
+      offset: undefined,
+    }
+    : undefined;
+  const result: IncludedNode<Code> = {
+    type: "code",
+    lang,
+    meta: restArgs.filter((a) => a.startsWith("-")).join(" "),
+    value:
+      `will be replaced by value of ${provenance.path} (${provenance.mimeType})`,
+    position: position ? { start: position, end: position } : undefined,
+    include: ctx.rc,
+    acquireContent: async () => {
+      const r = provenanceResource(ctx.rc);
+      const text = await r.safeText();
+      if (typeof text === "string") {
+        result.value = text;
+      } else {
+        addIssues(result, [{
+          message:
+            `Unable to resolve include content ${r.provenance.path} (${r.provenance.mimeType})`,
+          severity: "error",
+          error: text,
+        }]);
+      }
+    },
+  };
+  return result;
+};
+
+export const prepareIncludedNodes: Plugin<[IncludeNodeInsertOptions], Root> = (
+  options,
+) => {
+  const { isSpecBlock } = options;
+  const generatedNode = options?.generatedNode ?? generatedCodeNode;
+
+  return (tree: Root, vfile: VFile) => {
+    const { retainAfterInjections = () => true } = options ?? {};
+
+    const mutations: {
+      // deno-lint-ignore no-explicit-any
+      parent: any;
+      index: number;
+      injected: Node[];
+      mode: "retain-after-injections" | "remove-before-injections";
+    }[] = [];
+
+    visit(tree, "code", (code: Code, index, parent) => {
+      if (parent == null || index == null) return;
+      if (!isContributeSpec(code)) return;
+      const isb = isSpecBlock(code, vfile, tree);
+      if (!isb) return;
+
+      const mode = retainAfterInjections == undefined
+        ? "retain-after-injections" as const
+        : (retainAfterInjections(code)
+          ? "retain-after-injections" as const
+          : "remove-before-injections" as const);
+
+      const generated: IncludedNode<Node>[] = [];
+      const contrib = code.contributables(isb);
+      for (const rc of contrib.provenance()) {
+        const newNode = generatedNode({ rc, specs: code });
+        generated.push(newNode);
+      }
+
+      if (generated.length) {
+        const node = code as unknown as IncludesSpec;
+        node.includables = generated;
+        node.resolveIncludes = async () => {
+          for (const include of generated) {
+            await include.acquireContent();
+          }
+        };
+        assert(isIncludesSpec(code));
+
+        if (options?.consumeEdges) {
+          options.consumeEdges(
+            generated.map((g) => ({ generatedBy: code, placeholder: g })),
+            vfile,
+            tree,
+          );
+        }
+
+        mutations.push({ parent, index, injected: generated, mode });
+      }
+    });
+
+    // Apply mutations after traversal, from right to left.
+    mutations.sort((a, b) => b.index - a.index);
+
+    for (const { parent, index, injected, mode } of mutations) {
+      if (mode === "remove-before-injections") {
+        // Replace spec node with injected nodes
+        parent.children.splice(index, 1, ...injected);
+      } else {
+        // retain-after-injections: keep spec; insert injected nodes after it
+        parent.children.splice(index + 1, 0, ...injected);
+      }
+    }
+
+    return tree;
+  };
+};

@@ -10,6 +10,7 @@ import { flexibleProjectionFromFiles } from "./projection/flexible.ts";
 import {
   contributeKeyword,
   isContributeSpec,
+  isIncludedNode,
 } from "./remark/contribute-specs-resolver.ts";
 
 // deno-lint-ignore no-explicit-any
@@ -261,10 +262,11 @@ Deno.test(`Axiom regression / smoke test`, async (t) => {
       (n) => (n as Code).lang === contributeKeyword,
     ) as Code[];
 
-    assertEquals(contributeCodeBlocks.length, 2);
-    const [firstNode, secondNode] = contributeCodeBlocks;
+    assertEquals(contributeCodeBlocks.length, 3);
+    const [firstNode, secondNode, includesNodes] = contributeCodeBlocks;
     assert(isContributeSpec(firstNode));
     assert(isContributeSpec(secondNode));
+    assert(isContributeSpec(includesNodes));
 
     const first = firstNode.contributables({
       resolveBasePath: (base) =>
@@ -282,6 +284,7 @@ Deno.test(`Axiom regression / smoke test`, async (t) => {
       "SUNDRY/plain.png",
       "SUNDRY/plain.text",
       "SUNDRY/real-test.zip",
+      "SUNDRY/sample.sql",
       "SUNDRY/security-test.tap",
       "SUNDRY/space-separated-values.ssv",
       "SUNDRY/synthetic-01.md",
@@ -318,6 +321,32 @@ Deno.test(`Axiom regression / smoke test`, async (t) => {
       ["PDF", "SUNDRY/synthetic-02.pdf"],
       ["zip", "ARCHIVE/real-test.zip"],
     ]);
+
+    const includedCodeBlocks = selectAll("code", root).filter((n) =>
+      isIncludedNode(n)
+    );
+    assertEquals(
+      includedCodeBlocks.map((
+        r,
+      ) => [r.include.origin.label, r.include.destPath]),
+      [
+        ["csv", "INCLUDE/comma-separated-values.csv"],
+        ["csv", "INCLUDE/group1-allergies.csv"],
+        ["csv", "INCLUDE/group1-care-plans.csv"],
+        ["csv", "INCLUDE/group1-patients.csv"],
+        ["sql", "sample.sql"],
+      ],
+    );
+    for (const node of includedCodeBlocks) {
+      assertEquals(
+        (node as unknown as Code).value,
+        Deno.readTextFileSync(node.include.provenance.path),
+      );
+    }
+    assertEquals(
+      (includedCodeBlocks[4] as unknown as Code).meta,
+      `--interpolate --injectable`,
+    );
   });
 });
 
